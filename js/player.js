@@ -28,8 +28,8 @@ function updateMiningUI(ratio){const bar=document.getElementById('mine-progress'
 function updateMining(dt){if(!mining.active||!currentTarget||player.dead){if(mining.progress>0||mining.stage>=0)resetMining();return;}
 const key=currentTarget.x+','+currentTarget.y+','+currentTarget.z;if(key!==mining.key){mining.key=key;mining.progress=0;mining.stage=-1;}
 const need=getBreakTime(currentTarget.id);if(!isFinite(need)){resetMining();return;}
-mining.progress+=dt;const ratio=Math.min(1,mining.progress/need);crackBox.position.set(currentTarget.x+0.5,currentTarget.y+0.5,currentTarget.z+0.5);crackBox.setEnabled(true);const stage=Math.min(CRACK_STAGES-1,Math.floor(ratio*CRACK_STAGES));if(stage!==mining.stage){mining.stage=stage;drawCrack(stage);}
-updateMiningUI(ratio);if(mining.progress>=need){const minedId=currentTarget.id;const mx=currentTarget.x,my=currentTarget.y,mz=currentTarget.z;const minedDef=BLOCKS[minedId];
+mining.progress+=dt;const ratio=Math.min(1,mining.progress/need);crackBox.position.set(currentTarget.x+0.5,currentTarget.y+0.5,currentTarget.z+0.5);crackBox.setEnabled(true);const stage=Math.min(CRACK_STAGES-1,Math.floor(ratio*CRACK_STAGES));if(stage!==mining.stage){mining.stage=stage;drawCrack(stage);if(typeof SFX!=='undefined')SFX.digHit(currentTarget.id);}
+updateMiningUI(ratio);if(mining.progress>=need){const minedId=currentTarget.id;const mx=currentTarget.x,my=currentTarget.y,mz=currentTarget.z;const minedDef=BLOCKS[minedId];if(typeof SFX!=='undefined')SFX.dig(minedId);
 // 作物は専用の収穫処理(成長段階に応じたドロップ)。
 if(typeof ACH!=='undefined'){ACH.track('mined');if(minedId===B.DIAMOND_ORE)ACH.flag('diamond');if(minedId===B.LOG||minedId===B.BIRCH_LOG)ACH.track('wood');if(minedId===B.OBSIDIAN)ACH.flag('obsidian');}
 if(minedDef&&minedDef.crop&&typeof FARM!=='undefined'){FARM.harvest(mx,my,mz,minedId);setBlock(mx,my,mz,B.AIR);if(typeof ACH!=='undefined')ACH.track('harvest');}
@@ -46,13 +46,13 @@ if(itemDef&&itemDef.plant!==undefined){if(plantSeed(slot.id,itemDef.plant))retur
 // 食べ物: food があれば食べる。
 if(itemDef){if(itemDef.food)eatFood(selectedSlot);return;}
 // 通常ブロック設置。
-if(!currentTarget)return;const{px,py,pz}=currentTarget;if(px<0||px>=WORLD_W||py<0||py>=WORLD_H||pz<0||pz>=WORLD_D)return;const cur=getBlock(px,py,pz);if(isSolid(cur))return;const box=playerAABB(player.pos);if(px+1>box.minX&&px<box.maxX&&py+1>box.minY&&py<box.maxY&&pz+1>box.minZ&&pz<box.maxZ)return;setBlock(px,py,pz,slot.id);consumeFromSlot(selectedSlot,1);if(typeof ACH!=='undefined')ACH.track('placed');}
+if(!currentTarget)return;const{px,py,pz}=currentTarget;if(px<0||px>=WORLD_W||py<0||py>=WORLD_H||pz<0||pz>=WORLD_D)return;const cur=getBlock(px,py,pz);if(isSolid(cur))return;const box=playerAABB(player.pos);if(px+1>box.minX&&px<box.maxX&&py+1>box.minY&&py<box.maxY&&pz+1>box.minZ&&pz<box.maxZ)return;setBlock(px,py,pz,slot.id);if(typeof SFX!=='undefined')SFX.place(slot.id);consumeFromSlot(selectedSlot,1);if(typeof ACH!=='undefined')ACH.track('placed');}
 // クワで耕す: 狙った草/土の「上面」が空いていれば耕地にする。
 function tillSoil(){if(!currentTarget)return;const{x,y,z}=currentTarget;const id=getBlock(x,y,z);if(id!==B.GRASS&&id!==B.DIRT&&id!==B.PATH)return;if(getBlock(x,y+1,z)!==B.AIR)return;setBlock(x,y,z,B.FARMLAND);}
 // 種を植える: 狙ったブロック上の空きセルに、その下が耕地なら作物を植える。
 function plantSeed(itemId,blockId){if(!currentTarget)return false;const{px,py,pz}=currentTarget;if(typeof FARM==='undefined')return false;if(FARM.plant(px,py,pz,blockId)){consumeFromSlot(selectedSlot,1);return true;}return false;}
 function eatFood(slotIndex){const slot=inventory[slotIndex];if(!slot||!ITEMS[slot.id])return;if(player.eatCooldown>0||player.hunger>=20)return;player.hunger=Math.min(20,player.hunger+ITEMS[slot.id].food);player.eatCooldown=1.5;consumeFromSlot(slotIndex,1);updateVitalsUI();if(typeof ACH!=='undefined')ACH.track('eaten');}
-function damage(amount){if(player.dead||amount<=0)return;player.hp=Math.max(0,player.hp-amount);const flash=document.getElementById('damage-flash');flash.style.transition='none';flash.style.opacity='1';requestAnimationFrame(()=>{flash.style.transition='opacity .45s';flash.style.opacity='0';});updateVitalsUI();if(player.hp<=0)die();}
+function damage(amount){if(player.dead||amount<=0)return;player.hp=Math.max(0,player.hp-amount);if(typeof SFX!=='undefined')SFX.hurt();const flash=document.getElementById('damage-flash');flash.style.transition='none';flash.style.opacity='1';requestAnimationFrame(()=>{flash.style.transition='opacity .45s';flash.style.opacity='0';});updateVitalsUI();if(player.hp<=0)die();}
 function die(){player.dead=true;document.getElementById('death-overlay').style.display='flex';setTimeout(()=>{respawn();document.getElementById('death-overlay').style.display='none';},1600);}
 function respawn(){player.pos.copyFrom(spawnPoint);player.vel.set(0,0,0);player.hp=20;player.hunger=20;player.dead=false;player.fallStartY=null;player.pose=POSE.STAND;applyPose();mining.active=false;resetMining();updateVitalsUI();updatePoseUI();}
 // 姿勢の切り替え。同じ姿勢キーをもう一度押すと立ち姿勢に戻る。
