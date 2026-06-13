@@ -30,7 +30,22 @@ function afterInvChange(){renderInventory();renderHotbar();updateHeldUI();schedu
 const heldEl=document.getElementById('held-item');function updateHeldUI(){heldEl.innerHTML='';if(heldStack){heldEl.appendChild(makeItemNode(heldStack.id));if(heldStack.count>1){const c=document.createElement('span');c.className='slot-count';c.textContent=heldStack.count;heldEl.appendChild(c);}
 heldEl.style.display='block';}else{heldEl.style.display='none';}}
 function moveHeldTo(x,y){heldEl.style.left=x+'px';heldEl.style.top=y+'px';}
-document.addEventListener('pointermove',(e)=>{if(heldStack)moveHeldTo(e.clientX,e.clientY);});const slotEls={craft:[],result:null,main:[],hotbar:[]};function mkInvSlot(parent,onLeft,onRight){const el=document.createElement('div');el.className='inv-slot';el.addEventListener('click',(e)=>{moveHeldTo(e.clientX,e.clientY);onLeft();});el.addEventListener('contextmenu',(e)=>{e.preventDefault();moveHeldTo(e.clientX,e.clientY);onRight();});parent.appendChild(el);return el;}
+document.addEventListener('pointermove',(e)=>{if(heldStack)moveHeldTo(e.clientX,e.clientY);});const slotEls={craft:[],result:null,main:[],hotbar:[]};function mkInvSlot(parent,onLeft,onRight){const el=document.createElement('div');el.className='inv-slot';
+// モバイル: スロットをタップしたら左クリックと同じ「手持ち(held)へ移動/配置」を
+// 行う。タッチではポインタ移動で held が追従しないので、タップ座標へ held を
+// 移動してから処理する。touchend で処理した直後の合成 click は無視する。
+let touchHandled=false;
+el.addEventListener('touchend',(e)=>{
+  if(e.cancelable)e.preventDefault();
+  e.stopPropagation();
+  const t=e.changedTouches&&e.changedTouches[0];
+  if(t)moveHeldTo(t.clientX,t.clientY);
+  onLeft();
+  if(heldStack){const tt=t||{};moveHeldTo(tt.clientX||0,tt.clientY||0);}
+  touchHandled=true;setTimeout(()=>{touchHandled=false;},400);
+},{passive:false});
+el.addEventListener('click',(e)=>{if(touchHandled)return;moveHeldTo(e.clientX,e.clientY);onLeft();});
+el.addEventListener('contextmenu',(e)=>{e.preventDefault();moveHeldTo(e.clientX,e.clientY);onRight();});parent.appendChild(el);return el;}
 function buildCraftGrid(){const craftWrap=document.getElementById('craft-grid');craftWrap.innerHTML='';craftWrap.classList.toggle('size-3',craftSize===3);slotEls.craft=[];for(let i=0;i<craftSize*craftSize;i++){const loc={kind:'craft',i};slotEls.craft.push(mkInvSlot(craftWrap,()=>leftClickSlot(loc),()=>rightClickSlot(loc)));}
 document.getElementById('craft-label').textContent=craftSize===3?'作業台（3×3）':'クラフト（2×2）';document.querySelector('#inventory-header h2').textContent=craftSize===3?'作業台':'インベントリ';}
 function setCraftMode(n){if(craftSize!==n){for(let i=0;i<craftGrid.length;i++){if(craftGrid[i]){addToInventory(craftGrid[i].id,craftGrid[i].count);craftGrid[i]=null;}}
