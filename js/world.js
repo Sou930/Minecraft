@@ -10,11 +10,26 @@ function isTargetable(id){return isSolid(id)||isCrop(id);}
 // River network mask. A winding ridged-noise line snakes across the whole map;
 // where the mask is near its ridge we are "in" a river. Returns 0 (no river)
 // up to 1 (river centre line). Large wavelength keeps rivers long & meandering.
+// A gentle domain warp displaces the sampling point so the channels wiggle in a
+// more organic, less mathematically-straight way.
 function riverMaskAt(x,z){
-  const rn=fbm2(x,z,137,3,1/160,0.5,2.0);   // slow, large-scale winding field
+  // domain warp: nudge the lookup with a second low-freq noise field
+  const wx=x+(fbm2(x,z,151,2,1/120,0.5,2.0)-0.5)*40;
+  const wz=z+(fbm2(x,z,157,2,1/120,0.5,2.0)-0.5)*40;
+  const rn=fbm2(wx,wz,137,3,1/170,0.5,2.0);  // slow, large-scale winding field
   const ridge=1-Math.abs(rn*2-1);            // 0..1, peaks along winding lines
-  if(ridge<=0.86)return 0;
-  return (ridge-0.86)/0.14;                   // 0..1 inside the river corridor
+  if(ridge<=0.82)return 0;
+  return (ridge-0.82)/0.18;                   // 0..1 inside the river corridor
+}
+// Lake mask. Big, smoothly-varying blobs of "low" noise become circular-ish
+// basins. Returns 0 (no lake) up to 1 (lake centre / deepest). Lakes only form
+// where the field dips well below its mean, giving sparse, natural ponds.
+function lakeMaskAt(x,z){
+  const wx=x+(fbm2(x,z,171,2,1/90,0.5,2.0)-0.5)*30;
+  const wz=z+(fbm2(x,z,173,2,1/90,0.5,2.0)-0.5)*30;
+  const n=fbm2(wx,wz,167,3,1/110,0.5,2.0);   // smooth blobby field
+  if(n>=0.30)return 0;                         // only deep dips become lakes
+  return (0.30-n)/0.30;                        // 0..1, 1 at the basin centre
 }
 function heightAt(x,z){
   const c=climateAt(x,z);
@@ -60,16 +75,30 @@ function heightAt(x,z){
     h=SEA_LEVEL-1+fbm2(x,z,91,2,1/30,0.5,2.0)*3;
   }
   // RIVERS: carve winding channels down toward (and just below) sea level so
-  // flowing water threads through plains, forests and hills. Skip oceans (they
-  // are already submerged) and steep volcano/mountain peaks where it'd look odd.
-  if(e>=0.32&&e<=0.78&&h>SEA_LEVEL-3){
+  // water threads through plains, forests and hills. Skip oceans (already
+  // submerged) and the very steepest peaks where a river would look odd.
+  // The valley is a smooth U-shape: a flat-ish bed at the centre line that
+  // rises gently into grassy banks, so rivers read as natural waterways
+  // rather than knife-thin slots.
+  if(e>=0.32&&e<=0.82&&h>SEA_LEVEL-3){
     const rm=riverMaskAt(x,z);
     if(rm>0){
-      const bankAbove=h-(SEA_LEVEL-1);          // how far the land sits above the riverbed
-      // smooth U-shaped valley: deepest at the centre line
-      const carve=rm*rm*(bankAbove+4);
-      h-=carve;
-      if(h<SEA_LEVEL-2)h=SEA_LEVEL-2;            // riverbed floor
+      const bedTarget=SEA_LEVEL-2;              // desired riverbed floor
+      // ease toward the bed: full carve at the centre, tapering to the banks
+      const t=smoothstep(Math.min(1,rm*1.15));
+      h=h*(1-t)+bedTarget*t;
+      if(h<bedTarget)h=bedTarget;
+    }
+  }
+  // LAKES: flood broad shallow basins. Carve the basin floor below sea level so
+  // the standard sea-level water fill turns it into a still pond, and lower the
+  // immediate shoreline a touch so banks slope into the water naturally.
+  if(e>=0.32&&e<=0.82){
+    const lm=lakeMaskAt(x,z);
+    if(lm>0&&h>SEA_LEVEL-6){
+      const bedTarget=SEA_LEVEL-3-lm*4;         // deeper toward the centre
+      const t=smoothstep(Math.min(1,lm*1.3));
+      h=h*(1-t)+bedTarget*t;
     }
   }
   return Math.floor(Math.max(2,Math.min(WORLD_H-6,h)));
