@@ -274,7 +274,60 @@ function placeMineshafts(){
     const cz=20+Math.floor(rng()*(WORLD_D-40));
     const cy=10+Math.floor(rng()*22);          // shallow-to-mid depth
     buildMineshaft(cx,cy,cz,rng);
+    // 廃坑ヒント: 多くの廃坑には地表へと続く目印(入口)を設け、
+    // プレイヤーが地下の坑道を見つけられる手掛かりにする。
+    if(rng()<0.7)buildMineEntrance(cx,cy,cz,rng);
   }
+}
+
+// ---- 廃坑ヒント(坑口) -----------------------------------------------------
+// ハブ直上の地表に、朽ちた木枠の坑口とそこから垂直に降りる縦坑を作る。
+// 地表には支柱・トロッコのレール片・看板代わりの干し草やチェストを置き、
+// 「ここに古い坑道がある」と分かるようにする。縦坑は内壁が固体のままだと
+// 危険なので、足場として周囲に木枠を残しつつ中央を空洞にする。
+function buildMineEntrance(hubX,hubY,hubZ,rng){
+  // ハブ近くの安定した地表柱を選ぶ(液体の上は避ける)。
+  let ex=hubX, ez=hubZ;
+  for(let tries=0;tries<6;tries++){
+    const tx=hubX+Math.floor((rng()-0.5)*6),tz=hubZ+Math.floor((rng()-0.5)*6);
+    if(tx<3||tx>=WORLD_W-3||tz<3||tz>=WORLD_D-3)continue;
+    const gy=heightMap[colIndex(tx,tz)];
+    const top=world[blockIndex(tx,gy,tz)];
+    if(top!==B.WATER&&top!==B.LAVA&&gy>hubY+4){ ex=tx; ez=tz; break; }
+  }
+  const gy=heightMap[colIndex(ex,ez)];
+  if(gy<=hubY+3)return;
+  // 1) 地表の坑口枠: 木の支柱4本+横木、入口を囲う。
+  for(const [dx,dz] of [[-1,-1],[1,-1],[-1,1],[1,1]]){
+    sBlock(ex+dx,gy+1,ez+dz,B.LOG);
+    sBlock(ex+dx,gy+2,ez+dz,B.LOG);
+  }
+  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){
+    if(Math.abs(dx)===1&&Math.abs(dz)===1)continue;
+    sBlock(ex+dx,gy+3,ez+dz,B.PLANKS);             // 屋根の梁
+  }
+  // 入口まわりの装飾: 朽ちた板・たいまつ・放置されたトロッコのレール片・チェスト。
+  sBlock(ex,gy+1,ez,B.AIR);                         // 入口を開ける
+  sBlockSoft(ex+1,gy+1,ez,B.TORCH);
+  sBlockSoft(ex-2,gy+1,ez,B.RAIL);
+  sBlockSoft(ex+2,gy+1,ez,B.RAIL);
+  if(rng()<0.6)sBlockSoft(ex-1,gy+1,ez+1,B.CHEST);
+  if(rng()<0.5)sBlockSoft(ex+1,gy+1,ez-1,B.COBWEB);
+  // 2) 縦坑: 地表からハブまで掘り下げ、要所に支え木とレール、クモの巣を配置。
+  for(let y=gy;y>=hubY;y--){
+    for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){
+      const cur=getBlock(ex+dx,y,ez+dz);
+      if(cur!==B.BEDROCK)sBlock(ex+dx,y,ez+dz,B.AIR);
+    }
+    // 4ブロックごとに木枠の補強(柱+梁)。
+    if((gy-y)%4===0){
+      sBlock(ex-1,y,ez,B.LOG);sBlock(ex+1,y,ez,B.LOG);
+      sBlockSoft(ex,y,ez,B.RAIL);
+    }
+    if((gy-y)%3===0&&rng()<0.5)sBlockSoft(ex+(rng()<0.5?1:-1),y,ez+(rng()<0.5?1:-1),B.COBWEB);
+  }
+  // 縦坑の底をハブ天井へ繋ぐ短い通路。
+  fillBox(Math.min(ex,hubX),hubY+2,Math.min(ez,hubZ),Math.max(ex,hubX),hubY+2,Math.max(ez,hubZ),B.AIR);
 }
 
 function buildMineshaft(sx,sy,sz,rng){

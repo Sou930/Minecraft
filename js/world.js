@@ -90,7 +90,7 @@ function craterLavaLevelAt(x,z){
 }
 const heightMap=new Int16Array(WORLD_W*WORLD_D);const biomeMap=new Uint8Array(WORLD_W*WORLD_D);function colIndex(x,z){return z*WORLD_W+x;}
 // Synchronous full generation (kept for reference / fallback).
-function generateWorld(){generateClimateAndHeight();generateTerrainColumns(0,WORLD_W);carveCaves();carveLargeCaves();placeOresAndGravel();placeVegetation();if(typeof placeStructures==='function')placeStructures();}
+function generateWorld(){generateClimateAndHeight();generateTerrainColumns(0,WORLD_W);carveCaves();carveLargeCaves();carveCaveFeatures();placeAmethystGeodes();placeOresAndGravel();placeVegetation();if(typeof placeStructures==='function')placeStructures();}
 // --- Split phases so generation can be driven asynchronously --------------
 function generateClimateAndHeight(){for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){heightMap[colIndex(x,z)]=heightAt(x,z);biomeMap[colIndex(x,z)]=biomeAt(x,z);}}}
 // Build terrain blocks for columns in the x-range [x0,x1).
@@ -177,6 +177,164 @@ function carveLargeCaves(){
     }
   }
 }
+// ===========================================================================
+//  TASK8 — 渓谷・洞窟強化:  鍾乳洞・溶岩湖・地下水湖・アメジスト晶洞
+//  carveLargeCaves() で掘った大空洞を、種で決まる位置に再走査して装飾する。
+//  ・LIMESTONE CAVERN(鍾乳洞)… 天井から鍾乳石、床から石筍、苔・ヒカリゴケ。
+//  ・LAVA LAKE(溶岩湖)        … 深部の大空洞の床を溶岩で満たす。
+//  ・WATER LAKE(地下水湖)      … 中層の大空洞の床を水で満たす。
+//  ・AMETHYST GEODE(晶洞)      … 玄武岩→方解石→アメジストの層構造の球殻。
+// ===========================================================================
+
+// 指定座標が「空洞内の空気」で、上下に固い天井/床があるかを調べる小道具。
+function isCaveAir(x,y,z){return getBlock(x,y,z)===B.AIR;}
+// 天井(上向きに最初に当たる固体)を探す。見つからなければ -1。
+function ceilingAbove(x,y,z,maxUp){for(let dy=1;dy<=maxUp;dy++){const id=getBlock(x,y+dy,z);if(id===B.AIR)continue;if(id===B.WATER||id===B.LAVA)return -1;return y+dy-1;}return -1;}
+// 床(下向きに最初に当たる固体)を探す。
+function floorBelow(x,y,z,maxDown){for(let dy=1;dy<=maxDown;dy++){const id=getBlock(x,y-dy,z);if(id===B.AIR)continue;if(id===B.WATER||id===B.LAVA)return -1;return y-dy+1;}return -1;}
+
+// 1本の鍾乳石(天井から下垂)を生やす。長さ len。
+function growStalactite(x,topY,z,len){for(let i=0;i<len;i++){const yy=topY-i;if(yy<=1)break;if(getBlock(x,yy,z)!==B.AIR)break;world[blockIndex(x,yy,z)]=B.DRIPSTONE;}}
+// 1本の石筍(床から上昇)を生やす。
+function growStalagmite(x,botY,z,len){for(let i=0;i<len;i++){const yy=botY+i;if(yy>=WORLD_H-1)break;if(getBlock(x,yy,z)!==B.AIR)break;world[blockIndex(x,yy,z)]=B.DRIPSTONE;}}
+
+// 大空洞1つを装飾する。中心(cx,cy,cz)と半径(rx,ry,rz)を与え、内部の
+// 空気セルを走査して天井に鍾乳石・床に石筍・苔・発光地衣を散らす。
+// flood>=0 のときはその高さまで床を溶岩/水で満たす(湖)。
+function decorateChamber(cx,cy,cz,rx,ry,rz,opts){
+  const rng=opts.rng;
+  const x0=Math.max(2,cx-rx-1),x1=Math.min(WORLD_W-3,cx+rx+1);
+  const z0=Math.max(2,cz-rz-1),z1=Math.min(WORLD_D-3,cz+rz+1);
+  const yTop=Math.min(WORLD_H-2,cy+ry+1),yBot=Math.max(2,cy-ry-1);
+  // --- 湖(溶岩/地下水): 空洞の底の窪みに液体を溜める ---
+  if(opts.lake){
+    const liquid=opts.lake;             // B.LAVA or B.WATER
+    const level=cy-ry+1+Math.floor((ry)*0.55); // 床から少し上まで満たす
+    for(let x=x0;x<=x1;x++)for(let z=z0;z<=z1;z++){
+      // この柱で床面を探す
+      let floorY=-1;
+      for(let y=yBot;y<=cy+ry;y++){ if(getBlock(x,y,z)===B.AIR){ if(getBlock(x,y-1,z)!==B.AIR){floorY=y;} break; } }
+      if(floorY<0)continue;
+      // 楕円体内かざっくり判定
+      const d=((x-cx)*(x-cx))/(rx*rx)+((z-cz)*(z-cz))/(rz*rz);
+      if(d>1.05)continue;
+      for(let y=floorY;y<=level&&y<WORLD_H;y++){ if(getBlock(x,y,z)===B.AIR)world[blockIndex(x,y,z)]=liquid; }
+    }
+  }
+  // --- 鍾乳石・石筍・苔・発光地衣 ---
+  for(let x=x0;x<=x1;x++)for(let z=z0;z<=z1;z++){
+    const d=((x-cx)*(x-cx))/(rx*rx)+((z-cz)*(z-cz))/(rz*rz);
+    if(d>1.05)continue;
+    // この柱の天井と床
+    let ceil=-1,flr=-1;
+    for(let y=yTop;y>=yBot;y--){ if(getBlock(x,y,z)===B.AIR&&getBlock(x,y+1,z)!==B.AIR&&getBlock(x,y+1,z)!==B.WATER&&getBlock(x,y+1,z)!==B.LAVA){ceil=y;break;} }
+    for(let y=yBot;y<=yTop;y++){ const below=getBlock(x,y-1,z); if(getBlock(x,y,z)===B.AIR&&below!==B.AIR){flr=y;break;} }
+    // 天井から鍾乳石
+    if(ceil>0&&rng()<opts.dripP){ growStalactite(x,ceil,z,1+Math.floor(rng()*opts.dripLen)); }
+    // 床から石筍(立てる土台が固体のときだけ)
+    if(flr>0){
+      const ground=getBlock(x,flr-1,z);
+      if(ground!==B.WATER&&ground!==B.LAVA){
+        if(rng()<opts.dripP*0.8){ growStalagmite(x,flr,z,1+Math.floor(rng()*opts.dripLen)); }
+        else if(opts.moss&&rng()<opts.mossP){ world[blockIndex(x,flr-1,z)]=B.MOSS; if(rng()<0.25&&getBlock(x,flr,z)===B.AIR)world[blockIndex(x,flr,z)]=B.GLOW_LICHEN; }
+      }
+    }
+    // 壁/天井のヒカリゴケ(雰囲気照明)
+    if(opts.lichen&&ceil>0&&rng()<opts.lichenP&&getBlock(x,ceil,z)===B.AIR){ world[blockIndex(x,ceil,z)]=B.GLOW_LICHEN; }
+  }
+}
+
+// 鍾乳洞・溶岩湖・地下水湖を、種で決まる場所に生成する。
+function carveCaveFeatures(){
+  const rng=mulberry32((SEED^0x68bc21ab)>>>0);
+  const area=WORLD_W*WORLD_D;
+  // --- 1) 鍾乳洞(石灰質の大空洞) ---
+  const limeCount=Math.floor(area/120000)+4;
+  for(let i=0;i<limeCount;i++){
+    const cx=6+Math.floor(rng()*(WORLD_W-12));
+    const cz=6+Math.floor(rng()*(WORLD_D-12));
+    const cy=12+Math.floor(rng()*24);
+    const rx=9+Math.floor(rng()*8),ry=5+Math.floor(rng()*4),rz=9+Math.floor(rng()*8);
+    if(heightMap[colIndex(cx,cz)]<cy+ry+4)continue;   // 地表に近すぎる所は避ける
+    // まず楕円の空洞を掘る(wobble付き)
+    for(let dx=-rx;dx<=rx;dx++)for(let dy=-ry;dy<=ry;dy++)for(let dz=-rz;dz<=rz;dz++){
+      const wob=valueNoise3((cx+dx)/8,(cy+dy)/8,(cz+dz)/8,211)*0.4;
+      const d=(dx*dx)/(rx*rx)+(dy*dy)/(ry*ry)+(dz*dz)/(rz*rz);
+      if(d<=1-wob+0.2)caveDig(cx+dx,cy+dy,cz+dz);
+    }
+    decorateChamber(cx,cy,cz,rx,ry,rz,{rng,dripP:0.30,dripLen:5,moss:true,mossP:0.18,lichen:true,lichenP:0.10});
+  }
+  // --- 2) 溶岩湖(深部 y<18) ---
+  const lavaCount=Math.floor(area/200000)+3;
+  for(let i=0;i<lavaCount;i++){
+    const cx=6+Math.floor(rng()*(WORLD_W-12));
+    const cz=6+Math.floor(rng()*(WORLD_D-12));
+    const cy=6+Math.floor(rng()*9);
+    const rx=10+Math.floor(rng()*9),ry=4+Math.floor(rng()*3),rz=10+Math.floor(rng()*9);
+    if(heightMap[colIndex(cx,cz)]<cy+ry+6)continue;
+    for(let dx=-rx;dx<=rx;dx++)for(let dy=-ry;dy<=ry;dy++)for(let dz=-rz;dz<=rz;dz++){
+      const wob=valueNoise3((cx+dx)/9,(cy+dy)/9,(cz+dz)/9,221)*0.4;
+      const d=(dx*dx)/(rx*rx)+(dy*dy)/(ry*ry)+(dz*dz)/(rz*rz);
+      if(d<=1-wob+0.25)caveDig(cx+dx,cy+dy,cz+dz);
+    }
+    decorateChamber(cx,cy,cz,rx,ry,rz,{rng,dripP:0.16,dripLen:4,moss:false,mossP:0,lichen:false,lichenP:0,lake:B.LAVA});
+  }
+  // --- 3) 地下水湖(中層 y 18..40) ---
+  const waterCount=Math.floor(area/200000)+3;
+  for(let i=0;i<waterCount;i++){
+    const cx=6+Math.floor(rng()*(WORLD_W-12));
+    const cz=6+Math.floor(rng()*(WORLD_D-12));
+    const cy=18+Math.floor(rng()*18);
+    const rx=10+Math.floor(rng()*9),ry=4+Math.floor(rng()*3),rz=10+Math.floor(rng()*9);
+    if(heightMap[colIndex(cx,cz)]<cy+ry+6)continue;
+    for(let dx=-rx;dx<=rx;dx++)for(let dy=-ry;dy<=ry;dy++)for(let dz=-rz;dz<=rz;dz++){
+      const wob=valueNoise3((cx+dx)/9,(cy+dy)/9,(cz+dz)/9,231)*0.4;
+      const d=(dx*dx)/(rx*rx)+(dy*dy)/(ry*ry)+(dz*dz)/(rz*rz);
+      if(d<=1-wob+0.25)caveDig(cx+dx,cy+dy,cz+dz);
+    }
+    decorateChamber(cx,cy,cz,rx,ry,rz,{rng,dripP:0.18,dripLen:4,moss:true,mossP:0.22,lichen:true,lichenP:0.12,lake:B.WATER});
+  }
+}
+
+// --- 4) アメジスト晶洞(geode) ---------------------------------------------
+// 球状の層構造:外殻=滑らかな玄武岩、中間層=方解石、内張り=アメジスト
+// ブロック、中空の内部にアメジストの塊が内向きに群生する。
+function placeAmethystGeodes(){
+  const rng=mulberry32((SEED^0x3c6ef372)>>>0);
+  const count=Math.floor((WORLD_W*WORLD_D)/170000)+3;
+  for(let i=0;i<count;i++){
+    const cx=8+Math.floor(rng()*(WORLD_W-16));
+    const cz=8+Math.floor(rng()*(WORLD_D-16));
+    const r=5+Math.floor(rng()*3);                 // 内部半径
+    const cy=r+4+Math.floor(rng()*22);             // 地中深め
+    if(cy+r+3>=heightMap[colIndex(cx,cz)])continue; // 必ず地表より下
+    buildGeode(cx,cy,cz,r,rng);
+  }
+}
+function buildGeode(cx,cy,cz,r,rng){
+  const outer=r+2, mid=r+1, inner=r;
+  for(let dx=-outer;dx<=outer;dx++)for(let dy=-outer;dy<=outer;dy++)for(let dz=-outer;dz<=outer;dz++){
+    const x=cx+dx,y=cy+dy,z=cz+dz;
+    if(x<1||x>=WORLD_W-1||y<1||y>=WORLD_H-1||z<1||z>=WORLD_D-1)continue;
+    const wob=valueNoise3(x/6,y/6,z/6,241)*0.6;
+    const dist=Math.sqrt(dx*dx+dy*dy+dz*dz)+wob;
+    if(dist>outer+0.5)continue;
+    if(dist>mid+0.5){ if(getBlock(x,y,z)!==B.BEDROCK)world[blockIndex(x,y,z)]=B.SMOOTH_BASALT; }      // 外殻
+    else if(dist>inner+0.5){ world[blockIndex(x,y,z)]=B.CALCITE; }                                    // 中間層
+    else if(dist>inner-0.6){ world[blockIndex(x,y,z)]=B.AMETHYST_BLOCK; }                              // 内張り
+    else { world[blockIndex(x,y,z)]=B.AIR; }                                                           // 中空
+  }
+  // 内張りの表面にアメジストの塊を内向きに生やす
+  for(let dx=-inner;dx<=inner;dx++)for(let dy=-inner;dy<=inner;dy++)for(let dz=-inner;dz<=inner;dz++){
+    const x=cx+dx,y=cy+dy,z=cz+dz;
+    if(getBlock(x,y,z)!==B.AIR)continue;
+    // 隣接にアメジストブロックがあれば、その空気側に塊を置く
+    const nb=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+    let touch=false;for(const[ax,ay,az] of nb){ if(getBlock(x+ax,y+ay,z+az)===B.AMETHYST_BLOCK){touch=true;break;} }
+    if(touch&&rng()<0.55)world[blockIndex(x,y,z)]=B.AMETHYST_CLUSTER;
+  }
+}
+
 function placeOresAndGravel(){for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];for(let y=1;y<Math.min(h-2,WORLD_H);y++){if(world[blockIndex(x,y,z)]!==B.STONE)continue;const cx=x>>1,cy=y>>1,cz=z>>1;if(y<=8&&hash3(cx,cy,cz,96)<0.06)world[blockIndex(x,y,z)]=B.OBSIDIAN;else if(y<=16&&hash3(cx,cy,cz,94)<0.013)world[blockIndex(x,y,z)]=B.DIAMOND_ORE;else if(y<=28&&hash3(cx,cy,cz,93)<0.016)world[blockIndex(x,y,z)]=B.GOLD_ORE;else if(y<=50&&hash3(cx,cy,cz,92)<0.028)world[blockIndex(x,y,z)]=B.IRON_ORE;else if(y>=14&&hash3(cx,cy,cz,91)<0.04)world[blockIndex(x,y,z)]=B.COAL_ORE;else if(hash3(cx,cy,cz,95)<0.022)world[blockIndex(x,y,z)]=B.GRAVEL;}
 if(h<=SEA_LEVEL+2&&valueNoise(x/9,z/9,57)>0.76){for(let y=Math.max(1,h-1);y<=h;y++)
 if(world[blockIndex(x,y,z)]===B.SAND||world[blockIndex(x,y,z)]===B.DIRT)
@@ -253,6 +411,12 @@ function generateWorldAsync(onProgress){
     report(0.74,'大洞窟を生成中...');
     await nextFrame();
     carveLargeCaves();
+    report(0.78,'鍾乳洞・溶岩湖・地下水湖を生成中...');
+    await nextFrame();
+    carveCaveFeatures();
+    report(0.82,'アメジスト晶洞を生成中...');
+    await nextFrame();
+    placeAmethystGeodes();
     report(0.84,'鉱石を配置中...');
     await nextFrame();
     placeOresAndGravel();
