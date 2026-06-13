@@ -24,11 +24,17 @@ function fbm2(x,z,salt,octaves,baseFreq,persistence,lacunarity){
 //   moisture     dry  -> wet
 //   continental  controls oceans (low) vs uplift / mountains (high)
 function climateAt(x,z){
-  const temperature  = fbm2(x,z,41,4,1/220,0.55,2.0);
-  const moisture     = fbm2(x,z,47,4,1/190,0.55,2.0);
+  // Land-biome climate fields use much lower frequencies (longer wavelengths)
+  // so each biome (plains, forest, desert, jungle, snowy, mesa, mountains,
+  // volcano, swamp) sprawls over a far larger area before transitioning.
+  // `continental` is left at its original frequency so ocean size/shape is
+  // governed independently and the seas don't balloon along with the land.
+  const temperature  = fbm2(x,z,41,4,1/520,0.55,2.0);
+  const moisture     = fbm2(x,z,47,4,1/470,0.55,2.0);
   const continental  = fbm2(x,z,59,3,1/300,0.50,2.1);
-  // small "weirdness" channel to break up boundaries / spawn rare biomes
-  const weirdness    = fbm2(x,z,67,2,1/70 ,0.50,2.0);
+  // larger-wavelength "weirdness" channel so rare biome variants (mesa /
+  // volcano) also form as big contiguous regions rather than tiny specks.
+  const weirdness    = fbm2(x,z,67,2,1/180,0.50,2.0);
   return {temperature,moisture,continental,weirdness};
 }
 function biomeAt(x,z){

@@ -30,17 +30,50 @@ ctx.fillStyle='#55504a';for(let i=0;i<5;i++)ctx.fillRect(ox+Math.floor(rnd()*14)
 // LAVA: glowing molten rock with bright cracks and ember speckles.
 {noisy(T.LAVA,'#d83a0c',['#b82f08','#e8530f','#a82806','#cf3a0a'],0.6);const[ox,oy]=tileOrigin(T.LAVA);const rnd=mulberry32(4001);ctx.fillStyle='#3a1505';for(let i=0;i<7;i++){const cx=Math.floor(rnd()*14)*2,cy=Math.floor(rnd()*14)*2;ctx.fillRect(ox+cx,oy+cy,4+Math.floor(rnd()*2)*2,2);}
 ctx.fillStyle='#ffb028';for(let i=0;i<10;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);ctx.fillStyle='#fff0a0';for(let i=0;i<4;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
-// CORAL (three colours): a transparent tile with branching coral fingers.
-function coralTile(t,main,hi,seed){const[ox,oy]=tileOrigin(t);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);const rnd=mulberry32(seed);ctx.fillStyle=main;for(let bx=4;bx<TILE_PX-2;bx+=8){let y=TILE_PX-2;const h=14+Math.floor(rnd()*8);const top=Math.max(2,y-h);let x=bx;for(;y>top;y-=2){ctx.fillRect(ox+x,oy+y,4,2);if(rnd()<0.3)x+=rnd()<0.5?-2:2;x=Math.max(2,Math.min(TILE_PX-4,x));}
-ctx.fillStyle=hi;ctx.fillRect(ox+x,oy+top,4,4);ctx.fillRect(ox+x-2,oy+top+2,2,2);ctx.fillStyle=main;}
-ctx.fillStyle=hi;for(let i=0;i<6;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
-coralTile(T.CORAL_PINK,'#e8538f','#ff8fc0',4002);coralTile(T.CORAL_PURPLE,'#9b4fd8','#c89bf0',4003);coralTile(T.CORAL_BLUE,'#3a8fe8','#82c0ff',4004);
+// CORAL (three colours): a transparent tile of a bushy branching coral.
+// A central trunk rises from the floor, splits into several wandering boughs
+// that taper upward, each capped with a rounded glowing polyp tip, plus a few
+// scattered polyps for a lush reef look. `shadow` gives the branches volume.
+function coralTile(t,main,hi,shadow,seed){const[ox,oy]=tileOrigin(t);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);const rnd=mulberry32(seed);
+// helper: draw a 2px-wide branch that wanders upward, tapering, with a polyp cap
+function branch(x,y,len,wob){let cx=x;for(let i=0;i<len;i++){const yy=y-i*2;if(yy<2)break;const w=i<len*0.35?4:2; // thicker near the base
+  ctx.fillStyle=shadow;ctx.fillRect(ox+cx,oy+yy,w,2);
+  ctx.fillStyle=main;ctx.fillRect(ox+cx,oy+yy,Math.max(2,w-2),2);
+  if(rnd()<wob)cx+=rnd()<0.5?-2:2;cx=Math.max(2,Math.min(TILE_PX-6,cx));
+  // occasionally sprout a small side twig
+  if(i>2&&i<len-1&&rnd()<0.22){const sx=cx+(rnd()<0.5?-4:4);const sy=yy-2;if(sx>2&&sx<TILE_PX-4&&sy>2){ctx.fillStyle=main;ctx.fillRect(ox+sx,oy+sy,2,2);ctx.fillRect(ox+sx,oy+sy-2,2,2);ctx.fillStyle=hi;ctx.fillRect(ox+sx,oy+sy-4,2,2);}}
+  // record final tip position
+  if(i===len-1){ctx.fillStyle=hi;ctx.fillRect(ox+cx-2,oy+yy,6,2);ctx.fillRect(ox+cx,oy+yy-2,2,2);}
+}}
+// trunk + 3-4 main boughs fanning out from the base
+const baseX=12+Math.floor(rnd()*4);
+branch(baseX,TILE_PX-2,9+Math.floor(rnd()*3),0.28);
+branch(baseX-6,TILE_PX-2,6+Math.floor(rnd()*3),0.34);
+branch(baseX+6,TILE_PX-2,6+Math.floor(rnd()*3),0.34);
+if(rnd()<0.7)branch(baseX-2,TILE_PX-2,7+Math.floor(rnd()*3),0.3);
+// scattered standalone polyps for fullness
+ctx.fillStyle=hi;for(let i=0;i<5;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);
+ctx.fillStyle=main;for(let i=0;i<5;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+coralTile(T.CORAL_PINK,'#f0589a','#ffb0d6','#c23f78',4002);coralTile(T.CORAL_PURPLE,'#a45ce0','#d7b0f5','#7a3cb0',4003);coralTile(T.CORAL_BLUE,'#3f9bf2','#9fd0ff','#2c6fc0',4004);
 // SEAWEED: transparent wavy green strands rising from the bottom.
 {const[ox,oy]=tileOrigin(T.SEAWEED);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);const rnd=mulberry32(4005);for(let s=0;s<4;s++){let x=4+s*7;const cols=['#1f8a3a','#2aa84a','#187a30','#34bf58'];ctx.fillStyle=cols[s%cols.length];for(let y=TILE_PX-2;y>2;y-=2){ctx.fillRect(ox+x,oy+y,2,2);if(rnd()<0.5)x+=rnd()<0.5?-2:2;x=Math.max(2,Math.min(TILE_PX-3,x));}}}
 // DEAD_LOG: grey, weathered bare trunk for swamps.
 {const[ox,oy]=tileOrigin(T.DEAD_LOG_SIDE);const rnd=mulberry32(4006);ctx.fillStyle='#6a6056';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);for(let x=0;x<TILE_PX;x+=4){ctx.fillStyle=['#5a5048','#766b5f','#625850','#6f655b'][Math.floor(rnd()*4)];ctx.fillRect(ox+x,oy,2,TILE_PX);}
 ctx.fillStyle='#3e362e';for(let i=0;i<6;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,4+Math.floor(rnd()*2)*2);}
 {const[ox,oy]=tileOrigin(T.DEAD_LOG_TOP);ctx.fillStyle='#6a6056';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);ctx.fillStyle='#857a6c';ctx.fillRect(ox+4,oy+4,24,24);ctx.strokeStyle='#4e463c';ctx.lineWidth=2;ctx.strokeRect(ox+8,oy+8,16,16);ctx.strokeRect(ox+13,oy+13,6,6);}
+// DEAD_BUSH: a transparent 1-block Minecraft-style dead shrub — a short brown
+// stem splitting into a few bare, crooked twigs. Drawn as a cross plant.
+{const[ox,oy]=tileOrigin(T.DEAD_BUSH);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);const rnd=mulberry32(4007);
+const dark='#5a4326',mid='#74552f',lite='#8c6a3c';
+// central stem rising from the bottom
+ctx.fillStyle=mid;ctx.fillRect(ox+15,oy+18,2,12);ctx.fillStyle=dark;ctx.fillRect(ox+15,oy+26,2,4);
+// twigs branching out and upward from the stem
+const twigs=[[15,22,-1],[15,20,1],[15,16,-1],[15,14,1],[16,12,0]];
+for(const[sx,sy,dir]of twigs){let x=sx,y=sy;const len=4+Math.floor(rnd()*4);ctx.fillStyle=rnd()<0.5?mid:lite;
+  for(let i=0;i<len;i++){if(x<1||x>TILE_PX-2||y<1)break;ctx.fillRect(ox+x,oy+y,2,2);x+=dir*2;if(rnd()<0.55)y-=2;}
+  ctx.fillStyle=dark;ctx.fillRect(ox+x-2,oy+Math.max(1,y),2,2);}
+// a couple of stray twiglets for fullness
+ctx.fillStyle=lite;for(let i=0;i<4;i++)ctx.fillRect(ox+(6+Math.floor(rnd()*20)),oy+(8+Math.floor(rnd()*16)),2,2);}
 // --- Structure / village blocks -----------------------------------------
 // STONE_BRICK: tidy mortared masonry used for strongholds.
 function brickMasonry(t,base,variants,seed){noisy(t,base,variants,0.45);const[ox,oy]=tileOrigin(t);ctx.fillStyle='rgba(40,40,40,0.55)';ctx.fillRect(ox,oy+15,TILE_PX,2);ctx.fillRect(ox+15,oy,2,16);ctx.fillRect(ox+7,oy+16,2,16);ctx.fillRect(ox+23,oy+16,2,16);ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=1;ctx.strokeRect(ox+1,oy+1,30,30);return seed;}

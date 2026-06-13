@@ -1,7 +1,7 @@
 const world=new Uint8Array(WORLD_W*WORLD_H*WORLD_D);function blockIndex(x,y,z){return(y*WORLD_D+z)*WORLD_W+x;}
 function getBlock(x,y,z){if(y<0)return B.BEDROCK;if(y>=WORLD_H)return B.AIR;if(x<0||x>=WORLD_W||z<0||z>=WORLD_D)return B.STONE;return world[blockIndex(x,y,z)];}
 function isCrop(id){const d=BLOCKS[id];return!!(d&&d.crop);}
-function isSolid(id){return id!==B.AIR&&id!==B.WATER&&id!==B.LAVA&&id!==B.SEAWEED&&!isCrop(id);}
+function isSolid(id){return id!==B.AIR&&id!==B.WATER&&id!==B.LAVA&&id!==B.SEAWEED&&id!==B.DEAD_BUSH&&!isCrop(id);}
 // raycast 用: 衝突しない作物もブロック選択（破壊・操作）のターゲットにする。
 function isTargetable(id){return isSolid(id)||isCrop(id);}
 // Biome-aware terrain height. A gentle rolling base is modulated per biome so
@@ -40,10 +40,16 @@ function heightAt(x,z){
   const detail=fbm2(x,z,23,3,1/24,0.5,2.0)*6-3+fbm2(x,z,29,2,1/7,0.5,2.0)*2-1;
   const e=c.continental,t=c.temperature,m=c.moisture,w=c.weirdness;
   let h=base+detail;
-  if(e<0.32){
-    // OCEAN: descend below sea level, deeper toward continental lows
-    const depth=(0.32-e)/0.32;             // 0..1
-    h=SEA_LEVEL-2-depth*depth*26;
+  if(e<0.40){
+    // OCEAN & COAST: rather than snapping to a fixed depth at the biome border
+    // (which made an abrupt underwater cliff), blend smoothly from the rolling
+    // land height down into the sea. A wide [0.32,0.40] coastal band eases the
+    // shoreline so beaches slope gently below the waterline, and the basin only
+    // deepens gradually toward the continental lows for a natural sea floor.
+    const oceanFloor=SEA_LEVEL-2-Math.pow((0.32-Math.min(e,0.32))/0.32,1.6)*26;
+    // coastal blend weight: 0 at e=0.40 (full land) -> 1 at e<=0.32 (full sea)
+    const coast=smoothstep(Math.max(0,Math.min(1,(0.40-e)/0.08)));
+    h=h*(1-coast)+oceanFloor*coast;
   }else if(e>0.72){
     // MOUNTAINS / VOLCANO: strong uplift with ridged detail
     const up=(e-0.72)/0.28;                // 0..1
@@ -80,7 +86,7 @@ function heightAt(x,z){
   // The valley is a smooth U-shape: a flat-ish bed at the centre line that
   // rises gently into grassy banks, so rivers read as natural waterways
   // rather than knife-thin slots.
-  if(e>=0.32&&e<=0.82&&h>SEA_LEVEL-3){
+  if(e>=0.40&&e<=0.82&&h>SEA_LEVEL-3){
     const rm=riverMaskAt(x,z);
     if(rm>0){
       const bedTarget=SEA_LEVEL-2;              // desired riverbed floor
@@ -90,14 +96,16 @@ function heightAt(x,z){
       if(h<bedTarget)h=bedTarget;
     }
   }
-  // LAKES: flood broad shallow basins. Carve the basin floor below sea level so
-  // the standard sea-level water fill turns it into a still pond, and lower the
-  // immediate shoreline a touch so banks slope into the water naturally.
-  if(e>=0.32&&e<=0.82){
+  // LAKES: flood broad shallow basins. Instead of stamping a basin floor with a
+  // sharp rim, ease the surrounding land smoothly down to (and below) the water
+  // line so the banks read as a continuous gentle slope rather than a dug-out
+  // hole. The blend weight ramps in slowly from the lake edge, giving wide
+  // shallow margins that deepen gradually toward a still central pool.
+  if(e>=0.40&&e<=0.82){
     const lm=lakeMaskAt(x,z);
     if(lm>0&&h>SEA_LEVEL-6){
-      const bedTarget=SEA_LEVEL-3-lm*4;         // deeper toward the centre
-      const t=smoothstep(Math.min(1,lm*1.3));
+      const bedTarget=SEA_LEVEL-2-lm*lm*5;       // deeper toward the centre
+      const t=smoothstep(smoothstep(Math.min(1,lm*0.95)));
       h=h*(1-t)+bedTarget*t;
     }
   }
@@ -391,8 +399,10 @@ world[blockIndex(xx,yy,zz)]=leafId;}}}}}}
 // sunlit ocean floors so diving the sea has something to discover.
 function placeReef(){const CORALS=[B.CORAL_PINK,B.CORAL_PURPLE,B.CORAL_BLUE];
 for(let x=2;x<WORLD_W-2;x++){for(let z=2;z<WORLD_D-2;z++){const h=heightMap[colIndex(x,z)];
-// only shallow, submerged sea floor (must have water above the floor)
-if(h>=SEA_LEVEL||h<SEA_LEVEL-14)continue;if(biomeMap[colIndex(x,z)]!==BIOME.OCEAN)continue;
+// Coral only forms in genuinely deep ocean: the sea floor must sit at least
+// 5 blocks beneath the surface (h<=SEA_LEVEL-5) so shallow coastal flats stay
+// bare. Still skip the very deepest abyss where light wouldn't reach.
+if(h>SEA_LEVEL-5||h<SEA_LEVEL-16)continue;if(biomeMap[colIndex(x,z)]!==BIOME.OCEAN)continue;
 const floor=world[blockIndex(x,h,z)];if(floor!==B.SAND&&floor!==B.GRAVEL&&floor!==B.DIRT)continue;
 if(world[blockIndex(x,h+1,z)]!==B.WATER)continue;
 const r=hash2(x+311,z+733,21);
@@ -405,19 +415,16 @@ if(r<0.05){
   const sh=2+Math.floor(hash2(x,z,24)*4);
   for(let y=1;y<=sh;y++){const yy=h+y;if(yy>=SEA_LEVEL)break;if(world[blockIndex(x,yy,z)]===B.WATER)world[blockIndex(x,yy,z)]=B.SEAWEED;}
 }}}}
-// SWAMP dead trees: leafless grey trunks standing in the marsh, sometimes a
-// short branch, for a desolate wetland feel.
+// SWAMP dead bushes: like Minecraft's dead shrub, a single 1-block-high
+// leafless plant dotting the dry patches of the marsh for a desolate feel.
 function placeDeadTrees(){for(let x=3;x<WORLD_W-3;x++){for(let z=3;z<WORLD_D-3;z++){
-if(biomeMap[colIndex(x,z)]!==BIOME.SWAMP)continue;const h=heightMap[colIndex(x,z)];if(h+6>=WORLD_H)continue;
+if(biomeMap[colIndex(x,z)]!==BIOME.SWAMP)continue;const h=heightMap[colIndex(x,z)];if(h+2>=WORLD_H)continue;
 // stand only on land that pokes above the waterline (avoid floating in water)
 if(h<SEA_LEVEL)continue;const surf=world[blockIndex(x,h,z)];if(surf!==B.GRASS&&surf!==B.DIRT&&surf!==B.SAND)continue;
 if(world[blockIndex(x,h+1,z)]!==B.AIR)continue;
-if(hash2(x+717,z-313,25)>0.05)continue;          // sparse but visible
-const th=3+Math.floor(hash2(x,z,26)*4);
-world[blockIndex(x,h,z)]=B.DIRT;
-for(let y=1;y<=th;y++){const yy=h+y;if(yy<WORLD_H&&world[blockIndex(x,yy,z)]===B.AIR)world[blockIndex(x,yy,z)]=B.DEAD_LOG;}
-// a couple of bare side branches near the top
-const by=h+th-1;const dirs=[[1,0],[-1,0],[0,1],[0,-1]];for(let d=0;d<dirs.length;d++){if(hash2(x*7+d,z*5,27)<0.4){const bx=x+dirs[d][0],bz=z+dirs[d][1];if(bx>0&&bx<WORLD_W&&bz>0&&bz<WORLD_D&&world[blockIndex(bx,by,bz)]===B.AIR)world[blockIndex(bx,by,bz)]=B.DEAD_LOG;}}
+if(hash2(x+717,z-313,25)>0.06)continue;          // sparse but visible
+// a single dead bush block sitting on the surface (1 block tall, like MC)
+world[blockIndex(x,h+1,z)]=B.DEAD_BUSH;
 }}}
 // Asynchronous world generation: runs the heavy phases across several frames
 // so the browser stays responsive and we can show a progress bar instead of a
