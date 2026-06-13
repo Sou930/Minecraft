@@ -367,8 +367,9 @@ const FLUID = (function () {
     // 真上に同種液体があれば満タン(柱の途中)として 1.0。
     if (getBlock(x, y + 1, z) === id) return 1.0;
     const lv = getLevel(x, y, z);
-    if (lv >= LEVEL_SOURCE) return 0.875;          // 源でも水面は少し下げて “せき止め” 感
-    return Math.max(0.1, (lv / LEVEL_SOURCE) * 0.875);
+    // 源(レベル8)は満タン=深さ最大として水面を 1.0 で描画する。
+    if (lv >= LEVEL_SOURCE) return 1.0;
+    return Math.max(0.1, (lv / LEVEL_SOURCE) * 1.0);
   }
 
   return {

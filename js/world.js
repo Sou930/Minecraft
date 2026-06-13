@@ -40,7 +40,7 @@ function lakeMaskAt(x,z){
   if(n>=0.30)return 0;                         // only deep dips become lakes
   return (0.30-n)/0.30;                        // 0..1, 1 at the basin centre
 }
-function heightAt(x,z){
+function heightAtRaw(x,z){
   const c=climateAt(x,z);
   // multi-octave rolling base around sea level
   const base=SEA_LEVEL+2+fbm2(x,z,11,4,1/40,0.5,2.0)*26-10+fbm2(x,z,77,2,1/12,0.5,2.0)*8-4;
@@ -118,8 +118,11 @@ function heightAt(x,z){
       h=h*(1-t)+bedTarget*t;
     }
   }
-  return Math.floor(Math.max(2,Math.min(WORLD_H-6,h)));
+  return h;
 }
+// floor 済みの整数高さ(従来 API)。スムージング前の生値が欲しい場合は
+// heightAtRaw() を使う。
+function heightAt(x,z){return Math.floor(Math.max(2,Math.min(WORLD_H-6,heightAtRaw(x,z))));}
 // Lava level inside a volcano crater. Returns the height the molten pool fills
 // up to (the crater rim), or -1 when this column is not a flooded crater.
 // Mirrors the VOLCANO branch of heightAt() but keeps the un-dipped rim height.
@@ -141,7 +144,39 @@ const heightMap=new Int16Array(WORLD_W*WORLD_D);const biomeMap=new Uint8Array(WO
 // Synchronous full generation (kept for reference / fallback).
 function generateWorld(){generateClimateAndHeight();generateTerrainColumns(0,WORLD_W);carveCaves();carveLargeCaves();carveCaveFeatures();placeAmethystGeodes();placeOresAndGravel();placeVegetation();if(typeof placeStructures==='function')placeStructures();}
 // --- Split phases so generation can be driven asynchronously --------------
-function generateClimateAndHeight(){for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){heightMap[colIndex(x,z)]=heightAt(x,z);biomeMap[colIndex(x,z)]=biomeAt(x,z);}}}
+function generateClimateAndHeight(){
+  // 1) 各列の高さ(float)とバイオームを計算。floor する前の値を一時保持して
+  //    スムージングの精度を上げる(整数化による段差ノイズを防ぐ)。
+  const tmp=new Float32Array(WORLD_W*WORLD_D);
+  for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){tmp[colIndex(x,z)]=heightAtRaw(x,z);biomeMap[colIndex(x,z)]=biomeAt(x,z);}}
+  // 2) 軽いスムージングパス: 隣接列との高度差が大きい “荒い段差/トゲ” を、
+  //    近傍 3x3 のガウシアン気味の重み付き平均で緩和する。海岸の崖や山肌など
+  //    本来の大きな起伏は、急峻な部分ほど元の値を残す重みにして保持する。
+  const smoothed=new Float32Array(WORLD_W*WORLD_D);
+  // 9近傍ガウシアン重み(中心4, 辺2, 角1 / 合計16)
+  const W=[[1,2,1],[2,4,2],[1,2,1]];
+  for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){
+    const c=tmp[colIndex(x,z)];
+    let sum=0,wsum=0,maxDiff=0;
+    for(let dz=-1;dz<=1;dz++){for(let dx=-1;dx<=1;dx++){
+      const xx=Math.min(WORLD_W-1,Math.max(0,x+dx));
+      const zz=Math.min(WORLD_D-1,Math.max(0,z+dz));
+      const v=tmp[colIndex(xx,zz)];
+      const w=W[dz+1][dx+1];
+      sum+=v*w;wsum+=w;
+      const d=Math.abs(v-c);if(d>maxDiff)maxDiff=d;
+    }}
+    const avg=sum/wsum;
+    // ブレンド率: 段差が小さい所(=細かい地形ノイズ)ほど強く平滑化し、
+    // 急峻な所(崖・山)は元の形を残す。0.65→急峻でほぼ0へフェード。
+    const blend=0.65*(1-Math.min(1,maxDiff/8));
+    smoothed[colIndex(x,z)]=c*(1-blend)+avg*blend;
+  }}
+  // 3) 整数化して最終 heightMap へ確定。
+  for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){
+    heightMap[colIndex(x,z)]=Math.floor(Math.max(2,Math.min(WORLD_H-6,smoothed[colIndex(x,z)])));
+  }}
+}
 // Build terrain blocks for columns in the x-range [x0,x1).
 function generateTerrainColumns(x0,x1){for(let x=x0;x<x1;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];const biome=biomeMap[colIndex(x,z)];const beach=h<=SEA_LEVEL+1;
 const highRock=h>=SEA_LEVEL+34;            // bare stone above this on mountains
