@@ -3,10 +3,19 @@ const GRAVITY=-24;function update(dt){if(!worldReady||!started||player.dead)retu
 return;}
 let mx=0,mz=0;if(keys['KeyW'])mz+=1;if(keys['KeyS'])mz-=1;if(keys['KeyA'])mx-=1;if(keys['KeyD'])mx+=1;if(joy.active){mx+=joy.x;mz+=-joy.y;}
 const mlen=Math.hypot(mx,mz);if(mlen>1){mx/=mlen;mz/=mlen;}
-const sin=Math.sin(player.yaw),cos=Math.cos(player.yaw);const dirX=mx*cos+mz*sin,dirZ=-mx*sin+mz*cos;const inWaterBody=isInWater(0.5);const inWaterHead=isInWater(PLAYER.eye-0.1);if(inWaterHead&&typeof ACH!=='undefined')ACH.flag('swim');const sprint=!!keys['ShiftLeft']||!!keys['ShiftRight'];let speed=player.flying?10:(sprint?6.6:4.3);if(inWaterBody&&!player.flying)speed*=0.55;const accel=Math.min(1,dt*12);player.vel.x+=(dirX*speed-player.vel.x)*accel;player.vel.z+=(dirZ*speed-player.vel.z)*accel;if(player.flying){let vy=0;if(keys['Space'])vy+=8;if(keys['KeyC'])vy-=8;player.vel.y+=(vy-player.vel.y)*Math.min(1,dt*10);player.fallStartY=null;}else if(inWaterBody){player.vel.y+=GRAVITY*0.25*dt;if(player.vel.y<-2.5)player.vel.y=-2.5;if(keys['Space']){if(!isInWater(1.0)){player.vel.y=Math.max(player.vel.y,7.6);}else{player.vel.y=Math.min(player.vel.y+30*dt,4);}}
+const sin=Math.sin(player.yaw),cos=Math.cos(player.yaw);const dirX=mx*cos+mz*sin,dirZ=-mx*sin+mz*cos;const inWaterBody=isInWater(0.5);const inWaterHead=isInWater(PLAYER.eye-0.1);if(inWaterHead&&typeof ACH!=='undefined')ACH.flag('swim');const sprint=(!!keys['ShiftLeft']||!!keys['ShiftRight'])&&player.pose===POSE.STAND;let speed=player.flying?10:(sprint?6.6:4.3);
+// しゃがみ/匍匐は移動が遅くなる
+if(!player.flying){if(player.pose===POSE.CROUCH)speed*=0.45;else if(player.pose===POSE.PRONE)speed*=0.28;}
+if(inWaterBody&&!player.flying)speed*=0.55;const accel=Math.min(1,dt*12);player.vel.x+=(dirX*speed-player.vel.x)*accel;player.vel.z+=(dirZ*speed-player.vel.z)*accel;if(player.flying){let vy=0;if(keys['Space'])vy+=8;if(keys['KeyC'])vy-=8;player.vel.y+=(vy-player.vel.y)*Math.min(1,dt*10);player.fallStartY=null;}else if(inWaterBody){player.vel.y+=GRAVITY*0.25*dt;if(player.vel.y<-2.5)player.vel.y=-2.5;if(keys['Space']){if(!isInWater(1.0)){player.vel.y=Math.max(player.vel.y,7.6);}else{player.vel.y=Math.min(player.vel.y+30*dt,4);}}
 player.fallStartY=null;}else if(isInLava(0.5)){player.vel.y+=GRAVITY*0.18*dt;if(player.vel.y<-1.6)player.vel.y=-1.6;if(keys['Space'])player.vel.y=Math.min(player.vel.y+24*dt,3);player.fallStartY=null;}else{player.vel.y+=GRAVITY*dt;if(player.vel.y<-50)player.vel.y=-50;if(keys['Space']&&player.onGround){player.vel.y=8.2;player.onGround=false;}
 if(player.vel.y<-0.1&&player.fallStartY===null)player.fallStartY=player.pos.y;}
-const prevVy=player.vel.y;const hitX=moveAxis('x',player.vel.x*dt);const hitZ=moveAxis('z',player.vel.z*dt);if(hitX)player.vel.x=0;if(hitZ)player.vel.z=0;if(!player.flying&&inWaterBody&&(hitX||hitZ)&&mlen>0.05){player.vel.y=Math.max(player.vel.y,isInWater(1.0)?3.0:7.6);}
+const prevVy=player.vel.y;
+// しゃがみ中は崖から落ちない（スニーク）。地上にいるとき、移動後に足元が空なら戻す。
+const sneaking=player.pose!==POSE.STAND&&player.onGround&&!player.flying;
+let sx0=player.pos.x,sz0=player.pos.z;
+const hitX=moveAxis('x',player.vel.x*dt);if(sneaking&&!footSupported()){player.pos.x=sx0;player.vel.x=0;}
+const hitZ=moveAxis('z',player.vel.z*dt);if(sneaking&&!footSupported()){player.pos.z=sz0;player.vel.z=0;}
+if(hitX)player.vel.x=0;if(hitZ)player.vel.z=0;if(!player.flying&&inWaterBody&&(hitX||hitZ)&&mlen>0.05){player.vel.y=Math.max(player.vel.y,isInWater(1.0)?3.0:7.6);}
 const hitY=moveAxis('y',player.vel.y*dt);player.onGround=false;if(hitY){if(prevVy<0){player.onGround=true;if(player.fallStartY!==null&&!inWaterBody&&!player.flying){const dist=player.fallStartY-player.pos.y;const dmg=Math.floor(dist-3.2);if(dmg>0)damage(dmg);}
 player.fallStartY=null;}
 player.vel.y=0;}
@@ -14,7 +23,18 @@ player.pos.x=Math.max(0.31,Math.min(WORLD_W-0.31,player.pos.x));player.pos.z=Mat
 player.eatCooldown=Math.max(0,player.eatCooldown-dt);const moving=mlen>0.05;player.hungerTimer+=dt*(moving?(sprint?3.2:1.4):0.4);if(player.hungerTimer>22){player.hungerTimer=0;if(player.hunger>0){player.hunger--;updateVitalsUI();}}
 if(player.hunger>=14&&player.hp<20){player.regenTimer+=dt;if(player.regenTimer>3.5){player.regenTimer=0;player.hp=Math.min(20,player.hp+1);updateVitalsUI();}}else player.regenTimer=0;if(player.hunger<=0){player.starveTimer+=dt;if(player.starveTimer>4){player.starveTimer=0;if(player.hp>1)damage(1);}}else player.starveTimer=0;if(inWaterHead){player.idleTimer+=dt;if(player.idleTimer>8){player.idleTimer=6.5;damage(1);}}else player.idleTimer=0;
 // Lava burns: standing in / touching lava deals rapid damage.
-if(!player.flying&&(isInLava(0.2)||isInLava(0.9))){player.lavaTimer=(player.lavaTimer||0)+dt;if(player.lavaTimer>0.5){player.lavaTimer=0;damage(3);}}else player.lavaTimer=0;camera.position.set(player.pos.x,player.pos.y+PLAYER.eye,player.pos.z);camera.rotation.set(player.pitch,player.yaw,0);updateTarget();updateMining(dt);document.getElementById('water-tint').style.opacity=inWaterHead?'1':'0';}
+if(!player.flying&&(isInLava(0.2)||isInLava(0.9))){player.lavaTimer=(player.lavaTimer||0)+dt;if(player.lavaTimer>0.5){player.lavaTimer=0;damage(3);}}else player.lavaTimer=0;updateCamera();updatePlayerModel(dt);updateMobs(dt);updateTarget();updateMining(dt);document.getElementById('water-tint').style.opacity=inWaterHead?'1':'0';}
+// カメラ位置を視点モードに応じて設定。3人称はプレイヤー後方/前方に引いた位置に、
+// 障害物に当たらないようレイで距離を詰める。
+function updateCamera(){const eyeX=player.pos.x,eyeY=player.pos.y+PLAYER.eye,eyeZ=player.pos.z;const view=(typeof cameraView!=='undefined')?cameraView:0;if(view===0){camera.position.set(eyeX,eyeY,eyeZ);camera.rotation.set(player.pitch,player.yaw,0);return;}
+// 3人称: 視線方向の逆（背面）または同方向（正面）にオフセット。
+const cp=Math.cos(player.pitch),sp=Math.sin(player.pitch),sy=Math.sin(player.yaw),cy=Math.cos(player.yaw);
+const fwd={x:cp*sy,y:-sp,z:cp*cy};const sign=(view===1)?-1:1;let dist=4.2;
+// 障害物との衝突で距離を縮める
+for(let d=0.3;d<=dist;d+=0.2){const tx=eyeX+fwd.x*sign*d,ty=eyeY+fwd.y*sign*d,tz=eyeZ+fwd.z*sign*d;if(isSolid(getBlock(Math.floor(tx),Math.floor(ty),Math.floor(tz)))){dist=Math.max(0.6,d-0.3);break;}}
+camera.position.set(eyeX+fwd.x*sign*dist,eyeY+fwd.y*sign*dist,eyeZ+fwd.z*sign*dist);
+if(view===1)camera.rotation.set(player.pitch,player.yaw,0);
+else camera.rotation.set(-player.pitch,player.yaw+Math.PI,0);}
 let hudTimer=0;function updateHUD(dt){if(!worldReady)return;hudTimer+=dt;if(hudTimer<0.25)return;hudTimer=0;document.getElementById('fps-display').textContent=`FPS: ${engine.getFps().toFixed(0)}`;document.getElementById('pos-display').textContent=`X: ${player.pos.x.toFixed(0)} Y: ${player.pos.y.toFixed(0)} Z: ${player.pos.z.toFixed(0)}`;const bx=Math.floor(player.pos.x),bz=Math.floor(player.pos.z);const bio=(bx>=0&&bx<WORLD_W&&bz>=0&&bz<WORLD_D)?biomeMap[colIndex(bx,bz)]:biomeAt(bx,bz);document.getElementById('biome-display').textContent=BIOME_NAME[bio];updateChunkStreaming(4);}
 // Render loop is started immediately, but gameplay (update) is gated by the
 // `started` flag and `worldReady`, so the loop just paints the loading sky
@@ -41,6 +61,7 @@ async function bootstrap(){
     if(n===0)break; // all in-view chunks meshed
   }
   loadInventory();createInventoryUI();renderHotbar();updateVitalsUI();if(typeof initAchievementsUI==='function')initAchievementsUI();
+  applyPose();if(typeof buildPlayerModel==='function')buildPlayerModel();if(typeof trySpawnMobs==='function'){trySpawnMobs();trySpawnMobs();}
   worldReady=true;
   const lo=document.getElementById('loading-overlay');if(lo){lo.classList.add('hidden');setTimeout(()=>lo.remove(),450);}
 }

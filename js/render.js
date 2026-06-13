@@ -41,10 +41,25 @@ else if(tMaxY<tMaxZ){t=tMaxY;tMaxY+=tDY;y+=stepY;}
 else{t=tMaxZ;tMaxZ+=tDZ;z+=stepZ;}
 if(t>maxDist)return null;const id2=getBlock(x,y,z);if(isTargetable(id2))return{x,y,z,px,py,pz,id:id2};}
 return null;}
-const PLAYER={halfW:0.3,height:1.8,eye:1.62};const player={pos:new BABYLON.Vector3(WORLD_W/2+0.5,40,WORLD_D/2+0.5),vel:new BABYLON.Vector3(0,0,0),yaw:Math.PI*0.25,pitch:0,onGround:false,flying:false,hp:20,hunger:20,fallStartY:null,dead:false,eatCooldown:0,regenTimer:0,starveTimer:0,hungerTimer:0,idleTimer:0,};let spawnPoint=null;function findSpawn(){const cx=Math.floor(WORLD_W/2),cz=Math.floor(WORLD_D/2);let best=null;for(let r=0;r<20&&!best;r++){for(let dx=-r;dx<=r&&!best;dx++){for(let dz=-r;dz<=r&&!best;dz++){const x=cx+dx,z=cz+dz;if(x<2||x>=WORLD_W-2||z<2||z>=WORLD_D-2)continue;for(let y=WORLD_H-2;y>0;y--){const id=getBlock(x,y,z);if(id===B.WATER)break;if(isSolid(id)){if(getBlock(x,y+1,z)===B.AIR&&getBlock(x,y+2,z)===B.AIR)
+// PLAYER は現在の姿勢に応じて height/eye が変化する（立ち/しゃがみ/匍匐）。
+// POSES は各姿勢ごとの当たり判定の高さと視点(eye)の高さ。
+const POSE={STAND:0,CROUCH:1,PRONE:2};
+const POSES=[
+  {height:1.8,eye:1.62,name:'立'},   // STAND
+  {height:1.3,eye:1.12,name:'しゃがみ'}, // CROUCH
+  {height:0.65,eye:0.5,name:'匍匐'},  // PRONE
+];
+const PLAYER={halfW:0.3,height:1.8,eye:1.62};
+const player={pos:new BABYLON.Vector3(WORLD_W/2+0.5,40,WORLD_D/2+0.5),vel:new BABYLON.Vector3(0,0,0),yaw:Math.PI*0.25,pitch:0,onGround:false,flying:false,hp:20,hunger:20,fallStartY:null,dead:false,eatCooldown:0,regenTimer:0,starveTimer:0,hungerTimer:0,idleTimer:0,pose:POSE.STAND,};
+// 指定した姿勢に頭上の空間が足りるか（立ち上がれるか）を判定。
+function poseFits(poseIndex){const h=POSES[poseIndex].height;const box={minX:player.pos.x-PLAYER.halfW,maxX:player.pos.x+PLAYER.halfW,minY:player.pos.y,maxY:player.pos.y+h,minZ:player.pos.z-PLAYER.halfW,maxZ:player.pos.z+PLAYER.halfW};let blocked=false;forEachOverlapBlock(box,()=>{blocked=true;return true;});return !blocked;}
+// 現在の pose を PLAYER.height / PLAYER.eye に反映する。
+function applyPose(){const p=POSES[player.pose];PLAYER.height=p.height;PLAYER.eye=p.eye;}let spawnPoint=null;function findSpawn(){const cx=Math.floor(WORLD_W/2),cz=Math.floor(WORLD_D/2);let best=null;for(let r=0;r<20&&!best;r++){for(let dx=-r;dx<=r&&!best;dx++){for(let dz=-r;dz<=r&&!best;dz++){const x=cx+dx,z=cz+dz;if(x<2||x>=WORLD_W-2||z<2||z>=WORLD_D-2)continue;for(let y=WORLD_H-2;y>0;y--){const id=getBlock(x,y,z);if(id===B.WATER)break;if(isSolid(id)){if(getBlock(x,y+1,z)===B.AIR&&getBlock(x,y+2,z)===B.AIR)
 best=new BABYLON.Vector3(x+0.5,y+1.01,z+0.5);break;}}}}}
 return best||new BABYLON.Vector3(cx+0.5,WORLD_H-5,cz+0.5);}
 function playerAABB(pos){return{minX:pos.x-PLAYER.halfW,maxX:pos.x+PLAYER.halfW,minY:pos.y,maxY:pos.y+PLAYER.height,minZ:pos.z-PLAYER.halfW,maxZ:pos.z+PLAYER.halfW,};}
+// 足元の四隅のいずれかにブロックがあるか（スニーク時の落下防止に使用）。
+function footSupported(){const y=Math.floor(player.pos.y-0.05);const xs=[player.pos.x-PLAYER.halfW+0.02,player.pos.x+PLAYER.halfW-0.02];const zs=[player.pos.z-PLAYER.halfW+0.02,player.pos.z+PLAYER.halfW-0.02];for(const x of xs)for(const z of zs){if(isSolid(getBlock(Math.floor(x),y,Math.floor(z))))return true;}return false;}
 function forEachOverlapBlock(box,cb){const x0=Math.floor(box.minX),x1=Math.floor(box.maxX);const y0=Math.floor(box.minY),y1=Math.floor(box.maxY);const z0=Math.floor(box.minZ),z1=Math.floor(box.maxZ);for(let x=x0;x<=x1;x++)
 for(let y=y0;y<=y1;y++)
 for(let z=z0;z<=z1;z++)
