@@ -40,4 +40,36 @@ coralTile(T.CORAL_PINK,'#e8538f','#ff8fc0',4002);coralTile(T.CORAL_PURPLE,'#9b4f
 // DEAD_LOG: grey, weathered bare trunk for swamps.
 {const[ox,oy]=tileOrigin(T.DEAD_LOG_SIDE);const rnd=mulberry32(4006);ctx.fillStyle='#6a6056';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);for(let x=0;x<TILE_PX;x+=4){ctx.fillStyle=['#5a5048','#766b5f','#625850','#6f655b'][Math.floor(rnd()*4)];ctx.fillRect(ox+x,oy,2,TILE_PX);}
 ctx.fillStyle='#3e362e';for(let i=0;i<6;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,4+Math.floor(rnd()*2)*2);}
-{const[ox,oy]=tileOrigin(T.DEAD_LOG_TOP);ctx.fillStyle='#6a6056';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);ctx.fillStyle='#857a6c';ctx.fillRect(ox+4,oy+4,24,24);ctx.strokeStyle='#4e463c';ctx.lineWidth=2;ctx.strokeRect(ox+8,oy+8,16,16);ctx.strokeRect(ox+13,oy+13,6,6);}})();function tileUV(t){const col=t%ATLAS_TILES,row=Math.floor(t/ATLAS_TILES);const pad=0.5/ATLAS_PX;return{u1:col/ATLAS_TILES+pad,u2:(col+1)/ATLAS_TILES-pad,v1:1-(row+1)/ATLAS_TILES+pad,v2:1-row/ATLAS_TILES-pad,};}
+{const[ox,oy]=tileOrigin(T.DEAD_LOG_TOP);ctx.fillStyle='#6a6056';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);ctx.fillStyle='#857a6c';ctx.fillRect(ox+4,oy+4,24,24);ctx.strokeStyle='#4e463c';ctx.lineWidth=2;ctx.strokeRect(ox+8,oy+8,16,16);ctx.strokeRect(ox+13,oy+13,6,6);}
+// --- Structure / village blocks -----------------------------------------
+// STONE_BRICK: tidy mortared masonry used for strongholds.
+function brickMasonry(t,base,variants,seed){noisy(t,base,variants,0.45);const[ox,oy]=tileOrigin(t);ctx.fillStyle='rgba(40,40,40,0.55)';ctx.fillRect(ox,oy+15,TILE_PX,2);ctx.fillRect(ox+15,oy,2,16);ctx.fillRect(ox+7,oy+16,2,16);ctx.fillRect(ox+23,oy+16,2,16);ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=1;ctx.strokeRect(ox+1,oy+1,30,30);return seed;}
+brickMasonry(T.STONE_BRICK,'#8d8d8d',['#7f7f7f','#9a9a9a','#757575','#868686'],5001);
+// MOSSY_BRICK: stone brick overgrown with green moss patches.
+{brickMasonry(T.MOSSY_BRICK,'#7f867b',['#727a6e','#8c9384','#6a7165','#7c8377'],5002);const[ox,oy]=tileOrigin(T.MOSSY_BRICK);const rnd=mulberry32(5012);ctx.fillStyle='#4e7a3a';for(let i=0;i<22;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);ctx.fillStyle='#3c6630';for(let i=0;i<10;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+// CRACKED_BRICK: stone brick fractured with dark cracks.
+{brickMasonry(T.CRACKED_BRICK,'#888888',['#7a7a7a','#959595','#6f6f6f','#828282'],5003);const[ox,oy]=tileOrigin(T.CRACKED_BRICK);ctx.strokeStyle='#3a3a3a';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(ox+6,oy+4);ctx.lineTo(ox+12,oy+14);ctx.lineTo(ox+9,oy+24);ctx.lineTo(ox+18,oy+30);ctx.moveTo(ox+24,oy+6);ctx.lineTo(ox+20,oy+16);ctx.lineTo(ox+28,oy+22);ctx.stroke();}
+// PATH: packed-dirt village road (top is trodden earth, side shows soil).
+{noisy(T.PATH_TOP,'#9a7a4e',['#8a6c44','#a8875a','#806440','#917252'],0.55);const[ox,oy]=tileOrigin(T.PATH_TOP);const rnd=mulberry32(5004);ctx.fillStyle='#6f5436';for(let i=0;i<10;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2+Math.floor(rnd()*2)*2,2);ctx.strokeStyle='rgba(60,45,28,0.5)';ctx.lineWidth=1;ctx.strokeRect(ox+1,oy+1,30,30);}
+{noisy(T.PATH_SIDE,'#8b5d3b',['#7a5132','#9a6a44','#6f4a2d'],0.7);const[ox,oy]=tileOrigin(T.PATH_SIDE);ctx.fillStyle='#9a7a4e';ctx.fillRect(ox,oy,TILE_PX,5);}
+// TORCH: a wooden stick topped with a bright flame on a transparent tile.
+{const[ox,oy]=tileOrigin(T.TORCH);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);ctx.fillStyle='#6b4a2a';ctx.fillRect(ox+14,oy+12,4,18);ctx.fillStyle='#5c3f23';ctx.fillRect(ox+14,oy+12,2,18);ctx.fillStyle='#ff8c1a';ctx.fillRect(ox+13,oy+6,6,8);ctx.fillStyle='#ffd23e';ctx.fillRect(ox+14,oy+7,4,5);ctx.fillStyle='#fff6c0';ctx.fillRect(ox+15,oy+8,2,3);}
+// COBWEB: spindly grey threads radiating across a transparent tile.
+{const[ox,oy]=tileOrigin(T.COBWEB);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);ctx.strokeStyle='rgba(235,238,242,0.8)';ctx.lineWidth=1;const cx=ox+16,cy=oy+16;for(let a=0;a<8;a++){const ang=a*Math.PI/4;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(ang)*15,cy+Math.sin(ang)*15);ctx.stroke();}
+for(let r=4;r<=14;r+=4){ctx.beginPath();for(let a=0;a<=8;a++){const ang=a*Math.PI/4;const px=cx+Math.cos(ang)*r,py=cy+Math.sin(ang)*r;if(a===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}ctx.stroke();}}
+// RAIL: wooden sleepers with two metal rails (transparent, drawn flat-ish).
+{const[ox,oy]=tileOrigin(T.RAIL);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);ctx.fillStyle='#6b4a2a';for(let y=2;y<TILE_PX;y+=8)ctx.fillRect(ox+2,oy+y,28,3);ctx.fillStyle='#b8b8b8';ctx.fillRect(ox+8,oy,3,TILE_PX);ctx.fillRect(ox+21,oy,3,TILE_PX);ctx.fillStyle='#e0e0e0';ctx.fillRect(ox+8,oy,1,TILE_PX);ctx.fillRect(ox+21,oy,1,TILE_PX);}
+// CHEST: wooden chest with iron clasp.
+function chestBody(t,withLock){noisy(t,'#9c6f3a',['#8c632f','#a87b44','#835c2c'],0.5);const[ox,oy]=tileOrigin(t);ctx.fillStyle='#5e4222';ctx.fillRect(ox,oy+10,TILE_PX,2);ctx.strokeStyle='#5e4222';ctx.lineWidth=2;ctx.strokeRect(ox+1,oy+1,30,30);if(withLock){ctx.fillStyle='#4a4a4a';ctx.fillRect(ox+13,oy+8,6,8);ctx.fillStyle='#dcdcdc';ctx.fillRect(ox+14,oy+10,4,3);}}
+chestBody(T.CHEST_SIDE,false);chestBody(T.CHEST_FRONT,true);{noisy(T.CHEST_TOP,'#a87b44',['#9c6f3a','#b5874f','#8c632f'],0.5);const[ox,oy]=tileOrigin(T.CHEST_TOP);ctx.strokeStyle='#5e4222';ctx.lineWidth=2;ctx.strokeRect(ox+2,oy+2,28,28);ctx.fillStyle='#4a4a4a';ctx.fillRect(ox+14,oy+1,4,4);}
+// WOOL (red/white): soft fuzzy fabric.
+{noisy(T.WOOL_RED,'#b0382f',['#a3302a','#c14138','#992c26','#b53b32'],0.85);}
+{noisy(T.WOOL_WHITE,'#ece9e4',['#e2dfd9','#f4f1ec','#d8d5cf','#e8e5e0'],0.85);}
+// BOOKSHELF: planks framing rows of coloured books.
+{const[ox,oy]=tileOrigin(T.BOOKSHELF);ctx.fillStyle='#b08a4f';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);ctx.fillStyle='#7d5d30';ctx.fillRect(ox,oy,TILE_PX,4);ctx.fillRect(ox,oy+14,TILE_PX,4);ctx.fillRect(ox,oy+28,TILE_PX,4);const rnd=mulberry32(5006);const cols=['#b0382f','#3a6ec1','#3a9a4a','#c9a02a','#8e4fc2','#c96a2a'];for(let row=0;row<2;row++){let x=2;while(x<TILE_PX-2){const w=2+Math.floor(rnd()*2)*2;ctx.fillStyle=cols[Math.floor(rnd()*cols.length)];ctx.fillRect(ox+x,oy+5+row*14,w,8);x+=w+1;}}}
+// LANTERN: an iron-framed glowing lantern on a transparent tile.
+{const[ox,oy]=tileOrigin(T.LANTERN);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);ctx.fillStyle='#4a4a4a';ctx.fillRect(ox+15,oy+2,2,4);ctx.fillRect(ox+10,oy+6,12,2);ctx.fillRect(ox+10,oy+22,12,2);ctx.fillRect(ox+10,oy+6,2,16);ctx.fillRect(ox+20,oy+6,2,16);ctx.fillStyle='#ffd23e';ctx.fillRect(ox+12,oy+8,8,14);ctx.fillStyle='#fff6c0';ctx.fillRect(ox+14,oy+10,4,8);}
+// HAY: bundled straw bale.
+{noisy(T.HAY_SIDE,'#cBa83e',['#bd9b35','#d9b748','#b0902f','#c8a53b'],0.6);const[ox,oy]=tileOrigin(T.HAY_SIDE);ctx.fillStyle='#8a6f22';ctx.fillRect(ox,oy,TILE_PX,2);ctx.fillRect(ox,oy+TILE_PX-2,TILE_PX,2);ctx.fillRect(ox,oy+15,TILE_PX,2);const rnd=mulberry32(5007);ctx.fillStyle='#a8862a';for(let i=0;i<30;i++)ctx.fillRect(ox+Math.floor(rnd()*16)*2,oy+Math.floor(rnd()*16)*2,2,1);}
+{noisy(T.HAY_TOP,'#d9b748',['#cBa83e','#e4c456','#c19a33'],0.6);const[ox,oy]=tileOrigin(T.HAY_TOP);ctx.strokeStyle='#8a6f22';ctx.lineWidth=2;ctx.strokeRect(ox+5,oy+5,22,22);ctx.fillStyle='#b8962e';ctx.fillRect(ox+13,oy+13,6,6);}
+})();function tileUV(t){const col=t%ATLAS_TILES,row=Math.floor(t/ATLAS_TILES);const pad=0.5/ATLAS_PX;return{u1:col/ATLAS_TILES+pad,u2:(col+1)/ATLAS_TILES-pad,v1:1-(row+1)/ATLAS_TILES+pad,v2:1-row/ATLAS_TILES-pad,};}

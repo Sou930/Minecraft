@@ -4,11 +4,22 @@ function isSolid(id){return id!==B.AIR&&id!==B.WATER&&id!==B.LAVA&&id!==B.SEAWEE
 // Biome-aware terrain height. A gentle rolling base is modulated per biome so
 // mountains tower, oceans sink below sea level, mesas form flat plateaus and
 // volcanoes build steep cones — all blended smoothly via the climate fields.
+// River network mask. A winding ridged-noise line snakes across the whole map;
+// where the mask is near its ridge we are "in" a river. Returns 0 (no river)
+// up to 1 (river centre line). Large wavelength keeps rivers long & meandering.
+function riverMaskAt(x,z){
+  const rn=fbm2(x,z,137,3,1/160,0.5,2.0);   // slow, large-scale winding field
+  const ridge=1-Math.abs(rn*2-1);            // 0..1, peaks along winding lines
+  if(ridge<=0.86)return 0;
+  return (ridge-0.86)/0.14;                   // 0..1 inside the river corridor
+}
 function heightAt(x,z){
   const c=climateAt(x,z);
   // multi-octave rolling base around sea level
   const base=SEA_LEVEL+2+fbm2(x,z,11,4,1/40,0.5,2.0)*26-10+fbm2(x,z,77,2,1/12,0.5,2.0)*8-4;
-  const detail=fbm2(x,z,23,3,1/24,0.5,2.0)*6-3;
+  // Two layers of fine detail give the surface a more eroded, natural look:
+  // broad undulation plus a higher-frequency "weathering" ripple.
+  const detail=fbm2(x,z,23,3,1/24,0.5,2.0)*6-3+fbm2(x,z,29,2,1/7,0.5,2.0)*2-1;
   const e=c.continental,t=c.temperature,m=c.moisture,w=c.weirdness;
   let h=base+detail;
   if(e<0.32){
@@ -45,6 +56,19 @@ function heightAt(x,z){
     // SWAMP: very flat, just around / slightly below sea level
     h=SEA_LEVEL-1+fbm2(x,z,91,2,1/30,0.5,2.0)*3;
   }
+  // RIVERS: carve winding channels down toward (and just below) sea level so
+  // flowing water threads through plains, forests and hills. Skip oceans (they
+  // are already submerged) and steep volcano/mountain peaks where it'd look odd.
+  if(e>=0.32&&e<=0.78&&h>SEA_LEVEL-3){
+    const rm=riverMaskAt(x,z);
+    if(rm>0){
+      const bankAbove=h-(SEA_LEVEL-1);          // how far the land sits above the riverbed
+      // smooth U-shaped valley: deepest at the centre line
+      const carve=rm*rm*(bankAbove+4);
+      h-=carve;
+      if(h<SEA_LEVEL-2)h=SEA_LEVEL-2;            // riverbed floor
+    }
+  }
   return Math.floor(Math.max(2,Math.min(WORLD_H-6,h)));
 }
 // Lava level inside a volcano crater. Returns the height the molten pool fills
@@ -66,7 +90,7 @@ function craterLavaLevelAt(x,z){
 }
 const heightMap=new Int16Array(WORLD_W*WORLD_D);const biomeMap=new Uint8Array(WORLD_W*WORLD_D);function colIndex(x,z){return z*WORLD_W+x;}
 // Synchronous full generation (kept for reference / fallback).
-function generateWorld(){generateClimateAndHeight();generateTerrainColumns(0,WORLD_W);carveCaves();carveLargeCaves();placeOresAndGravel();placeVegetation();}
+function generateWorld(){generateClimateAndHeight();generateTerrainColumns(0,WORLD_W);carveCaves();carveLargeCaves();placeOresAndGravel();placeVegetation();if(typeof placeStructures==='function')placeStructures();}
 // --- Split phases so generation can be driven asynchronously --------------
 function generateClimateAndHeight(){for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){heightMap[colIndex(x,z)]=heightAt(x,z);biomeMap[colIndex(x,z)]=biomeAt(x,z);}}}
 // Build terrain blocks for columns in the x-range [x0,x1).
@@ -232,9 +256,18 @@ function generateWorldAsync(onProgress){
     report(0.84,'鉱石を配置中...');
     await nextFrame();
     placeOresAndGravel();
-    report(0.92,'植生を配置中...');
+    report(0.88,'植生を配置中...');
     await nextFrame();
     placeVegetation();
+    report(0.93,'村を建設中...');
+    await nextFrame();
+    if(typeof placeVillages==='function')placeVillages();
+    report(0.96,'廃坑を掘削中...');
+    await nextFrame();
+    if(typeof placeMineshafts==='function')placeMineshafts();
+    report(0.98,'要塞を建造中...');
+    await nextFrame();
+    if(typeof placeStronghold==='function')placeStronghold();
     report(1.0,'完了');
     await nextFrame();
   })();
