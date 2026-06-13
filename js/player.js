@@ -1,5 +1,6 @@
 const EPS=0.001;function moveAxis(axis,delta){if(delta===0)return false;player.pos[axis]+=delta;let hit=false;const box=playerAABB(player.pos);forEachOverlapBlock(box,(bx,by,bz)=>{hit=true;if(axis==='x')player.pos.x=delta>0?bx-PLAYER.halfW-EPS:bx+1+PLAYER.halfW+EPS;if(axis==='z')player.pos.z=delta>0?bz-PLAYER.halfW-EPS:bz+1+PLAYER.halfW+EPS;if(axis==='y')player.pos.y=delta>0?by-PLAYER.height-EPS:by+1+EPS;const nb=playerAABB(player.pos);box.minX=nb.minX;box.maxX=nb.maxX;box.minY=nb.minY;box.maxY=nb.maxY;box.minZ=nb.minZ;box.maxZ=nb.maxZ;return false;});return hit;}
 function isInWater(offsetY){return getBlock(Math.floor(player.pos.x),Math.floor(player.pos.y+offsetY),Math.floor(player.pos.z))===B.WATER;}
+function isInLava(offsetY){return getBlock(Math.floor(player.pos.x),Math.floor(player.pos.y+offsetY),Math.floor(player.pos.z))===B.LAVA;}
 const keys={};let started=false,paused=true;let selectedSlot=0;const joy={active:false,x:0,y:0};document.addEventListener('keydown',(e)=>{if(e.code==='Space')e.preventDefault();keys[e.code]=true;if(!started||paused)return;if(e.code==='KeyE'){toggleInventory();return;}
 if(inventoryOpen){if(e.code==='Escape')toggleInventory(false);return;}
 if(e.code>='Digit1'&&e.code<='Digit9')selectSlot(parseInt(e.code.slice(5),10)-1);if(e.code==='KeyF'){player.flying=!player.flying;player.vel.y=0;}
