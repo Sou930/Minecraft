@@ -1,6 +1,9 @@
 const world=new Uint8Array(WORLD_W*WORLD_H*WORLD_D);function blockIndex(x,y,z){return(y*WORLD_D+z)*WORLD_W+x;}
 function getBlock(x,y,z){if(y<0)return B.BEDROCK;if(y>=WORLD_H)return B.AIR;if(x<0||x>=WORLD_W||z<0||z>=WORLD_D)return B.STONE;return world[blockIndex(x,y,z)];}
-function isSolid(id){return id!==B.AIR&&id!==B.WATER&&id!==B.LAVA&&id!==B.SEAWEED;}
+function isCrop(id){const d=BLOCKS[id];return!!(d&&d.crop);}
+function isSolid(id){return id!==B.AIR&&id!==B.WATER&&id!==B.LAVA&&id!==B.SEAWEED&&!isCrop(id);}
+// raycast 用: 衝突しない作物もブロック選択（破壊・操作）のターゲットにする。
+function isTargetable(id){return isSolid(id)||isCrop(id);}
 // Biome-aware terrain height. A gentle rolling base is modulated per biome so
 // mountains tower, oceans sink below sea level, mesas form flat plateaus and
 // volcanoes build steep cones — all blended smoothly via the climate fields.
