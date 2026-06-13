@@ -17,6 +17,8 @@ if(side===0)b.idx.push(base,base+1,base+2,base,base+2,base+3);else b.idx.push(ba
 const x0=cx*CHUNK,z0=cz*CHUNK;for(let x=x0;x<x0+CHUNK;x++){for(let z=z0;z<z0+CHUNK;z++){for(let y=0;y<WORLD_H;y++){const id=world[blockIndex(x,y,z)];if(id===B.AIR)continue;const def=BLOCKS[id];
 // 作物: クロス形状で成長段階に応じたタイルを描画する。
 if(def&&def.crop){const tile=(typeof FARM!=='undefined')?FARM.stageTileAt(x,y,z,def):def.stages[def.stages.length-1];pushCross(buf,x,y,z,tile,0.95);continue;}
+// 枯れ草など非作物のクロス植物(×字)を平面2枚で描画する。
+if(def&&def.crossPlant){pushCross(buf,x,y,z,def.all,0.92);continue;}
 // TASK7: 液体セルは流体シミュレーションの量(level)に応じた上面高さで描画。
 const isFluidCell=(id===B.WATER||id===B.LAVA);const topH=isFluidCell&&typeof FLUID!=='undefined'?FLUID.surfaceHeight(x,y,z):1;
 for(const f of FACES){const n=getBlock(x+f.dir[0],y+f.dir[1],z+f.dir[2]);if(id===B.WATER){
