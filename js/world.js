@@ -4,6 +4,15 @@ function isCrop(id){const d=BLOCKS[id];return!!(d&&d.crop);}
 function isSolid(id){return id!==B.AIR&&id!==B.WATER&&id!==B.LAVA&&id!==B.SEAWEED&&id!==B.DEAD_BUSH&&!isCrop(id);}
 // raycast 用: 衝突しない作物もブロック選択（破壊・操作）のターゲットにする。
 function isTargetable(id){return isSolid(id)||isCrop(id);}
+// === 天空光(skylight) ===
+// あるセルの真上に不透明ブロックがあるか（空が見えないか）を調べる。
+// 空が見えない＝地下/室内とみなし、洞窟内を「真っ暗」にするために使う。
+// 透明ブロック(葉・ガラス等)と流体は遮蔽に数えない。
+function blocksSky(id){if(id===B.AIR||id===B.WATER||id===B.LAVA)return false;const d=BLOCKS[id];if(d&&(d.transparent||d.crop||d.crossPlant))return false;return true;}
+function skyExposed(x,y,z){for(let yy=y+1;yy<WORLD_H;yy++){if(blocksSky(getBlock(x,yy,z)))return false;}return true;}
+// セル(x,y,z)の「天空光レベル」を 0..1 で返す。直上が空に開けていれば 1。
+// そうでなければ近傍（上方含む斜め）を少しだけ参照し、洞窟入口付近をなだらかにする。
+function skyLightAt(x,y,z){if(skyExposed(x,y,z))return 1;let best=0;const offs=[[1,0],[-1,0],[0,1],[0,-1]];for(const[dx,dz]of offs){if(skyExposed(x+dx,y+1,z+dz)){best=Math.max(best,0.55);}}return best;}
 // Biome-aware terrain height. A gentle rolling base is modulated per biome so
 // mountains tower, oceans sink below sea level, mesas form flat plateaus and
 // volcanoes build steep cones — all blended smoothly via the climate fields.
