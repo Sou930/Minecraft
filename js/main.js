@@ -1,5 +1,5 @@
 const DAY_LENGTH=240;let dayTime=DAY_LENGTH*0.25;const skyDay=new BABYLON.Color3(0.53,0.81,0.92);const skyNight=new BABYLON.Color3(0.03,0.05,0.13);function updateDayNight(dt){dayTime=(dayTime+dt)%DAY_LENGTH;const angle=(dayTime/DAY_LENGTH)*Math.PI*2;const sunUp=Math.sin(angle);const dayF=Math.max(0,Math.min(1,sunUp*2+0.2));sunLight.direction=new BABYLON.Vector3(-Math.cos(angle)*0.6,-Math.max(0.15,sunUp),-0.35).normalize();sunLight.intensity=0.75*Math.max(0,sunUp);hemiLight.intensity=0.25+0.6*dayF;const sky=BABYLON.Color3.Lerp(skyNight,skyDay,dayF);scene.clearColor=new BABYLON.Color4(sky.r,sky.g,sky.b,1);scene.fogColor=sky;const SKY_DIST=230;const sx=Math.cos(angle)*0.6,sy=sunUp,sz=0.35;const sl=Math.hypot(sx,sy,sz);sunMesh.position.set(camera.position.x+(sx/sl)*SKY_DIST,camera.position.y+(sy/sl)*SKY_DIST,camera.position.z+(sz/sl)*SKY_DIST);sunMesh.setEnabled(sunUp>-0.12);moonMesh.position.set(camera.position.x-(sx/sl)*SKY_DIST,camera.position.y-(sy/sl)*SKY_DIST,camera.position.z-(sz/sl)*SKY_DIST);moonMesh.setEnabled(sunUp<0.12);const td=document.getElementById('time-display');td.textContent=sunUp>0.15?'☀ 昼':(sunUp<-0.15?'🌙 夜':(Math.cos(angle)>0?'🌅 朝':'🌇 夕方'));}
-const GRAVITY=-24;function update(dt){if(!started||player.dead)return;if(paused&&!isMobile)return;if(inventoryOpen){if(mining.active||mining.progress>0){mining.active=false;resetMining();}
+const GRAVITY=-24;function update(dt){if(!worldReady||!started||player.dead)return;if(paused&&!isMobile)return;if(inventoryOpen){if(mining.active||mining.progress>0){mining.active=false;resetMining();}
 return;}
 let mx=0,mz=0;if(keys['KeyW'])mz+=1;if(keys['KeyS'])mz-=1;if(keys['KeyA'])mx-=1;if(keys['KeyD'])mx+=1;if(joy.active){mx+=joy.x;mz+=-joy.y;}
 const mlen=Math.hypot(mx,mz);if(mlen>1){mx/=mlen;mz/=mlen;}
@@ -15,8 +15,37 @@ player.eatCooldown=Math.max(0,player.eatCooldown-dt);const moving=mlen>0.05;play
 if(player.hunger>=14&&player.hp<20){player.regenTimer+=dt;if(player.regenTimer>3.5){player.regenTimer=0;player.hp=Math.min(20,player.hp+1);updateVitalsUI();}}else player.regenTimer=0;if(player.hunger<=0){player.starveTimer+=dt;if(player.starveTimer>4){player.starveTimer=0;if(player.hp>1)damage(1);}}else player.starveTimer=0;if(inWaterHead){player.idleTimer+=dt;if(player.idleTimer>8){player.idleTimer=6.5;damage(1);}}else player.idleTimer=0;
 // Lava burns: standing in / touching lava deals rapid damage.
 if(!player.flying&&(isInLava(0.2)||isInLava(0.9))){player.lavaTimer=(player.lavaTimer||0)+dt;if(player.lavaTimer>0.5){player.lavaTimer=0;damage(3);}}else player.lavaTimer=0;camera.position.set(player.pos.x,player.pos.y+PLAYER.eye,player.pos.z);camera.rotation.set(player.pitch,player.yaw,0);updateTarget();updateMining(dt);document.getElementById('water-tint').style.opacity=inWaterHead?'1':'0';}
-let hudTimer=0;function updateHUD(dt){hudTimer+=dt;if(hudTimer<0.25)return;hudTimer=0;document.getElementById('fps-display').textContent=`FPS: ${engine.getFps().toFixed(0)}`;document.getElementById('pos-display').textContent=`X: ${player.pos.x.toFixed(0)} Y: ${player.pos.y.toFixed(0)} Z: ${player.pos.z.toFixed(0)}`;const bx=Math.floor(player.pos.x),bz=Math.floor(player.pos.z);const bio=(bx>=0&&bx<WORLD_W&&bz>=0&&bz<WORLD_D)?biomeMap[colIndex(bx,bz)]:biomeAt(bx,bz);document.getElementById('biome-display').textContent=BIOME_NAME[bio];updateChunkStreaming(4);}
-generateWorld();loadEdits();spawnPoint=findSpawn();player.pos.copyFrom(spawnPoint);updateChunkStreaming(Infinity);loadInventory();createInventoryUI();renderHotbar();updateVitalsUI();if(isMobile){document.getElementById('start-help-pc').style.display='none';document.getElementById('start-help-mobile').style.display='block';}
+let hudTimer=0;function updateHUD(dt){if(!worldReady)return;hudTimer+=dt;if(hudTimer<0.25)return;hudTimer=0;document.getElementById('fps-display').textContent=`FPS: ${engine.getFps().toFixed(0)}`;document.getElementById('pos-display').textContent=`X: ${player.pos.x.toFixed(0)} Y: ${player.pos.y.toFixed(0)} Z: ${player.pos.z.toFixed(0)}`;const bx=Math.floor(player.pos.x),bz=Math.floor(player.pos.z);const bio=(bx>=0&&bx<WORLD_W&&bz>=0&&bz<WORLD_D)?biomeMap[colIndex(bx,bz)]:biomeAt(bx,bz);document.getElementById('biome-display').textContent=BIOME_NAME[bio];updateChunkStreaming(4);}
+// Render loop is started immediately, but gameplay (update) is gated by the
+// `started` flag and `worldReady`, so the loop just paints the loading sky
+// until generation finishes. This avoids blocking the main thread.
+let worldReady=false;
+function setLoadProgress(frac,label){const fill=document.getElementById('loading-bar-fill');const pct=document.getElementById('loading-percent');const st=document.getElementById('loading-status');if(fill)fill.style.width=(frac*100).toFixed(0)+'%';if(pct)pct.textContent=(frac*100).toFixed(0)+'%';if(st&&label)st.textContent=label;}
+async function bootstrap(){
+  await generateWorldAsync(setLoadProgress);
+  loadEdits();
+  spawnPoint=findSpawn();player.pos.copyFrom(spawnPoint);
+  // Stream nearby chunks in batches across frames so meshing never freezes.
+  setLoadProgress(1.0,'地形を描画中...');
+  await new Promise(r=>requestAnimationFrame(()=>r()));
+  // Mesh only the chunks the player can immediately see (the full view box is
+  // (2*VIEW_DIST+1)^2 chunks). Build a few per frame so the loading screen
+  // stays smooth; remaining far chunks stream in lazily during play.
+  const need=(VIEW_DIST_CHUNKS*2+1)*(VIEW_DIST_CHUNKS*2+1);
+  let metaBuilt=0,guard=0;
+  while(guard++<600){
+    const n=updateChunkStreaming(5);
+    metaBuilt+=n;
+    setLoadProgress(Math.min(1,metaBuilt/need),'地形を描画中...');
+    await new Promise(r=>requestAnimationFrame(()=>r()));
+    if(n===0)break; // all in-view chunks meshed
+  }
+  loadInventory();createInventoryUI();renderHotbar();updateVitalsUI();
+  worldReady=true;
+  const lo=document.getElementById('loading-overlay');if(lo){lo.classList.add('hidden');setTimeout(()=>lo.remove(),450);}
+}
+if(isMobile){document.getElementById('start-help-pc').style.display='none';document.getElementById('start-help-mobile').style.display='block';}
+bootstrap();
 function startGame(){started=true;if(isMobile){paused=false;document.getElementById('start-overlay').style.display='none';}else{canvas.requestPointerLock();setTimeout(()=>{if(document.pointerLockElement!==canvas){paused=false;document.getElementById('start-overlay').style.display='none';}},300);}}
 document.getElementById('btn-start').addEventListener('click',(e)=>{e.stopPropagation();startGame();});document.getElementById('start-overlay').addEventListener('click',startGame);document.getElementById('btn-reset-world').addEventListener('click',(e)=>{e.stopPropagation();if(confirm('ワールドを初期化しますか？建築した内容はすべて消えます。')){localStorage.removeItem('bw_edits');localStorage.removeItem('bw_seed');localStorage.removeItem('bw_inventory');location.reload();}});engine.runRenderLoop(()=>{const dt=Math.min(0.05,engine.getDeltaTime()/1000);update(dt);updateDayNight(dt);updateHUD(dt);scene.render();});function setAppHeight(){const vv=window.visualViewport,h=vv?vv.height:window.innerHeight,top=vv?vv.offsetTop:0;const bottom=Math.max(0,window.innerHeight-h-top);const root=document.documentElement.style;root.setProperty('--app-height',h+'px');root.setProperty('--vv-top',top+'px');root.setProperty('--vv-bottom',bottom+'px');engine.resize();}
 window.addEventListener('resize',setAppHeight);window.addEventListener('orientationchange',()=>setTimeout(setAppHeight,100));if(window.visualViewport){window.visualViewport.addEventListener('resize',setAppHeight);window.visualViewport.addEventListener('scroll',()=>window.scrollTo(0,0));}
