@@ -61,7 +61,7 @@ const isMobile=('ontouchstart'in window)&&/Mobi|Android|iPhone|iPad|Tablet/i.tes
 // World schema version. Bump whenever world dimensions change so that saved
 // edits/seed from an incompatible layout are discarded instead of corrupting
 // the new (smaller) world or pointing at out-of-range coordinates.
-const WORLD_VERSION="5-512x96-farming";
+const WORLD_VERSION="6-512x96-rivers-lakes";
 if(localStorage.getItem('bw_world_version')!==WORLD_VERSION){
   localStorage.removeItem('bw_edits');
   localStorage.removeItem('bw_seed');
