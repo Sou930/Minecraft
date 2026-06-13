@@ -23,10 +23,27 @@ function updateMining(dt){if(!mining.active||!currentTarget||player.dead){if(min
 const key=currentTarget.x+','+currentTarget.y+','+currentTarget.z;if(key!==mining.key){mining.key=key;mining.progress=0;mining.stage=-1;}
 const need=getBreakTime(currentTarget.id);if(!isFinite(need)){resetMining();return;}
 mining.progress+=dt;const ratio=Math.min(1,mining.progress/need);crackBox.position.set(currentTarget.x+0.5,currentTarget.y+0.5,currentTarget.z+0.5);crackBox.setEnabled(true);const stage=Math.min(CRACK_STAGES-1,Math.floor(ratio*CRACK_STAGES));if(stage!==mining.stage){mining.stage=stage;drawCrack(stage);}
-updateMiningUI(ratio);if(mining.progress>=need){const minedId=currentTarget.id;setBlock(currentTarget.x,currentTarget.y,currentTarget.z,B.AIR);const drop=dropFor(minedId);if(drop!==null&&drop!==undefined)addToInventory(drop,1);mining.progress=0;mining.key=null;mining.stage=-1;crackBox.setEnabled(false);updateMiningUI(0);updateTarget();}}
+updateMiningUI(ratio);if(mining.progress>=need){const minedId=currentTarget.id;const mx=currentTarget.x,my=currentTarget.y,mz=currentTarget.z;const minedDef=BLOCKS[minedId];
+// 作物は専用の収穫処理(成長段階に応じたドロップ)。
+if(minedDef&&minedDef.crop&&typeof FARM!=='undefined'){FARM.harvest(mx,my,mz,minedId);setBlock(mx,my,mz,B.AIR);}
+else{if(typeof FARM!=='undefined')FARM.onBlockChanged(mx,my,mz,B.AIR);setBlock(mx,my,mz,B.AIR);const drop=dropFor(minedId);if(drop!==null&&drop!==undefined)addToInventory(drop,1);
+// スイカは複数の薄切りをドロップ。
+if(minedDef&&minedDef.harvestItem){const hi=minedDef.harvestItem;const n=hi.min+Math.floor(Math.random()*(hi.max-hi.min+1));for(let i=0;i<n;i++)addToInventory(hi.id,1);} }
+mining.progress=0;mining.key=null;mining.stage=-1;crackBox.setEnabled(false);updateMiningUI(0);updateTarget();}}
 function placeOrEat(){if(player.dead||inventoryOpen)return;if(currentTarget&&currentTarget.id===B.CRAFTING){clearInterval(actionInterval);toggleInventory(true,3);return;}
-const slot=inventory[selectedSlot];if(!slot)return;if(ITEMS[slot.id]){eatFood(selectedSlot);return;}
+const slot=inventory[selectedSlot];if(!slot)return;const itemDef=ITEMS[slot.id];
+// クワ: 狙っている草/土ブロックの上面を耕地に変える。
+if(itemDef&&itemDef.tool==='hoe'){tillSoil();return;}
+// 種・苗: 耕地の上に作物を植える。
+if(itemDef&&itemDef.plant!==undefined){if(plantSeed(slot.id,itemDef.plant))return;}
+// 食べ物: food があれば食べる。
+if(itemDef){if(itemDef.food)eatFood(selectedSlot);return;}
+// 通常ブロック設置。
 if(!currentTarget)return;const{px,py,pz}=currentTarget;if(px<0||px>=WORLD_W||py<0||py>=WORLD_H||pz<0||pz>=WORLD_D)return;const cur=getBlock(px,py,pz);if(isSolid(cur))return;const box=playerAABB(player.pos);if(px+1>box.minX&&px<box.maxX&&py+1>box.minY&&py<box.maxY&&pz+1>box.minZ&&pz<box.maxZ)return;setBlock(px,py,pz,slot.id);consumeFromSlot(selectedSlot,1);}
+// クワで耕す: 狙った草/土の「上面」が空いていれば耕地にする。
+function tillSoil(){if(!currentTarget)return;const{x,y,z}=currentTarget;const id=getBlock(x,y,z);if(id!==B.GRASS&&id!==B.DIRT&&id!==B.PATH)return;if(getBlock(x,y+1,z)!==B.AIR)return;setBlock(x,y,z,B.FARMLAND);}
+// 種を植える: 狙ったブロック上の空きセルに、その下が耕地なら作物を植える。
+function plantSeed(itemId,blockId){if(!currentTarget)return false;const{px,py,pz}=currentTarget;if(typeof FARM==='undefined')return false;if(FARM.plant(px,py,pz,blockId)){consumeFromSlot(selectedSlot,1);return true;}return false;}
 function eatFood(slotIndex){const slot=inventory[slotIndex];if(!slot||!ITEMS[slot.id])return;if(player.eatCooldown>0||player.hunger>=20)return;player.hunger=Math.min(20,player.hunger+ITEMS[slot.id].food);player.eatCooldown=1.5;consumeFromSlot(slotIndex,1);updateVitalsUI();}
 function damage(amount){if(player.dead||amount<=0)return;player.hp=Math.max(0,player.hp-amount);const flash=document.getElementById('damage-flash');flash.style.transition='none';flash.style.opacity='1';requestAnimationFrame(()=>{flash.style.transition='opacity .45s';flash.style.opacity='0';});updateVitalsUI();if(player.hp<=0)die();}
 function die(){player.dead=true;document.getElementById('death-overlay').style.display='flex';setTimeout(()=>{respawn();document.getElementById('death-overlay').style.display='none';},1600);}
