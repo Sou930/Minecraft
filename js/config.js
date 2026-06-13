@@ -7,12 +7,57 @@
 [B.PUMPKIN]:{name:"カボチャ",top:T.PUMPKIN_TOP,side:T.PUMPKIN_SIDE,front:T.PUMPKIN_FACE,bottom:T.PUMPKIN_TOP,breakTime:1.0},
 [B.MELON]:{name:"スイカ",top:T.MELON_TOP,side:T.MELON_SIDE,bottom:T.MELON_TOP,breakTime:1.0,harvestItem:{id:205,min:3,max:7}},
 };const ITEM_APPLE=100;const ITEM_SEEDS=200,ITEM_WHEAT=201,ITEM_CARROT=202,ITEM_POTATO=203,ITEM_BREAD=204,ITEM_MELON_SLICE=205,ITEM_PUMPKIN_PIE=206,ITEM_BAKED_POTATO=207,ITEM_HOE=210;const ITEMS={[ITEM_APPLE]:{name:'リンゴ',emoji:'🍎',food:4},[ITEM_SEEDS]:{name:'種',emoji:'🌱',plant:B.WHEAT},[ITEM_WHEAT]:{name:'小麦',emoji:'🌾'},[ITEM_CARROT]:{name:'ニンジン',emoji:'🥕',food:3,plant:B.CARROT},[ITEM_POTATO]:{name:'ジャガイモ',emoji:'🥔',food:1,plant:B.POTATO},[ITEM_BREAD]:{name:'パン',emoji:'🍞',food:5},[ITEM_MELON_SLICE]:{name:'スイカの薄切り',emoji:'🍉',food:2},[ITEM_PUMPKIN_PIE]:{name:'カボチャパイ',emoji:'🥧',food:8},[ITEM_BAKED_POTATO]:{name:'ベイクドポテト',emoji:'🍠',food:5},[ITEM_HOE]:{name:'クワ',emoji:'🪓',tool:'hoe'}};const STACK_MAX=64;function dropFor(id){if(id===B.GRASS)return Math.random()<0.18?ITEM_SEEDS:B.DIRT;if(id===B.STONE)return B.COBBLE;if(id===B.GLASS)return null;if(id===B.ICE)return null;if(id===B.LAVA)return null;if(id===B.LEAVES||id===B.BIRCH_LEAVES)return Math.random()<0.2?ITEM_APPLE:null;if(id===B.COBWEB)return null;if(id===B.PATH)return B.DIRT;if(id===B.GLOW_LICHEN)return null;if(id===B.FARMLAND||id===B.FARMLAND_WET)return B.DIRT;if(id===B.MELON)return null;return id;}
-const RECIPES=[{pattern:[[B.LOG]],out:{id:B.PLANKS,count:4}},{pattern:[[B.BIRCH_LOG]],out:{id:B.PLANKS,count:4}},{pattern:[[B.SAND,B.SAND],[B.SAND,B.SAND]],out:{id:B.GLASS,count:4}},{pattern:[[B.COBBLE,B.COBBLE],[B.COBBLE,B.COBBLE]],out:{id:B.BRICK,count:4}},{pattern:[[B.DIRT,B.DIRT],[B.DIRT,B.DIRT]],out:{id:B.GRASS,count:1}},{pattern:[[B.PLANKS,B.PLANKS],[B.PLANKS,B.PLANKS]],out:{id:B.CRAFTING,count:1}},{pattern:[[B.COBBLE,B.COBBLE],[B.COBBLE,null]],out:{id:B.FURNACE,count:1}},{pattern:[[B.SAND],[B.SAND]],out:{id:B.SANDSTONE,count:1}},{pattern:[[B.SNOW,B.SNOW],[B.SNOW,B.SNOW]],out:{id:B.ICE,count:1}},{pattern:[[B.COBBLE,B.COBBLE,B.COBBLE],[B.COBBLE,null,B.COBBLE],[B.COBBLE,B.COBBLE,B.COBBLE]],out:{id:B.FURNACE,count:2}},{pattern:[[B.COBBLE,B.COBBLE,B.COBBLE],[B.COBBLE,B.COBBLE,B.COBBLE],[B.COBBLE,B.COBBLE,B.COBBLE]],out:{id:B.OBSIDIAN,count:1}},{pattern:[[B.SAND,B.SAND,B.SAND]],out:{id:B.SANDSTONE,count:3}},{pattern:[[B.AMETHYST_CLUSTER,B.AMETHYST_CLUSTER],[B.AMETHYST_CLUSTER,B.AMETHYST_CLUSTER]],out:{id:B.AMETHYST_BLOCK,count:1}},{pattern:[[B.MOSS,B.MOSS],[B.MOSS,B.MOSS]],out:{id:B.GRASS,count:4}},
-{pattern:[[B.PLANKS,B.PLANKS],[null,B.PLANKS]],out:{id:ITEM_HOE,count:1}},
-{pattern:[[ITEM_WHEAT,ITEM_WHEAT,ITEM_WHEAT]],out:{id:ITEM_BREAD,count:1}},
-{pattern:[[B.PUMPKIN]],out:{id:ITEM_SEEDS,count:4}},
-{pattern:[[B.PUMPKIN,ITEM_WHEAT],[ITEM_WHEAT,B.PUMPKIN]],out:{id:ITEM_PUMPKIN_PIE,count:1}},
-{pattern:[[ITEM_MELON_SLICE,ITEM_MELON_SLICE,ITEM_MELON_SLICE],[ITEM_MELON_SLICE,ITEM_MELON_SLICE,ITEM_MELON_SLICE],[ITEM_MELON_SLICE,ITEM_MELON_SLICE,ITEM_MELON_SLICE]],out:{id:B.MELON,count:1}},];const isMobile=('ontouchstart'in window)&&/Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac|iPad/i.test(navigator.userAgent));if(isMobile)document.body.classList.add('is-mobile');
+// レシピカテゴリ定義（タブで絞り込み表示）
+const RECIPE_CATEGORIES=[
+  {id:'all',name:'すべて',emoji:'📖'},
+  {id:'building',name:'建材',emoji:'🧱'},
+  {id:'tools',name:'道具',emoji:'⛏'},
+  {id:'food',name:'食料',emoji:'🍞'},
+  {id:'deco',name:'装飾',emoji:'✨'},
+];
+const RECIPES=[
+{cat:'building',pattern:[[B.LOG]],out:{id:B.PLANKS,count:4}},
+{cat:'building',pattern:[[B.BIRCH_LOG]],out:{id:B.PLANKS,count:4}},
+{cat:'building',pattern:[[B.SAND,B.SAND],[B.SAND,B.SAND]],out:{id:B.GLASS,count:4}},
+{cat:'building',pattern:[[B.COBBLE,B.COBBLE],[B.COBBLE,B.COBBLE]],out:{id:B.BRICK,count:4}},
+{cat:'building',pattern:[[B.DIRT,B.DIRT],[B.DIRT,B.DIRT]],out:{id:B.GRASS,count:1}},
+{cat:'tools',pattern:[[B.PLANKS,B.PLANKS],[B.PLANKS,B.PLANKS]],out:{id:B.CRAFTING,count:1}},
+{cat:'tools',pattern:[[B.COBBLE,B.COBBLE],[B.COBBLE,null]],out:{id:B.FURNACE,count:1}},
+{cat:'building',pattern:[[B.SAND],[B.SAND]],out:{id:B.SANDSTONE,count:1}},
+{cat:'building',pattern:[[B.SNOW,B.SNOW],[B.SNOW,B.SNOW]],out:{id:B.ICE,count:1}},
+{cat:'tools',pattern:[[B.COBBLE,B.COBBLE,B.COBBLE],[B.COBBLE,null,B.COBBLE],[B.COBBLE,B.COBBLE,B.COBBLE]],out:{id:B.FURNACE,count:2}},
+{cat:'building',pattern:[[B.COBBLE,B.COBBLE,B.COBBLE],[B.COBBLE,B.COBBLE,B.COBBLE],[B.COBBLE,B.COBBLE,B.COBBLE]],out:{id:B.OBSIDIAN,count:1}},
+{cat:'building',pattern:[[B.SAND,B.SAND,B.SAND]],out:{id:B.SANDSTONE,count:3}},
+{cat:'deco',pattern:[[B.AMETHYST_CLUSTER,B.AMETHYST_CLUSTER],[B.AMETHYST_CLUSTER,B.AMETHYST_CLUSTER]],out:{id:B.AMETHYST_BLOCK,count:1}},
+{cat:'building',pattern:[[B.MOSS,B.MOSS],[B.MOSS,B.MOSS]],out:{id:B.GRASS,count:4}},
+{cat:'tools',pattern:[[B.PLANKS,B.PLANKS],[null,B.PLANKS]],out:{id:ITEM_HOE,count:1}},
+{cat:'food',pattern:[[ITEM_WHEAT,ITEM_WHEAT,ITEM_WHEAT]],out:{id:ITEM_BREAD,count:1}},
+{cat:'food',pattern:[[B.PUMPKIN]],out:{id:ITEM_SEEDS,count:4}},
+{cat:'food',pattern:[[B.PUMPKIN,ITEM_WHEAT],[ITEM_WHEAT,B.PUMPKIN]],out:{id:ITEM_PUMPKIN_PIE,count:1}},
+{cat:'food',pattern:[[ITEM_MELON_SLICE,ITEM_MELON_SLICE,ITEM_MELON_SLICE],[ITEM_MELON_SLICE,ITEM_MELON_SLICE,ITEM_MELON_SLICE],[ITEM_MELON_SLICE,ITEM_MELON_SLICE,ITEM_MELON_SLICE]],out:{id:B.MELON,count:1}},
+];
+// ===== アチーブメント（実績）定義 =====
+// stat: ACH.stats のどの累計値を見るか / goal: 達成に必要な値 / icon: 表示絵文字
+const ACHIEVEMENTS=[
+  {id:'first_block',icon:'\u26cf',name:'\u6700\u521d\u306e\u4e00\u6483',desc:'\u30d6\u30ed\u30c3\u30af\u3092 1 \u3064\u7834\u58ca\u3059\u308b',stat:'mined',goal:1},
+  {id:'miner_50',icon:'\ud83e\udea8',name:'\u63a1\u6398\u898b\u7fd2\u3044',desc:'\u30d6\u30ed\u30c3\u30af\u3092 50 \u500b\u7834\u58ca\u3059\u308b',stat:'mined',goal:50},
+  {id:'miner_500',icon:'\u26f0',name:'\u3064\u308b\u306f\u3057\u30de\u30b9\u30bf\u30fc',desc:'\u30d6\u30ed\u30c3\u30af\u3092 500 \u500b\u7834\u58ca\u3059\u308b',stat:'mined',goal:500},
+  {id:'builder_1',icon:'\ud83e\uddf1',name:'\u8857\u3065\u304f\u308a\u306e\u7b2c\u4e00\u6b69',desc:'\u30d6\u30ed\u30c3\u30af\u3092 1 \u3064\u8a2d\u7f6e\u3059\u308b',stat:'placed',goal:1},
+  {id:'builder_100',icon:'\ud83c\udfdb',name:'\u5efa\u7bc9\u5bb6',desc:'\u30d6\u30ed\u30c3\u30af\u3092 100 \u500b\u8a2d\u7f6e\u3059\u308b',stat:'placed',goal:100},
+  {id:'first_craft',icon:'\ud83d\udee0',name:'\u30af\u30e9\u30d5\u30bf\u30fc\u5165\u9580',desc:'\u521d\u3081\u3066\u30a2\u30a4\u30c6\u30e0\u3092\u30af\u30e9\u30d5\u30c8\u3059\u308b',stat:'crafted',goal:1},
+  {id:'craft_25',icon:'\ud83c\udfed',name:'\u719f\u7df4\u306e\u8077\u4eba',desc:'\u30a2\u30a4\u30c6\u30e0\u3092 25 \u56de\u30af\u30e9\u30d5\u30c8\u3059\u308b',stat:'crafted',goal:25},
+  {id:'workbench',icon:'\ud83e\udea7',name:'\u4f5c\u696d\u53f0\u30c7\u30d3\u30e5\u30fc',desc:'\u4f5c\u696d\u53f0\u3092\u8a2d\u7f6e\u3057\u3066\u958b\u304f',stat:'workbench',goal:1},
+  {id:'tree_chop',icon:'\ud83e\udeb5',name:'\u6728\u3053\u308a',desc:'\u539f\u6728\u3092 10 \u500b\u96c6\u3081\u308b',stat:'wood',goal:10},
+  {id:'farmer',icon:'\ud83c\udf3e',name:'\u99c6\u3051\u51fa\u3057\u8fb2\u5bb6',desc:'\u4f5c\u7269\u3092 1 \u3064\u53ce\u7a6b\u3059\u308b',stat:'harvest',goal:1},
+  {id:'farmer_30',icon:'\ud83d\ude9c',name:'\u8c4a\u4f5c',desc:'\u4f5c\u7269\u3092 30 \u500b\u53ce\u7a6b\u3059\u308b',stat:'harvest',goal:30},
+  {id:'gourmet',icon:'\ud83c\udf7d',name:'\u3050\u308b\u3081',desc:'\u98df\u3079\u7269\u3092 10 \u56de\u98df\u3079\u308b',stat:'eaten',goal:10},
+  {id:'diamond',icon:'\ud83d\udc8e',name:'\u30c0\u30a4\u30e4\u30e2\u30f3\u30c9\uff01',desc:'\u30c0\u30a4\u30e4\u30e2\u30f3\u30c9\u9271\u77f3\u3092\u63a1\u6398\u3059\u308b',stat:'diamond',goal:1},
+  {id:'obsidian',icon:'\ud83d\udfea',name:'\u9ed2\u66dc\u77f3\u306e\u8efd\u91cf\u5316',desc:'\u9ed2\u66dc\u77f3\u3092\u624b\u306b\u5165\u308c\u308b',stat:'obsidian',goal:1},
+  {id:'swimmer',icon:'\ud83c\udfca',name:'\u6cf3\u304e\u624b',desc:'\u6c34\u306e\u4e2d\u306b\u6f5c\u308b',stat:'swim',goal:1},
+  {id:'flyer',icon:'\ud83d\udd4a',name:'\u30af\u30ea\u30a8\u30a4\u30bf\u30fc',desc:'\u98db\u884c\u30e2\u30fc\u30c9\u3092\u4f7f\u3046',stat:'fly',goal:1},
+  {id:'night',icon:'\ud83c\udf19',name:'\u591c\u3092\u8d8a\u3048\u3066',desc:'\u521d\u3081\u3066\u306e\u591c\u3092\u8fce\u3048\u308b',stat:'night',goal:1},
+];
+const isMobile=('ontouchstart'in window)&&/Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac|iPad/i.test(navigator.userAgent));if(isMobile)document.body.classList.add('is-mobile');
 // World schema version. Bump whenever world dimensions change so that saved
 // edits/seed from an incompatible layout are discarded instead of corrupting
 // the new (smaller) world or pointing at out-of-range coordinates.

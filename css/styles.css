@@ -7,3 +7,70 @@
 #loading-bar{width:min(360px,80vw);height:14px;background:rgba(255,255,255,.15);border-radius:8px;overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,0,0,.4)}
 #loading-bar-fill{width:0%;height:100%;background:linear-gradient(90deg,#43a047,#7cb342);border-radius:8px;transition:width .15s ease}
 #loading-percent{margin-top:10px;font-size:14px;opacity:.8;font-variant-numeric:tabular-nums}
+
+/* ===================================================================== */
+/* ===== UI improvements: recipe tabs, achievements, mobile polish ===== */
+/* ===================================================================== */
+
+/* ----- Recipe category tabs ----- */
+#recipe-tabs{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+.recipe-tab{display:flex;align-items:center;gap:4px;padding:4px 8px;font-family:inherit;font-size:10.5px;font-weight:700;color:#4a3413;background:#b5b5b5;border:2px solid;border-color:#e8e8e8 #6e6e6e #6e6e6e #e8e8e8;border-radius:5px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s}
+.recipe-tab:hover{background:#cfcfcf}
+.recipe-tab.active{background:#a07a3c;color:#fff2d6;border-color:#4a3413 #caa66a #caa66a #4a3413}
+.recipe-tab .rt-emoji{font-size:13px;line-height:1}
+.recipe-empty{font-size:11px;color:#666;text-align:center;padding:16px 4px}
+@media (max-width:760px){.recipe-tab .rt-name{display:none}.recipe-tab{padding:5px 9px}.recipe-tab .rt-emoji{font-size:16px}}
+
+/* ----- Achievements button (top-right HUD) ----- */
+#btn-achievements{position:fixed;top:calc(94px + var(--vv-top));right:12px;z-index:24;display:flex;align-items:center;gap:5px;padding:6px 10px;background:rgba(0,0,0,.45);border:2px solid rgba(255,215,90,.5);color:#ffe082;border-radius:9px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;-webkit-tap-highlight-color:transparent;touch-action:manipulation;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+#btn-achievements:active{background:rgba(255,255,255,.25)}
+#btn-achievements .ach-btn-icon{font-size:15px;line-height:1}
+#ach-count{font-variant-numeric:tabular-nums;opacity:.95}
+body.is-mobile #btn-achievements{top:calc(10px + var(--vv-top));right:10px;padding:6px 9px;font-size:12px}
+
+/* ----- Achievements overlay panel ----- */
+#ach-overlay{position:fixed;left:0;right:0;top:var(--vv-top);height:var(--app-height);z-index:80;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);padding:14px}
+#ach-panel{display:flex;flex-direction:column;width:min(460px,94vw);max-height:calc(var(--app-height) - 28px);background:linear-gradient(160deg,#2a2418,#1a1610);border:2px solid #6b5a2e;border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.6);overflow:hidden;color:#f3ead2}
+#ach-header{display:flex;align-items:center;gap:10px;padding:14px 16px;background:linear-gradient(90deg,#3a2f17,#2a2212);border-bottom:1px solid #5b4a26}
+#ach-header h2{font-size:18px;margin-right:auto;letter-spacing:1px}
+#ach-summary{font-size:12px;color:#ffd866;font-variant-numeric:tabular-nums}
+#btn-ach-close{background:#7a2e2e;color:#fff;border:none;width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:14px;flex:none}
+#btn-ach-close:active{background:#9c3a3a}
+#ach-list{list-style:none;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:8px;-webkit-overflow-scrolling:touch}
+.ach-entry{display:flex;align-items:center;gap:12px;padding:10px 12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:10px;position:relative}
+.ach-entry.done{background:linear-gradient(90deg,rgba(255,206,84,.16),rgba(255,206,84,.05));border-color:rgba(255,206,84,.45)}
+.ach-entry-icon{width:42px;height:42px;flex:none;display:flex;align-items:center;justify-content:center;font-size:24px;background:rgba(0,0,0,.35);border-radius:10px;filter:grayscale(.7);opacity:.7}
+.ach-entry.done .ach-entry-icon{filter:none;opacity:1;background:rgba(255,206,84,.18)}
+.ach-entry-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.ach-entry-name{font-size:14px;font-weight:700;color:#e9dcb6}
+.ach-entry.done .ach-entry-name{color:#ffe9a8}
+.ach-entry-desc{font-size:11.5px;color:#b6ab8c;line-height:1.4}
+.ach-bar{position:relative;height:12px;background:rgba(0,0,0,.4);border-radius:6px;overflow:hidden;margin-top:3px}
+.ach-bar-fill{height:100%;background:linear-gradient(90deg,#caa040,#ffd866);border-radius:6px;transition:width .3s}
+.ach-bar-txt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.6);font-variant-numeric:tabular-nums}
+.ach-check{flex:none;width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:#43a047;color:#fff;border-radius:50%;font-size:14px;font-weight:700;box-shadow:0 0 10px rgba(67,160,71,.6)}
+
+/* ----- Achievement unlock toast ----- */
+#ach-toast-wrap{position:fixed;top:calc(50px + var(--vv-top));right:14px;z-index:95;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:80vw}
+.ach-toast{display:flex;align-items:center;gap:11px;padding:10px 14px 10px 11px;background:linear-gradient(135deg,#3a2f17,#241d10);border:2px solid #ffd866;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.5);color:#fff;transform:translateX(120%);opacity:0;transition:transform .4s cubic-bezier(.2,.8,.3,1.2),opacity .4s}
+.ach-toast.show{transform:translateX(0);opacity:1}
+.ach-toast-icon{width:40px;height:40px;flex:none;display:flex;align-items:center;justify-content:center;font-size:24px;background:rgba(255,206,84,.2);border-radius:10px}
+.ach-toast-title{font-size:10.5px;font-weight:700;color:#ffd866;letter-spacing:1px}
+.ach-toast-name{font-size:14px;font-weight:700;margin-top:1px}
+
+/* ----- Mobile + overall UI polish ----- */
+/* Larger, glassier touch buttons with subtle depth on mobile */
+body.is-mobile .touch-btn{background:rgba(20,20,28,.46);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);border:2px solid rgba(255,255,255,.55);box-shadow:0 3px 10px rgba(0,0,0,.35)}
+body.is-mobile .touch-btn:active{transform:scale(.92);background:rgba(255,255,255,.4)}
+body.is-mobile #btn-break{border-color:rgba(255,180,120,.7)}
+body.is-mobile #btn-place{border-color:rgba(150,210,255,.7)}
+body.is-mobile #joystick-base{backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);box-shadow:0 3px 12px rgba(0,0,0,.3)}
+body.is-mobile #joystick-knob{box-shadow:0 2px 6px rgba(0,0,0,.4)}
+/* Smoother hotbar selected pulse */
+.hotbar-slot.selected{animation:hb-pulse 1.6s ease-in-out infinite}
+@keyframes hb-pulse{0%,100%{box-shadow:0 0 8px rgba(255,255,255,.5)}50%{box-shadow:0 0 14px rgba(255,255,255,.85)}}
+/* Inventory & recipe panel rounded modern frame already; add open animation */
+#inventory-panel,#recipe-panel,#ach-panel{animation:ui-pop .22s ease}
+@keyframes ui-pop{from{transform:scale(.96);opacity:0}to{transform:scale(1);opacity:1}}
+/* Avoid achievements button overlapping status overlay on very narrow screens */
+@media (max-width:380px){#btn-achievements{right:8px;padding:5px 7px}#btn-achievements .ach-btn-icon{font-size:14px}}
