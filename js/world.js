@@ -65,8 +65,12 @@ function craterLavaLevelAt(x,z){
   return Math.min(WORLD_H-6,level);
 }
 const heightMap=new Int16Array(WORLD_W*WORLD_D);const biomeMap=new Uint8Array(WORLD_W*WORLD_D);function colIndex(x,z){return z*WORLD_W+x;}
-function generateWorld(){for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){heightMap[colIndex(x,z)]=heightAt(x,z);biomeMap[colIndex(x,z)]=biomeAt(x,z);}}
-for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];const biome=biomeMap[colIndex(x,z)];const beach=h<=SEA_LEVEL+1;
+// Synchronous full generation (kept for reference / fallback).
+function generateWorld(){generateClimateAndHeight();generateTerrainColumns(0,WORLD_W);carveCaves();carveLargeCaves();placeOresAndGravel();placeVegetation();}
+// --- Split phases so generation can be driven asynchronously --------------
+function generateClimateAndHeight(){for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){heightMap[colIndex(x,z)]=heightAt(x,z);biomeMap[colIndex(x,z)]=biomeAt(x,z);}}}
+// Build terrain blocks for columns in the x-range [x0,x1).
+function generateTerrainColumns(x0,x1){for(let x=x0;x<x1;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];const biome=biomeMap[colIndex(x,z)];const beach=h<=SEA_LEVEL+1;
 const highRock=h>=SEA_LEVEL+34;            // bare stone above this on mountains
 for(let y=0;y<=h&&y<WORLD_H;y++){let id;
 if(y===0)id=B.BEDROCK;
@@ -94,8 +98,7 @@ world[blockIndex(x,y,z)]=id;}
 for(let y=h+1;y<=SEA_LEVEL;y++)world[blockIndex(x,y,z)]=B.WATER;
 if(biome===BIOME.SNOWY&&h<SEA_LEVEL)world[blockIndex(x,SEA_LEVEL,z)]=B.ICE;
 // VOLCANO crater lava lake: flood the summit bowl up to the rim with lava.
-if(biome===BIOME.VOLCANO){const lv=craterLavaLevelAt(x,z);if(lv>h){for(let y=h+1;y<=lv&&y<WORLD_H;y++)world[blockIndex(x,y,z)]=B.LAVA;}}}}
-carveCaves();carveLargeCaves();placeOresAndGravel();placeVegetation();}
+if(biome===BIOME.VOLCANO){const lv=craterLavaLevelAt(x,z);if(lv>h){for(let y=h+1;y<=lv&&y<WORLD_H;y++)world[blockIndex(x,y,z)]=B.LAVA;}}}}}
 function carveCaves(){for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];const yMax=Math.min(h-4,WORLD_H-1);for(let y=2;y<=yMax;y++){const n1=valueNoise3(x/11,y/7,z/11,71);if(n1<=0.6)continue;if(n1>0.745){world[blockIndex(x,y,z)]=B.AIR;continue;}
 const n2=valueNoise3(x/23,y/13,z/23,73);if(n1>0.62&&n2>0.63)world[blockIndex(x,y,z)]=B.AIR;}}}}
 // Hollow out a block only if it is part of the solid underground (never the
@@ -202,6 +205,40 @@ for(let y=1;y<=th;y++){const yy=h+y;if(yy<WORLD_H&&world[blockIndex(x,yy,z)]===B
 // a couple of bare side branches near the top
 const by=h+th-1;const dirs=[[1,0],[-1,0],[0,1],[0,-1]];for(let d=0;d<dirs.length;d++){if(hash2(x*7+d,z*5,27)<0.4){const bx=x+dirs[d][0],bz=z+dirs[d][1];if(bx>0&&bx<WORLD_W&&bz>0&&bz<WORLD_D&&world[blockIndex(bx,by,bz)]===B.AIR)world[blockIndex(bx,by,bz)]=B.DEAD_LOG;}}
 }}}
+// Asynchronous world generation: runs the heavy phases across several frames
+// so the browser stays responsive and we can show a progress bar instead of a
+// frozen "endless reload". onProgress(fraction0to1, label) is called between
+// steps; returns a Promise that resolves when generation is complete.
+function generateWorldAsync(onProgress){
+  const nextFrame=()=>new Promise(r=>requestAnimationFrame(()=>r()));
+  const report=(f,label)=>{if(onProgress)onProgress(Math.max(0,Math.min(1,f)),label);};
+  return (async()=>{
+    report(0.02,'気候・地形を計算中...');
+    await nextFrame();
+    generateClimateAndHeight();
+    // Terrain blocks, sliced into vertical bands so each frame stays short.
+    const BAND=16; // columns of x processed per frame
+    for(let x0=0;x0<WORLD_W;x0+=BAND){
+      generateTerrainColumns(x0,Math.min(WORLD_W,x0+BAND));
+      report(0.05+0.55*(x0/WORLD_W),'地形を生成中...');
+      await nextFrame();
+    }
+    report(0.62,'洞窟を掘削中...');
+    await nextFrame();
+    carveCaves();
+    report(0.74,'大洞窟を生成中...');
+    await nextFrame();
+    carveLargeCaves();
+    report(0.84,'鉱石を配置中...');
+    await nextFrame();
+    placeOresAndGravel();
+    report(0.92,'植生を配置中...');
+    await nextFrame();
+    placeVegetation();
+    report(1.0,'完了');
+    await nextFrame();
+  })();
+}
 let worldEdits={};function loadEdits(){try{worldEdits=JSON.parse(localStorage.getItem('bw_edits')||"{}");}catch(e){worldEdits={};}
 for(const key in worldEdits){const[x,y,z]=key.split(',').map(Number);if(x>=0&&x<WORLD_W&&y>=0&&y<WORLD_H&&z>=0&&z<WORLD_D)
 world[blockIndex(x,y,z)]=worldEdits[key];}}
