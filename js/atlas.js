@@ -1,9 +1,36 @@
 const atlasCanvas=document.createElement('canvas');atlasCanvas.width=ATLAS_W;atlasCanvas.height=ATLAS_H;(function drawAtlas(){const ctx=atlasCanvas.getContext('2d');ctx.clearRect(0,0,ATLAS_W,ATLAS_H);function tileOrigin(t){return[(t%ATLAS_TILES)*TILE_PX,Math.floor(t/ATLAS_TILES)*TILE_PX];}
 function noisy(t,base,variants,density){const[ox,oy]=tileOrigin(t);const rnd=mulberry32(1000+t);ctx.fillStyle=base;ctx.fillRect(ox,oy,TILE_PX,TILE_PX);const n=Math.floor(TILE_PX*TILE_PX*density/4);for(let i=0;i<n;i++){ctx.fillStyle=variants[Math.floor(rnd()*variants.length)];ctx.fillRect(ox+Math.floor(rnd()*TILE_PX/2)*2,oy+Math.floor(rnd()*TILE_PX/2)*2,2,2);}}
-noisy(T.GRASS_TOP,'#5db13e',['#4f9c34','#6cc04a','#479230','#65b944'],0.85);noisy(T.DIRT,'#8b5d3b',['#7a5132','#9a6a44','#6f4a2d','#84583a'],0.8);noisy(T.STONE,'#8a8a8a',['#7d7d7d','#969696','#737373','#828282'],0.7);noisy(T.SAND,'#dcc98a',['#d2bf7e','#e6d49a','#c9b675','#dfcd90'],0.7);noisy(T.BEDROCK,'#3a3a3a',['#2c2c2c','#474747','#222222','#515151'],0.9);noisy(T.WATER,'#2e63c4',['#2a5cb8','#3a70d2','#2657ad','#3569c9'],0.55);{noisy(T.GRASS_SIDE,'#8b5d3b',['#7a5132','#9a6a44','#6f4a2d'],0.8);const[ox,oy]=tileOrigin(T.GRASS_SIDE);const rnd=mulberry32(2001);ctx.fillStyle='#5db13e';ctx.fillRect(ox,oy,TILE_PX,6);for(let x=0;x<TILE_PX;x+=2){const h=6+Math.floor(rnd()*4)*2;ctx.fillStyle=rnd()<0.5?'#4f9c34':'#5db13e';ctx.fillRect(ox+x,oy,2,h);}}
+// GRASS_TOP: 草原の上面。明暗の異なる緑をまだら(クラスタ)に散らし、Minecraft
+// の草ブロックのような自然な斑模様にする。単純な一様ノイズより塊感を出す。
+noisy(T.GRASS_TOP,'#67ad3e',['#58a034','#74bd4a','#4f9530','#6cb544','#7fc955'],0.9);
+{const[ox,oy]=tileOrigin(T.GRASS_TOP);const rnd=mulberry32(9101);const cols=['#4f9530','#7fc955','#58a034'];for(let i=0;i<10;i++){const cx=Math.floor(rnd()*15)*2,cy=Math.floor(rnd()*15)*2;ctx.fillStyle=cols[Math.floor(rnd()*cols.length)];ctx.fillRect(ox+cx,oy+cy,2,2);if(rnd()<0.6)ctx.fillRect(ox+cx+2,oy+cy,2,2);if(rnd()<0.5)ctx.fillRect(ox+cx,oy+cy+2,2,2);}}
+// DIRT: 土。茶系の粒に、ところどころ濃い小石粒を混ぜる。
+noisy(T.DIRT,'#8b5d3b',['#7a5132','#9a6a44','#6f4a2d','#84583a','#a07550'],0.85);
+{const[ox,oy]=tileOrigin(T.DIRT);const rnd=mulberry32(9102);ctx.fillStyle='#5e3f28';for(let i=0;i<8;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+// STONE: 石。灰色の粒に、わずかな割れ目(濃い線)を入れて岩肌感を出す。
+noisy(T.STONE,'#8a8a8a',['#7d7d7d','#969696','#737373','#828282','#6b6b6b'],0.75);
+{const[ox,oy]=tileOrigin(T.STONE);const rnd=mulberry32(9103);ctx.fillStyle='#646464';for(let i=0;i<5;i++){const cx=Math.floor(rnd()*14)*2,cy=Math.floor(rnd()*14)*2;ctx.fillRect(ox+cx,oy+cy,4,2);if(rnd()<0.5)ctx.fillRect(ox+cx,oy+cy+2,2,2);}ctx.fillStyle='#9c9c9c';for(let i=0;i<5;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+// SAND: 砂。淡い黄色の粒。横方向にうっすら砂目の筋を入れる。
+noisy(T.SAND,'#e0cd92',['#d6c386','#ecd8a2','#cdba7d','#e3d098'],0.7);
+{const[ox,oy]=tileOrigin(T.SAND);const rnd=mulberry32(9104);ctx.fillStyle='#cab578';for(let y=2;y<TILE_PX;y+=10)for(let x=0;x<TILE_PX;x+=2)if(rnd()<0.4)ctx.fillRect(ox+x,oy+y,2,2);}
+noisy(T.BEDROCK,'#3a3a3a',['#2c2c2c','#474747','#222222','#515151'],0.9);noisy(T.WATER,'#2e63c4',['#2a5cb8','#3a70d2','#2657ad','#3569c9'],0.55);
+// GRASS_SIDE: 側面。土の上に草が垂れ下がるオーバーレイ。草の縁を不揃いにし、
+// 上部は明るい緑、土部分には小石粒を混ぜる。
+{noisy(T.GRASS_SIDE,'#8b5d3b',['#7a5132','#9a6a44','#6f4a2d','#84583a'],0.8);const[ox,oy]=tileOrigin(T.GRASS_SIDE);const rnd=mulberry32(2001);
+ ctx.fillStyle='#5e3f28';for(let i=0;i<5;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+10+Math.floor(rnd()*10)*2,2,2);
+ // 草の本体(上部の帯)
+ ctx.fillStyle='#67ad3e';ctx.fillRect(ox,oy,TILE_PX,7);
+ // 垂れ下がる不揃いの草の縁
+ for(let x=0;x<TILE_PX;x+=2){const h=6+Math.floor(rnd()*5)*2;ctx.fillStyle=rnd()<0.4?'#58a034':(rnd()<0.5?'#74bd4a':'#67ad3e');ctx.fillRect(ox+x,oy,2,h);}
+ ctx.fillStyle='#7fc955';for(let x=0;x<TILE_PX;x+=2)if(rnd()<0.4)ctx.fillRect(ox+x,oy,2,2);}
 {const[ox,oy]=tileOrigin(T.LOG_SIDE);const rnd=mulberry32(2002);ctx.fillStyle='#6b4a2a';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);for(let x=0;x<TILE_PX;x+=4){ctx.fillStyle=['#5c3f23','#7a5631','#634526','#71502d'][Math.floor(rnd()*4)];ctx.fillRect(ox+x,oy,2,TILE_PX);}}
 {const[ox,oy]=tileOrigin(T.LOG_TOP);ctx.fillStyle='#6b4a2a';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);ctx.fillStyle='#c9a86b';ctx.fillRect(ox+4,oy+4,24,24);ctx.strokeStyle='#8a6a3c';ctx.lineWidth=2;ctx.strokeRect(ox+8,oy+8,16,16);ctx.strokeRect(ox+13,oy+13,6,6);}
-{noisy(T.LEAVES,'#3e8a28',['#347a20','#499b31','#2e711b','#418f2b'],0.95);const[ox,oy]=tileOrigin(T.LEAVES);const rnd=mulberry32(2003);for(let i=0;i<26;i++){ctx.clearRect(ox+Math.floor(rnd()*TILE_PX/2)*2,oy+Math.floor(rnd()*TILE_PX/2)*2,2,2);}}
+// LEAVES: 葉。深緑〜明緑の塊で立体感を出し、わずかに隙間(透明)を開けて
+// 枝葉の重なりを表現する。穴あけは控えめにして“黒い斑点”を防ぐ。
+{noisy(T.LEAVES,'#3e8a28',['#347a20','#499b31','#2e711b','#418f2b','#56a83a'],0.95);const[ox,oy]=tileOrigin(T.LEAVES);const rnd=mulberry32(2003);
+ ctx.fillStyle='#235e16';for(let i=0;i<14;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);
+ ctx.fillStyle='#62bd45';for(let i=0;i<12;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);
+ for(let i=0;i<10;i++){ctx.clearRect(ox+Math.floor(rnd()*TILE_PX/2)*2,oy+Math.floor(rnd()*TILE_PX/2)*2,2,2);}}
 {const[ox,oy]=tileOrigin(T.PLANKS);const rnd=mulberry32(2004);ctx.fillStyle='#b08a4f';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);for(let i=0;i<60;i++){ctx.fillStyle=['#a37e45','#bb945a','#9c7840'][Math.floor(rnd()*3)];ctx.fillRect(ox+Math.floor(rnd()*TILE_PX/2)*2,oy+Math.floor(rnd()*TILE_PX/2)*2,2,2);}
 ctx.fillStyle='#7d5d30';for(let y=0;y<TILE_PX;y+=8)ctx.fillRect(ox,oy+y,TILE_PX,2);ctx.fillRect(ox+8,oy+2,2,6);ctx.fillRect(ox+22,oy+10,2,6);ctx.fillRect(ox+14,oy+18,2,6);ctx.fillRect(ox+4,oy+26,2,6);}
 {const[ox,oy]=tileOrigin(T.GLASS);ctx.fillStyle='#cfeffb';ctx.fillRect(ox,oy,TILE_PX,2);ctx.fillRect(ox,oy+TILE_PX-2,TILE_PX,2);ctx.fillRect(ox,oy,2,TILE_PX);ctx.fillRect(ox+TILE_PX-2,oy,2,TILE_PX);ctx.fillStyle='rgba(220,245,255,0.95)';for(let i=0;i<10;i++)ctx.fillRect(ox+4+i*2,oy+22-i*2,2,2);for(let i=0;i<6;i++)ctx.fillRect(ox+16+i*2,oy+26-i*2,2,2);}
@@ -61,19 +88,24 @@ coralTile(T.CORAL_PINK,'#f0589a','#ffb0d6','#c23f78',4002);coralTile(T.CORAL_PUR
 {const[ox,oy]=tileOrigin(T.DEAD_LOG_SIDE);const rnd=mulberry32(4006);ctx.fillStyle='#6a6056';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);for(let x=0;x<TILE_PX;x+=4){ctx.fillStyle=['#5a5048','#766b5f','#625850','#6f655b'][Math.floor(rnd()*4)];ctx.fillRect(ox+x,oy,2,TILE_PX);}
 ctx.fillStyle='#3e362e';for(let i=0;i<6;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,4+Math.floor(rnd()*2)*2);}
 {const[ox,oy]=tileOrigin(T.DEAD_LOG_TOP);ctx.fillStyle='#6a6056';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);ctx.fillStyle='#857a6c';ctx.fillRect(ox+4,oy+4,24,24);ctx.strokeStyle='#4e463c';ctx.lineWidth=2;ctx.strokeRect(ox+8,oy+8,16,16);ctx.strokeRect(ox+13,oy+13,6,6);}
-// DEAD_BUSH: a transparent 1-block Minecraft-style dead shrub — a short brown
-// stem splitting into a few bare, crooked twigs. Drawn as a cross plant.
-{const[ox,oy]=tileOrigin(T.DEAD_BUSH);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);const rnd=mulberry32(4007);
-const dark='#5a4326',mid='#74552f',lite='#8c6a3c';
-// central stem rising from the bottom
-ctx.fillStyle=mid;ctx.fillRect(ox+15,oy+18,2,12);ctx.fillStyle=dark;ctx.fillRect(ox+15,oy+26,2,4);
-// twigs branching out and upward from the stem
-const twigs=[[15,22,-1],[15,20,1],[15,16,-1],[15,14,1],[16,12,0]];
-for(const[sx,sy,dir]of twigs){let x=sx,y=sy;const len=4+Math.floor(rnd()*4);ctx.fillStyle=rnd()<0.5?mid:lite;
-  for(let i=0;i<len;i++){if(x<1||x>TILE_PX-2||y<1)break;ctx.fillRect(ox+x,oy+y,2,2);x+=dir*2;if(rnd()<0.55)y-=2;}
-  ctx.fillStyle=dark;ctx.fillRect(ox+x-2,oy+Math.max(1,y),2,2);}
-// a couple of stray twiglets for fullness
-ctx.fillStyle=lite;for(let i=0;i<4;i++)ctx.fillRect(ox+(6+Math.floor(rnd()*20)),oy+(8+Math.floor(rnd()*16)),2,2);}
+// DEAD_BUSH(枯れ木): 透明タイルに描く Minecraft 風の枯れ低木。1本の太い主幹
+// から左右へ枝分かれし、先端ほど細く曲がる。乾いた茶系3色で立体感を出す。
+{const[ox,oy]=tileOrigin(T.DEAD_BUSH);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+ const dark='#4f3a20',mid='#6e5029',lite='#8a663a';
+ // 枝を描く小道具: (x,y)から方向(dir:-1左/0直/1右)へ len 本のドット枝を伸ばす
+ function twig(x,y,dir,len,col){ctx.fillStyle=col;let cx=x,cy=y;for(let i=0;i<len;i++){if(cx<1||cx>TILE_PX-2||cy<1)break;ctx.fillRect(ox+cx,oy+cy,2,2);
+   cy-=2; if(i%2===0)cx+=dir*2;}                  // 上へ伸び、1段おきに横へ曲がる
+ }
+ // 主幹(中央, 下から上へ)
+ ctx.fillStyle=mid;ctx.fillRect(ox+15,oy+16,2,14);
+ ctx.fillStyle=dark;ctx.fillRect(ox+15,oy+24,2,6);   // 根元は濃く
+ ctx.fillStyle=lite;ctx.fillRect(ox+15,oy+16,1,8);   // 片側ハイライト
+ // 主幹から分岐する枝(左右交互)
+ twig(15,22,-1,5,mid); twig(17,20, 1,5,lite);
+ twig(15,18,-1,4,lite);twig(17,16, 1,5,mid);
+ twig(15,14, 0,5,dark);                              // 中央の伸びた枝
+ // 先端の細い小枝
+ twig(11,16,-1,3,mid); twig(21,18,1,3,mid);}
 // --- Structure / village blocks -----------------------------------------
 // STONE_BRICK: tidy mortared masonry used for strongholds.
 function brickMasonry(t,base,variants,seed){noisy(t,base,variants,0.45);const[ox,oy]=tileOrigin(t);ctx.fillStyle='rgba(40,40,40,0.55)';ctx.fillRect(ox,oy+15,TILE_PX,2);ctx.fillRect(ox+15,oy,2,16);ctx.fillRect(ox+7,oy+16,2,16);ctx.fillRect(ox+23,oy+16,2,16);ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=1;ctx.strokeRect(ox+1,oy+1,30,30);return seed;}
@@ -85,8 +117,18 @@ brickMasonry(T.STONE_BRICK,'#8d8d8d',['#7f7f7f','#9a9a9a','#757575','#868686'],5
 // PATH: packed-dirt village road (top is trodden earth, side shows soil).
 {noisy(T.PATH_TOP,'#9a7a4e',['#8a6c44','#a8875a','#806440','#917252'],0.55);const[ox,oy]=tileOrigin(T.PATH_TOP);const rnd=mulberry32(5004);ctx.fillStyle='#6f5436';for(let i=0;i<10;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2+Math.floor(rnd()*2)*2,2);ctx.strokeStyle='rgba(60,45,28,0.5)';ctx.lineWidth=1;ctx.strokeRect(ox+1,oy+1,30,30);}
 {noisy(T.PATH_SIDE,'#8b5d3b',['#7a5132','#9a6a44','#6f4a2d'],0.7);const[ox,oy]=tileOrigin(T.PATH_SIDE);ctx.fillStyle='#9a7a4e';ctx.fillRect(ox,oy,TILE_PX,5);}
-// TORCH: a wooden stick topped with a bright flame on a transparent tile.
-{const[ox,oy]=tileOrigin(T.TORCH);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);ctx.fillStyle='#6b4a2a';ctx.fillRect(ox+14,oy+12,4,18);ctx.fillStyle='#5c3f23';ctx.fillRect(ox+14,oy+12,2,18);ctx.fillStyle='#ff8c1a';ctx.fillRect(ox+13,oy+6,6,8);ctx.fillStyle='#ffd23e';ctx.fillRect(ox+14,oy+7,4,5);ctx.fillStyle='#fff6c0';ctx.fillRect(ox+15,oy+8,2,3);}
+// TORCH: 中央に立つ木の棒の先端に明るい炎。column描画で細い柱になるので、
+// テクスチャは中央の細い帯に棒+炎を描く(左右は透明)。Minecraft風。
+{const[ox,oy]=tileOrigin(T.TORCH);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+ // 木の柄(中央, 縦)
+ ctx.fillStyle='#6b4a2a';ctx.fillRect(ox+13,oy+12,6,20);
+ ctx.fillStyle='#7a5631';ctx.fillRect(ox+13,oy+12,2,20);    // 明side
+ ctx.fillStyle='#5c3f23';ctx.fillRect(ox+17,oy+12,2,20);    // 暗side
+ // 炎: 外側オレンジ→内側黄→芯白
+ ctx.fillStyle='#e8530f';ctx.fillRect(ox+12,oy+7,8,7);
+ ctx.fillStyle='#ff8c1a';ctx.fillRect(ox+13,oy+5,6,8);
+ ctx.fillStyle='#ffd23e';ctx.fillRect(ox+14,oy+5,4,7);
+ ctx.fillStyle='#fff6c0';ctx.fillRect(ox+15,oy+6,2,4);}
 // COBWEB: spindly grey threads radiating across a transparent tile.
 {const[ox,oy]=tileOrigin(T.COBWEB);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);ctx.strokeStyle='rgba(235,238,242,0.8)';ctx.lineWidth=1;const cx=ox+16,cy=oy+16;for(let a=0;a<8;a++){const ang=a*Math.PI/4;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(ang)*15,cy+Math.sin(ang)*15);ctx.stroke();}
 for(let r=4;r<=14;r+=4){ctx.beginPath();for(let a=0;a<=8;a++){const ang=a*Math.PI/4;const px=cx+Math.cos(ang)*r,py=cy+Math.sin(ang)*r;if(a===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}ctx.stroke();}}
