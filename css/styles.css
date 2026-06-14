@@ -78,3 +78,16 @@ body.is-mobile #joystick-knob{box-shadow:0 2px 6px rgba(0,0,0,.4)}
 @keyframes ui-pop{from{transform:scale(.96);opacity:0}to{transform:scale(1);opacity:1}}
 /* Avoid achievements button overlapping status overlay on very narrow screens */
 @media (max-width:380px){#btn-achievements{right:8px;padding:5px 7px}#btn-achievements .ach-btn-icon{font-size:14px}}
+
+/* ===== ツール・耐久度システム ===== */
+/* 耐久度バー: スロット下端に細い帯で残量を表示 */
+.dur-bar{position:absolute;left:8%;right:8%;bottom:3px;height:4px;background:rgba(0,0,0,.7);border-radius:2px;overflow:hidden;pointer-events:none;z-index:3}
+.dur-fill{display:block;height:100%;border-radius:2px;transition:width .12s linear,background .2s}
+.hotbar-slot .dur-bar{bottom:2px;height:3px}
+.recipe-icon .dur-bar{display:none}
+/* ツールアイコン: 素材色のグローを下に敷いてティアを示す */
+.tool-emoji{position:relative;filter:drop-shadow(0 0 3px var(--tool-color,#fff));}
+.tool-emoji::after{content:"";position:absolute;left:50%;bottom:-3px;transform:translateX(-50%);width:62%;height:3px;border-radius:2px;background:var(--tool-color,#fff);opacity:.85}
+.recipe-icon .tool-emoji::after{display:none}
+/* 道具が壊れたときのトースト */
+#tool-break-msg{position:fixed;left:50%;top:calc(50% + 48px);transform:translateX(-50%);color:#ffd54f;background:rgba(0,0,0,.6);padding:5px 12px;border-radius:6px;font-size:13px;font-weight:700;pointer-events:none;z-index:30;text-shadow:0 1px 2px #000;white-space:nowrap}

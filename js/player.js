@@ -23,20 +23,46 @@ const mining={active:false,progress:0,key:null,stage:-1};const CRACK_STAGES=10;c
 ctx.stroke();}
 crackTexture.update();}
 function getBreakTime(id){const def=BLOCKS[id];if(!def||def.unbreakable)return Infinity;return def.breakTime!==undefined?def.breakTime:0.75;}
+// 現在手に持っているツール定義（なければ null）。
+function heldToolDef(){const slot=inventory[selectedSlot];return slot&&isTool(slot.id)?toolDef(slot.id):null;}
+// ツールを考慮した実効採掘時間。ブロックの toolClass と一致するツールを持つと素材ティアに応じて高速化。
+function effectiveBreakTime(id){const base=getBreakTime(id);if(!isFinite(base))return base;const def=BLOCKS[id];const tool=heldToolDef();
+if(tool&&def&&def.toolClass&&def.toolClass===tool.toolClass){const mat=TOOL_MATERIALS[tool.material];const mul=mat?mat.speed:1;return base/mul;}
+// 適正ツールを持っていない場合は素手相当（base のまま）。
+return base;}
+// ブロックがそのツールで「正しく」採掘できる（＝ドロップ条件を満たす）か。
+function canHarvest(id){const def=BLOCKS[id];if(!def||!def.minTier)return true;const tool=heldToolDef();if(!tool)return false;
+if(def.toolClass&&tool.toolClass!==def.toolClass)return false;const mat=TOOL_MATERIALS[tool.material];return mat&&mat.tier>=def.minTier;}
 function resetMining(){mining.progress=0;mining.key=null;mining.stage=-1;crackBox.setEnabled(false);updateMiningUI(0);}
 function updateMiningUI(ratio){const bar=document.getElementById('mine-progress');bar.style.opacity=ratio>0?'1':'0';document.getElementById('mine-progress-fill').style.width=(ratio*100).toFixed(1)+'%';}
 function updateMining(dt){if(!mining.active||!currentTarget||player.dead){if(mining.progress>0||mining.stage>=0)resetMining();return;}
 const key=currentTarget.x+','+currentTarget.y+','+currentTarget.z;if(key!==mining.key){mining.key=key;mining.progress=0;mining.stage=-1;}
-const need=getBreakTime(currentTarget.id);if(!isFinite(need)){resetMining();return;}
+const need=effectiveBreakTime(currentTarget.id);if(!isFinite(need)){resetMining();return;}
 mining.progress+=dt;const ratio=Math.min(1,mining.progress/need);crackBox.position.set(currentTarget.x+0.5,currentTarget.y+0.5,currentTarget.z+0.5);crackBox.setEnabled(true);const stage=Math.min(CRACK_STAGES-1,Math.floor(ratio*CRACK_STAGES));if(stage!==mining.stage){mining.stage=stage;drawCrack(stage);if(typeof SFX!=='undefined')SFX.digHit(currentTarget.id);}
 updateMiningUI(ratio);if(mining.progress>=need){const minedId=currentTarget.id;const mx=currentTarget.x,my=currentTarget.y,mz=currentTarget.z;const minedDef=BLOCKS[minedId];if(typeof SFX!=='undefined')SFX.dig(minedId);
 // 作物は専用の収穫処理(成長段階に応じたドロップ)。
 if(typeof ACH!=='undefined'){ACH.track('mined');if(minedId===B.DIAMOND_ORE)ACH.flag('diamond');if(minedId===B.LOG||minedId===B.BIRCH_LOG)ACH.track('wood');if(minedId===B.OBSIDIAN)ACH.flag('obsidian');}
 if(minedDef&&minedDef.crop&&typeof FARM!=='undefined'){FARM.harvest(mx,my,mz,minedId);setBlock(mx,my,mz,B.AIR);if(typeof ACH!=='undefined')ACH.track('harvest');}
-else{if(typeof FARM!=='undefined')FARM.onBlockChanged(mx,my,mz,B.AIR);setBlock(mx,my,mz,B.AIR);const drop=dropFor(minedId);if(drop!==null&&drop!==undefined)addToInventory(drop,1);
+else{if(typeof FARM!=='undefined')FARM.onBlockChanged(mx,my,mz,B.AIR);setBlock(mx,my,mz,B.AIR);
+// 適正ツール/ティアを満たす場合のみアイテムをドロップ（例: 鉄鉱石は石以上のツルハシが必要）。
+const harvestOK=canHarvest(minedId);
+if(harvestOK){const drop=dropFor(minedId);if(drop!==null&&drop!==undefined)addToInventory(drop,1);
 // スイカは複数の薄切りをドロップ。
-if(minedDef&&minedDef.harvestItem){const hi=minedDef.harvestItem;const n=hi.min+Math.floor(Math.random()*(hi.max-hi.min+1));for(let i=0;i<n;i++)addToInventory(hi.id,1);} }
+if(minedDef&&minedDef.harvestItem){const hi=minedDef.harvestItem;const n=hi.min+Math.floor(Math.random()*(hi.max-hi.min+1));for(let i=0;i<n;i++)addToInventory(hi.id,1);} } }
+// ツールの耐久度を1消費し、0になったら壊す。
+consumeToolDurability(minedId);
 mining.progress=0;mining.key=null;mining.stage=-1;crackBox.setEnabled(false);updateMiningUI(0);updateTarget();}}
+// 採掘成功時にツールの耐久度を消費する。葉などツールを使わない柔らかいブロックでは消費しない。
+function consumeToolDurability(minedId){const slot=inventory[selectedSlot];if(!slot||!isTool(slot.id))return;
+const def=BLOCKS[minedId];
+// 即時破壊レベル（breakTime<=0.2 の植物/作物）はツールを消耗させない。
+if(def&&def.breakTime!==undefined&&def.breakTime<=0.2)return;
+slot.dur=(slot.dur||0)-1;if(slot.dur<=0){
+  // 耐久度切れ: ツールが壊れる。
+  inventory[selectedSlot]=null;if(typeof SFX!=='undefined'&&SFX.toolBreak)SFX.toolBreak();else if(typeof SFX!=='undefined'&&SFX.dig)SFX.dig(B.PLANKS);
+  const el=document.getElementById('tool-break-msg');if(el){el.textContent='🔧 道具が壊れた！';el.style.opacity='1';clearTimeout(el._t);el._t=setTimeout(()=>{el.style.opacity='0';},1400);}
+}
+if(typeof refreshToolUI==='function')refreshToolUI();}
 function placeOrEat(){if(player.dead||inventoryOpen)return;if(currentTarget&&currentTarget.id===B.CRAFTING){clearInterval(actionInterval);toggleInventory(true,3);return;}
 const slot=inventory[selectedSlot];if(!slot)return;const itemDef=ITEMS[slot.id];
 // クワ: 狙っている草/土ブロックの上面を耕地に変える。

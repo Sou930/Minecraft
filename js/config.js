@@ -7,7 +7,55 @@
 [B.POTATO]:{name:"ジャガイモ",all:T.POTATO0,transparent:true,cross:true,crop:true,breakTime:0.2,stages:[T.POTATO0,T.POTATO0,T.POTATO1,T.POTATO2],maxStage:3,seed:203,harvest:{id:203,min:1,max:3},seedDrop:{id:203,min:0,max:0}},
 [B.PUMPKIN]:{name:"カボチャ",top:T.PUMPKIN_TOP,side:T.PUMPKIN_SIDE,front:T.PUMPKIN_FACE,bottom:T.PUMPKIN_TOP,breakTime:1.0},
 [B.MELON]:{name:"スイカ",top:T.MELON_TOP,side:T.MELON_SIDE,bottom:T.MELON_TOP,breakTime:1.0,harvestItem:{id:205,min:3,max:7}},
-};const ITEM_APPLE=100;const ITEM_SEEDS=200,ITEM_WHEAT=201,ITEM_CARROT=202,ITEM_POTATO=203,ITEM_BREAD=204,ITEM_MELON_SLICE=205,ITEM_PUMPKIN_PIE=206,ITEM_BAKED_POTATO=207,ITEM_HOE=210;const ITEMS={[ITEM_APPLE]:{name:'リンゴ',emoji:'🍎',food:4},[ITEM_SEEDS]:{name:'種',emoji:'🌱',plant:B.WHEAT},[ITEM_WHEAT]:{name:'小麦',emoji:'🌾'},[ITEM_CARROT]:{name:'ニンジン',emoji:'🥕',food:3,plant:B.CARROT},[ITEM_POTATO]:{name:'ジャガイモ',emoji:'🥔',food:1,plant:B.POTATO},[ITEM_BREAD]:{name:'パン',emoji:'🍞',food:5},[ITEM_MELON_SLICE]:{name:'スイカの薄切り',emoji:'🍉',food:2},[ITEM_PUMPKIN_PIE]:{name:'カボチャパイ',emoji:'🥧',food:8},[ITEM_BAKED_POTATO]:{name:'ベイクドポテト',emoji:'🍠',food:5},[ITEM_HOE]:{name:'クワ',emoji:'🪓',tool:'hoe'}};const STACK_MAX=64;function dropFor(id){if(id===B.GRASS)return Math.random()<0.18?ITEM_SEEDS:B.DIRT;if(id===B.STONE)return B.COBBLE;if(id===B.GLASS)return null;if(id===B.ICE)return null;if(id===B.LAVA)return null;if(id===B.LEAVES||id===B.BIRCH_LEAVES)return Math.random()<0.2?ITEM_APPLE:null;if(id===B.COBWEB)return null;if(id===B.PATH)return B.DIRT;if(id===B.GLOW_LICHEN)return null;if(id===B.FARMLAND||id===B.FARMLAND_WET)return B.DIRT;if(id===B.MELON)return null;if(id===B.DEAD_BUSH)return null;return id;}
+};const ITEM_APPLE=100;const ITEM_SEEDS=200,ITEM_WHEAT=201,ITEM_CARROT=202,ITEM_POTATO=203,ITEM_BREAD=204,ITEM_MELON_SLICE=205,ITEM_PUMPKIN_PIE=206,ITEM_BAKED_POTATO=207,ITEM_HOE=210;const ITEMS={[ITEM_APPLE]:{name:'リンゴ',emoji:'🍎',food:4},[ITEM_SEEDS]:{name:'種',emoji:'🌱',plant:B.WHEAT},[ITEM_WHEAT]:{name:'小麦',emoji:'🌾'},[ITEM_CARROT]:{name:'ニンジン',emoji:'🥕',food:3,plant:B.CARROT},[ITEM_POTATO]:{name:'ジャガイモ',emoji:'🥔',food:1,plant:B.POTATO},[ITEM_BREAD]:{name:'パン',emoji:'🍞',food:5},[ITEM_MELON_SLICE]:{name:'スイカの薄切り',emoji:'🍉',food:2},[ITEM_PUMPKIN_PIE]:{name:'カボチャパイ',emoji:'🥧',food:8},[ITEM_BAKED_POTATO]:{name:'ベイクドポテト',emoji:'🍠',food:5},[ITEM_HOE]:{name:'クワ',emoji:'🪓',tool:'hoe'}};
+// ===== ツール（道具）システム =====
+// 素材ティア: 木→石→鉄→金→ダイヤ。speed=採掘速度倍率, durability=最大耐久度, tier=採掘可能ランク。
+const TOOL_MATERIALS={
+  wood:   {name:'木',     speed:2,    durability:60,   tier:1, color:'#9c6b3c'},
+  stone:  {name:'石',     speed:4,    durability:132,  tier:2, color:'#8a8a8a'},
+  iron:   {name:'鉄',     speed:6,    durability:251,  tier:3, color:'#d8d8d8'},
+  gold:   {name:'金',     speed:12,   durability:33,   tier:1, color:'#f7d24a'},
+  diamond:{name:'ダイヤ', speed:8,    durability:1562, tier:4, color:'#4fe6df'},
+};
+// ツール種別ごとの絵文字（アイコンに素材色を重ねて表現）。
+const TOOL_KINDS={pickaxe:{name:'ツルハシ',emoji:'⛏'},axe:{name:'斧',emoji:'🪓'},shovel:{name:'シャベル',emoji:'🥄'}};
+// ツールのアイテムID（211〜225）。材料素材ごとに3種(ツルハシ/斧/シャベル)。
+const ITEM_STICK=208;ITEMS[ITEM_STICK]={name:'棒',emoji:'🥢'};
+const ITEM_PICK_WOOD=211,ITEM_PICK_STONE=212,ITEM_PICK_IRON=213,ITEM_PICK_GOLD=214,ITEM_PICK_DIAMOND=215;
+const ITEM_AXE_WOOD=216,ITEM_AXE_STONE=217,ITEM_AXE_IRON=218,ITEM_AXE_GOLD=219,ITEM_AXE_DIAMOND=220;
+const ITEM_SHOVEL_WOOD=221,ITEM_SHOVEL_STONE=222,ITEM_SHOVEL_IRON=223,ITEM_SHOVEL_GOLD=224,ITEM_SHOVEL_DIAMOND=225;
+// ツール定義を一括生成して ITEMS に登録する。
+(function registerTools(){
+  const kinds=[['pickaxe',[ITEM_PICK_WOOD,ITEM_PICK_STONE,ITEM_PICK_IRON,ITEM_PICK_GOLD,ITEM_PICK_DIAMOND]],
+               ['axe',[ITEM_AXE_WOOD,ITEM_AXE_STONE,ITEM_AXE_IRON,ITEM_AXE_GOLD,ITEM_AXE_DIAMOND]],
+               ['shovel',[ITEM_SHOVEL_WOOD,ITEM_SHOVEL_STONE,ITEM_SHOVEL_IRON,ITEM_SHOVEL_GOLD,ITEM_SHOVEL_DIAMOND]]];
+  const mats=['wood','stone','iron','gold','diamond'];
+  for(const[kind,ids]of kinds){for(let i=0;i<mats.length;i++){const mat=mats[i];const m=TOOL_MATERIALS[mat];
+    ITEMS[ids[i]]={name:m.name+TOOL_KINDS[kind].name,emoji:TOOL_KINDS[kind].emoji,tool:kind,material:mat,
+      toolClass:kind,maxDur:m.durability,toolColor:m.color};}}
+})();
+// ブロックがどのツール種別で効率良く掘れるか（toolClass）。bestTier は適正素材未満だと低速。
+// ブロック定義に toolClass を後付けで設定する（採掘ロジックがここを参照する）。
+(function tagBlockTools(){
+  const pick=[B.STONE,B.COBBLE,B.BRICK,B.STONE_BRICK,B.MOSSY_BRICK,B.CRACKED_BRICK,B.COAL_ORE,B.IRON_ORE,
+    B.GOLD_ORE,B.DIAMOND_ORE,B.OBSIDIAN,B.SANDSTONE,B.ICE,B.FURNACE,B.DRIPSTONE,B.CALCITE,B.AMETHYST_BLOCK,
+    B.SMOOTH_BASALT,B.MOSS];
+  const axe=[B.LOG,B.PLANKS,B.BIRCH_LOG,B.CRAFTING,B.BOOKSHELF,B.CHEST,B.DEAD_LOG];
+  const shovel=[B.GRASS,B.DIRT,B.SAND,B.GRAVEL,B.SNOW,B.PATH,B.FARMLAND,B.FARMLAND_WET];
+  // 採掘に最低限必要なティア（これ未満のツール/素手だと採掘してもアイテムをドロップしない）。
+  const minTier={[B.IRON_ORE]:2,[B.GOLD_ORE]:3,[B.DIAMOND_ORE]:3,[B.OBSIDIAN]:4,[B.STONE]:1,[B.COBBLE]:1,
+    [B.COAL_ORE]:1,[B.AMETHYST_BLOCK]:1,[B.AMETHYST_CLUSTER]:1};
+  for(const id of pick)if(BLOCKS[id])BLOCKS[id].toolClass='pickaxe';
+  for(const id of axe)if(BLOCKS[id])BLOCKS[id].toolClass='axe';
+  for(const id of shovel)if(BLOCKS[id])BLOCKS[id].toolClass='shovel';
+  for(const id in minTier)if(BLOCKS[id])BLOCKS[id].minTier=minTier[id];
+})();
+// 指定アイテムがツールかどうか / その定義を取得。
+function isTool(id){return !!(ITEMS[id]&&ITEMS[id].material&&ITEMS[id].toolClass);}
+function toolDef(id){return isTool(id)?ITEMS[id]:null;}
+const STACK_MAX=64;
+// ツールはスタック不可（1スロット1本、耐久度を個別に持つ）。
+function maxStackOf(id){return isTool(id)?1:STACK_MAX;}function dropFor(id){if(id===B.GRASS)return Math.random()<0.18?ITEM_SEEDS:B.DIRT;if(id===B.STONE)return B.COBBLE;if(id===B.GLASS)return null;if(id===B.ICE)return null;if(id===B.LAVA)return null;if(id===B.LEAVES||id===B.BIRCH_LEAVES)return Math.random()<0.2?ITEM_APPLE:null;if(id===B.COBWEB)return null;if(id===B.PATH)return B.DIRT;if(id===B.GLOW_LICHEN)return null;if(id===B.FARMLAND||id===B.FARMLAND_WET)return B.DIRT;if(id===B.MELON)return null;if(id===B.DEAD_BUSH)return null;return id;}
 // レシピカテゴリ定義（タブで絞り込み表示）
 const RECIPE_CATEGORIES=[
   {id:'all',name:'すべて',emoji:'📖'},
@@ -32,6 +80,26 @@ const RECIPES=[
 {cat:'deco',pattern:[[B.AMETHYST_CLUSTER,B.AMETHYST_CLUSTER],[B.AMETHYST_CLUSTER,B.AMETHYST_CLUSTER]],out:{id:B.AMETHYST_BLOCK,count:1}},
 {cat:'building',pattern:[[B.MOSS,B.MOSS],[B.MOSS,B.MOSS]],out:{id:B.GRASS,count:4}},
 {cat:'tools',pattern:[[B.PLANKS,B.PLANKS],[null,B.PLANKS]],out:{id:ITEM_HOE,count:1}},
+// 棒: 木材を縦に2つ並べる → 棒×4。
+{cat:'tools',pattern:[[B.PLANKS],[B.PLANKS]],out:{id:ITEM_STICK,count:4}},
+// ===== ツルハシ（上段に素材3つ、中央に棒、下段中央に棒）=====
+{cat:'tools',pattern:[[B.PLANKS,B.PLANKS,B.PLANKS],[null,ITEM_STICK,null],[null,ITEM_STICK,null]],out:{id:ITEM_PICK_WOOD,count:1}},
+{cat:'tools',pattern:[[B.COBBLE,B.COBBLE,B.COBBLE],[null,ITEM_STICK,null],[null,ITEM_STICK,null]],out:{id:ITEM_PICK_STONE,count:1}},
+{cat:'tools',pattern:[[B.IRON_ORE,B.IRON_ORE,B.IRON_ORE],[null,ITEM_STICK,null],[null,ITEM_STICK,null]],out:{id:ITEM_PICK_IRON,count:1}},
+{cat:'tools',pattern:[[B.GOLD_ORE,B.GOLD_ORE,B.GOLD_ORE],[null,ITEM_STICK,null],[null,ITEM_STICK,null]],out:{id:ITEM_PICK_GOLD,count:1}},
+{cat:'tools',pattern:[[B.DIAMOND_ORE,B.DIAMOND_ORE,B.DIAMOND_ORE],[null,ITEM_STICK,null],[null,ITEM_STICK,null]],out:{id:ITEM_PICK_DIAMOND,count:1}},
+// ===== 斧（L字に素材2＋上1、棒2）=====
+{cat:'tools',pattern:[[B.PLANKS,B.PLANKS],[B.PLANKS,ITEM_STICK],[null,ITEM_STICK]],out:{id:ITEM_AXE_WOOD,count:1}},
+{cat:'tools',pattern:[[B.COBBLE,B.COBBLE],[B.COBBLE,ITEM_STICK],[null,ITEM_STICK]],out:{id:ITEM_AXE_STONE,count:1}},
+{cat:'tools',pattern:[[B.IRON_ORE,B.IRON_ORE],[B.IRON_ORE,ITEM_STICK],[null,ITEM_STICK]],out:{id:ITEM_AXE_IRON,count:1}},
+{cat:'tools',pattern:[[B.GOLD_ORE,B.GOLD_ORE],[B.GOLD_ORE,ITEM_STICK],[null,ITEM_STICK]],out:{id:ITEM_AXE_GOLD,count:1}},
+{cat:'tools',pattern:[[B.DIAMOND_ORE,B.DIAMOND_ORE],[B.DIAMOND_ORE,ITEM_STICK],[null,ITEM_STICK]],out:{id:ITEM_AXE_DIAMOND,count:1}},
+// ===== シャベル（素材1＋棒2の縦並び）=====
+{cat:'tools',pattern:[[B.PLANKS],[ITEM_STICK],[ITEM_STICK]],out:{id:ITEM_SHOVEL_WOOD,count:1}},
+{cat:'tools',pattern:[[B.COBBLE],[ITEM_STICK],[ITEM_STICK]],out:{id:ITEM_SHOVEL_STONE,count:1}},
+{cat:'tools',pattern:[[B.IRON_ORE],[ITEM_STICK],[ITEM_STICK]],out:{id:ITEM_SHOVEL_IRON,count:1}},
+{cat:'tools',pattern:[[B.GOLD_ORE],[ITEM_STICK],[ITEM_STICK]],out:{id:ITEM_SHOVEL_GOLD,count:1}},
+{cat:'tools',pattern:[[B.DIAMOND_ORE],[ITEM_STICK],[ITEM_STICK]],out:{id:ITEM_SHOVEL_DIAMOND,count:1}},
 {cat:'food',pattern:[[ITEM_WHEAT,ITEM_WHEAT,ITEM_WHEAT]],out:{id:ITEM_BREAD,count:1}},
 {cat:'food',pattern:[[B.PUMPKIN]],out:{id:ITEM_SEEDS,count:4}},
 {cat:'food',pattern:[[B.PUMPKIN,ITEM_WHEAT],[ITEM_WHEAT,B.PUMPKIN]],out:{id:ITEM_PUMPKIN_PIE,count:1}},
