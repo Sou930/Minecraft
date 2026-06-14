@@ -1,15 +1,33 @@
-const INV_SIZE=36;let inventory=new Array(INV_SIZE).fill(null);let craftSize=2;let craftGrid=new Array(craftSize*craftSize).fill(null);let heldStack=null;let inventoryOpen=false;function loadInventory(){try{const d=JSON.parse(localStorage.getItem('bw_inventory')||'null');if(Array.isArray(d)&&d.length===INV_SIZE)
-inventory=d.map(s=>(s&&typeof s.id==='number'&&s.count>0)?{id:s.id,count:Math.min(STACK_MAX,s.count)}:null);}catch(e){}}
+const INV_SIZE=36;let inventory=new Array(INV_SIZE).fill(null);let craftSize=2;let craftGrid=new Array(craftSize*craftSize).fill(null);let heldStack=null;let inventoryOpen=false;
+// ツール用の新規スタックを生成（満タンの耐久度付き）。
+function makeStack(id,count){const st={id,count:isTool(id)?1:count};if(isTool(id)){const def=toolDef(id);st.dur=def?def.maxDur:1;}return st;}
+function loadInventory(){try{const d=JSON.parse(localStorage.getItem('bw_inventory')||'null');if(Array.isArray(d)&&d.length===INV_SIZE)
+inventory=d.map(s=>{if(!s||typeof s.id!=='number'||s.count<=0)return null;if(isTool(s.id)){const def=toolDef(s.id);const dur=(typeof s.dur==='number'&&s.dur>0)?Math.min(s.dur,def.maxDur):def.maxDur;return{id:s.id,count:1,dur};}return{id:s.id,count:Math.min(STACK_MAX,s.count)};});}catch(e){}}
 let invSaveTimer=null;function scheduleInvSave(){clearTimeout(invSaveTimer);invSaveTimer=setTimeout(()=>{try{localStorage.setItem('bw_inventory',JSON.stringify(inventory));}catch(e){}},400);}
 function itemName(id){return ITEMS[id]?ITEMS[id].name:(BLOCKS[id]?BLOCKS[id].name:'?');}
-function addToInventory(id,count){let left=count;for(let i=0;i<INV_SIZE&&left>0;i++){const s=inventory[i];if(s&&s.id===id&&s.count<STACK_MAX){const n=Math.min(STACK_MAX-s.count,left);s.count+=n;left-=n;}}
-for(let i=0;i<INV_SIZE&&left>0;i++){if(!inventory[i]){const n=Math.min(STACK_MAX,left);inventory[i]={id,count:n};left-=n;}}
+function addToInventory(id,count){let left=count;
+// ツールはスタック不可: 1本ごとに空きスロットへ満タン耐久度で配置。
+if(isTool(id)){for(let i=0;i<INV_SIZE&&left>0;i++){if(!inventory[i]){inventory[i]=makeStack(id,1);left--;}}
+renderHotbar();if(inventoryOpen)renderInventory();scheduleInvSave();return left;}
+const cap=STACK_MAX;for(let i=0;i<INV_SIZE&&left>0;i++){const s=inventory[i];if(s&&s.id===id&&s.count<cap){const n=Math.min(cap-s.count,left);s.count+=n;left-=n;}}
+for(let i=0;i<INV_SIZE&&left>0;i++){if(!inventory[i]){const n=Math.min(cap,left);inventory[i]={id,count:n};left-=n;}}
 renderHotbar();if(inventoryOpen)renderInventory();scheduleInvSave();return left;}
 function consumeFromSlot(i,n){const s=inventory[i];if(!s)return;s.count-=n;if(s.count<=0)inventory[i]=null;renderHotbar();if(inventoryOpen)renderInventory();scheduleInvSave();}
-function makeItemNode(id){if(ITEMS[id]){const em=document.createElement('span');em.className='item-emoji';em.textContent=ITEMS[id].emoji;return em;}
+function makeItemNode(id){if(ITEMS[id]){const def=ITEMS[id];const em=document.createElement('span');em.className='item-emoji';em.textContent=def.emoji;
+// ツールは素材色を背景グロー＋下線で表現し、ティアを直感的に分かりやすくする。
+if(def.toolColor){em.classList.add('tool-emoji');em.style.setProperty('--tool-color',def.toolColor);}
+return em;}
 const c=document.createElement('canvas');c.width=32;c.height=32;const ictx=c.getContext('2d');ictx.imageSmoothingEnabled=false;const def=BLOCKS[id];const tile=def.all!==undefined?def.all:def.side;ictx.drawImage(atlasCanvas,(tile%ATLAS_TILES)*TILE_PX,Math.floor(tile/ATLAS_TILES)*TILE_PX,TILE_PX,TILE_PX,0,0,32,32);return c;}
 function fillSlotEl(el,stack){el.innerHTML='';el.title='';if(!stack)return;el.appendChild(makeItemNode(stack.id));if(stack.count>1){const cnt=document.createElement('span');cnt.className='slot-count';cnt.textContent=stack.count;el.appendChild(cnt);}
-el.title=itemName(stack.id);}
+// ツールには耐久度バーを表示（残量に応じて緑→黄→赤）。
+if(isTool(stack.id)){el.appendChild(makeDurBar(stack));}
+el.title=itemName(stack.id)+(isTool(stack.id)?` （耐久 ${stack.dur}/${toolDef(stack.id).maxDur}）`:'');}
+// 耐久度バーのDOMを生成する。
+function makeDurBar(stack){const def=toolDef(stack.id);const max=def?def.maxDur:1;const ratio=Math.max(0,Math.min(1,(stack.dur||0)/max));const bar=document.createElement('span');bar.className='dur-bar';const fill=document.createElement('span');fill.className='dur-fill';fill.style.width=(ratio*100).toFixed(1)+'%';
+// 色: >50%緑 / >20%黄 / それ以下赤。
+const hue=ratio>0.5?120:(ratio>0.2?55:0);fill.style.background=`hsl(${hue},80%,48%)`;bar.appendChild(fill);
+// 満タンのときはバーを隠してスッキリさせる。
+if(ratio>=1)bar.style.opacity='0';return bar;}
 function craftResultNow(){const n=craftSize;const ids=craftGrid.map(s=>s?s.id:null);let minR=n,maxR=-1,minC=n,maxC=-1;for(let r=0;r<n;r++)for(let c=0;c<n;c++){if(ids[r*n+c]!==null){minR=Math.min(minR,r);maxR=Math.max(maxR,r);minC=Math.min(minC,c);maxC=Math.max(maxC,c);}}
 if(maxR<0)return null;const h=maxR-minR+1,w=maxC-minC+1;for(const rec of RECIPES){if(rec.pattern.length!==h||rec.pattern[0].length!==w)continue;let ok=true;for(let r=0;r<h&&ok;r++)
 for(let c=0;c<w&&ok;c++)
@@ -17,17 +35,24 @@ if((rec.pattern[r][c]??null)!==ids[(minR+r)*n+(minC+c)])ok=false;if(ok)return{id
 return null;}
 function getSlotByLoc(loc){return loc.kind==='inv'?inventory[loc.i]:craftGrid[loc.i];}
 function setSlotByLoc(loc,s){if(loc.kind==='inv')inventory[loc.i]=s;else craftGrid[loc.i]=s;}
-function leftClickSlot(loc){const s=getSlotByLoc(loc);if(!heldStack){if(s){setSlotByLoc(loc,null);heldStack=s;}}else if(!s){setSlotByLoc(loc,heldStack);heldStack=null;}else if(s.id===heldStack.id&&s.count<STACK_MAX){const n=Math.min(STACK_MAX-s.count,heldStack.count);s.count+=n;heldStack.count-=n;if(heldStack.count<=0)heldStack=null;}else{setSlotByLoc(loc,heldStack);heldStack=s;}
+function leftClickSlot(loc){const s=getSlotByLoc(loc);const cap=heldStack?maxStackOf(heldStack.id):STACK_MAX;if(!heldStack){if(s){setSlotByLoc(loc,null);heldStack=s;}}else if(!s){setSlotByLoc(loc,heldStack);heldStack=null;}else if(s.id===heldStack.id&&!isTool(s.id)&&s.count<cap){const n=Math.min(cap-s.count,heldStack.count);s.count+=n;heldStack.count-=n;if(heldStack.count<=0)heldStack=null;}else{setSlotByLoc(loc,heldStack);heldStack=s;}
 afterInvChange();}
-function rightClickSlot(loc){const s=getSlotByLoc(loc);if(!heldStack){if(s){const take=Math.ceil(s.count/2);heldStack={id:s.id,count:take};s.count-=take;if(s.count<=0)setSlotByLoc(loc,null);}}else{if(!s){setSlotByLoc(loc,{id:heldStack.id,count:1});heldStack.count--;}
+function rightClickSlot(loc){const s=getSlotByLoc(loc);
+// ツールは分割できないので、通常のスロット入れ替えと同じ挙動にする。
+if(heldStack&&isTool(heldStack.id)||s&&isTool(s.id)){leftClickSlot(loc);return;}
+if(!heldStack){if(s){const take=Math.ceil(s.count/2);heldStack={id:s.id,count:take};s.count-=take;if(s.count<=0)setSlotByLoc(loc,null);}}else{if(!s){setSlotByLoc(loc,{id:heldStack.id,count:1});heldStack.count--;}
 else if(s.id===heldStack.id&&s.count<STACK_MAX){s.count++;heldStack.count--;}
 if(heldStack&&heldStack.count<=0)heldStack=null;}
 afterInvChange();}
-function takeCraftResult(){const out=craftResultNow();if(!out)return;if(heldStack){if(heldStack.id!==out.id||heldStack.count+out.count>STACK_MAX)return;heldStack.count+=out.count;}else{heldStack=out;}
+function takeCraftResult(){const out=craftResultNow();if(!out)return;
+// ツールはスタックできないので、手持ちが空のときだけ取り出せる。新品の耐久度を付与。
+if(isTool(out.id)){if(heldStack)return;heldStack=makeStack(out.id,1);}
+else if(heldStack){if(heldStack.id!==out.id||heldStack.count+out.count>STACK_MAX)return;heldStack.count+=out.count;}else{heldStack={id:out.id,count:out.count};}
 for(let i=0;i<craftGrid.length;i++){if(craftGrid[i]){craftGrid[i].count--;if(craftGrid[i].count<=0)craftGrid[i]=null;}}
 if(typeof ACH!=='undefined')ACH.track('crafted');afterInvChange();}
 function afterInvChange(){renderInventory();renderHotbar();updateHeldUI();scheduleInvSave();if(recipePanelOpen&&inventoryOpen)renderRecipeBook();}
 const heldEl=document.getElementById('held-item');function updateHeldUI(){heldEl.innerHTML='';if(heldStack){heldEl.appendChild(makeItemNode(heldStack.id));if(heldStack.count>1){const c=document.createElement('span');c.className='slot-count';c.textContent=heldStack.count;heldEl.appendChild(c);}
+if(isTool(heldStack.id))heldEl.appendChild(makeDurBar(heldStack));
 heldEl.style.display='block';}else{heldEl.style.display='none';}}
 function moveHeldTo(x,y){heldEl.style.left=x+'px';heldEl.style.top=y+'px';}
 document.addEventListener('pointermove',(e)=>{if(heldStack)moveHeldTo(e.clientX,e.clientY);});const slotEls={craft:[],result:null,main:[],hotbar:[]};function mkInvSlot(parent,onLeft,onRight){const el=document.createElement('div');el.className='inv-slot';
@@ -74,7 +99,9 @@ function renderRecipeBook(){const list=document.getElementById('recipe-list');li
 for(const rec of shown){const fits=recipeFits(rec);const can=canCraftRecipe(rec);const li=document.createElement('li');const btn=document.createElement('button');btn.className='recipe-entry'+(can?'':' disabled');const outIcon=document.createElement('span');outIcon.className='recipe-icon';outIcon.appendChild(makeItemNode(rec.out.id));const info=document.createElement('span');info.className='recipe-info';const nameEl=document.createElement('span');nameEl.className='recipe-name';nameEl.textContent=itemName(rec.out.id)+(rec.out.count>1?` ×${rec.out.count}`:'');const matsEl=document.createElement('span');matsEl.className='recipe-mats';for(const[id,n]of recipeNeeds(rec)){const have=countMaterial(id);const m=document.createElement('span');m.className='recipe-mat'+(have>=n?'':' missing');const ic=document.createElement('span');ic.className='recipe-mat-icon';ic.appendChild(makeItemNode(id));m.appendChild(ic);const cn=document.createElement('span');cn.textContent='×'+n;m.appendChild(cn);m.title=`${itemName(id)} ×${n}（所持 ${have}）`;matsEl.appendChild(m);}
 info.appendChild(nameEl);info.appendChild(matsEl);btn.appendChild(outIcon);btn.appendChild(info);if(!fits){const badge=document.createElement('span');badge.className='recipe-badge';badge.textContent='要作業台';btn.appendChild(badge);}
 btn.title=can?'クリックでクラフト':(!fits?'作業台（3×3）を右クリックで開くとクラフトできます':'材料が足りません');btn.addEventListener('click',()=>craftFromRecipe(rec,btn));li.appendChild(btn);list.appendChild(li);}}
-function renderHotbar(){const bar=document.getElementById('hotbar');bar.innerHTML='';for(let i=0;i<9;i++){const slot=document.createElement('button');slot.className='hotbar-slot'+(i===selectedSlot?' selected':'');const s=inventory[i];slot.setAttribute('aria-label',s?itemName(s.id):`空きスロット${i + 1}`);const key=document.createElement('span');key.className='slot-key';key.textContent=String(i+1);slot.appendChild(key);if(s){slot.appendChild(makeItemNode(s.id));if(s.count>1){const c=document.createElement('span');c.className='slot-count';c.textContent=s.count;slot.appendChild(c);}}
+function renderHotbar(){const bar=document.getElementById('hotbar');bar.innerHTML='';for(let i=0;i<9;i++){const slot=document.createElement('button');slot.className='hotbar-slot'+(i===selectedSlot?' selected':'');const s=inventory[i];slot.setAttribute('aria-label',s?itemName(s.id):`空きスロット${i + 1}`);const key=document.createElement('span');key.className='slot-key';key.textContent=String(i+1);slot.appendChild(key);if(s){slot.appendChild(makeItemNode(s.id));if(s.count>1){const c=document.createElement('span');c.className='slot-count';c.textContent=s.count;slot.appendChild(c);}if(isTool(s.id))slot.appendChild(makeDurBar(s));}
 slot.addEventListener('click',()=>selectSlot(i));slot.addEventListener('touchstart',(e)=>{e.preventDefault();selectSlot(i);},{passive:false});bar.appendChild(slot);}}
 function selectSlot(i){selectedSlot=i;document.querySelectorAll('#hotbar .hotbar-slot').forEach((s,idx)=>s.classList.toggle('selected',idx===i));}
+// ツール耐久度などが変わった後の軽量再描画（採掘中に毎回呼ばれる想定）。
+function refreshToolUI(){renderHotbar();if(inventoryOpen)renderInventory();scheduleInvSave();}
 function updateVitalsUI(){const hearts=document.getElementById('hearts');const hunger=document.getElementById('hunger');let h='';for(let i=0;i<10;i++)h+=`<span class="${i < Math.ceil(player.hp / 2) ? 'full' : 'empty'}">♥</span>`;hearts.innerHTML=h;let g='';for(let i=0;i<10;i++)g+=`<span class="${i < Math.ceil(player.hunger / 2) ? 'full' : 'empty'}">🍗</span>`;hunger.innerHTML=g;}
