@@ -180,21 +180,29 @@ function generateClimateAndHeight(){
 // Build terrain blocks for columns in the x-range [x0,x1).
 function generateTerrainColumns(x0,x1){for(let x=x0;x<x1;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];const biome=biomeMap[colIndex(x,z)];const beach=h<=SEA_LEVEL+1;
 const highRock=h>=SEA_LEVEL+34;            // bare stone above this on mountains
+// 表土(土/砂)の厚みを列ごとにノイズで 3〜5 ブロックに揺らす。Minecraft の
+// ように一定でなく、斜面や尾根で地肌(石)が覗く自然な見た目になる。
+const soilDepth=3+Math.floor(valueNoise(x/6,z/6,301)*3);   // 3..5
+// 山岳の雪線は標高でなだらかに: 高いほど雪、境界はノイズでギザギザに。
+const snowLine=SEA_LEVEL+38+Math.floor(valueNoise(x/5,z/5,303)*6);
 for(let y=0;y<=h&&y<WORLD_H;y++){let id;
 if(y===0)id=B.BEDROCK;
+else if(y<=2&&hash3(x,y,z,305)<0.6)id=B.BEDROCK;          // 岩盤層を不規則に厚く
 else if((biome===BIOME.DESERT||biome===BIOME.MESA)&&!beach){
   // sandy column with sandstone banding (mesa adds wider banding)
   if(y>=h-1)id=B.SAND;else if(y>=h-(biome===BIOME.MESA?8:5))id=B.SANDSTONE;else id=B.STONE;
 }
 else if(biome===BIOME.VOLCANO&&!beach){
   // volcanic cones are bare stone with obsidian near the very top
-  if(y>=h-1&&h>=SEA_LEVEL+30)id=B.OBSIDIAN;else if(y<h-3)id=B.STONE;else id=B.STONE;
+  if(y>=h-1&&h>=SEA_LEVEL+30)id=B.OBSIDIAN;else id=B.STONE;
 }
 else if((biome===BIOME.MOUNTAINS)&&highRock){
-  // high mountain peaks: stone, snow-capped at the very surface
-  if(y>=h&&h>=SEA_LEVEL+44)id=B.SNOW;else id=B.STONE;
+  // 高山: 基本は石。雪線より上の地表は雪冠、少し下は石肌に薄く土が乗る。
+  if(y>=h){ if(h>=snowLine)id=B.SNOW; else if(valueNoise(x/4,z/4,307)>0.62)id=B.GRASS; else id=B.STONE; }
+  else if(y>=h-1&&h<snowLine&&valueNoise(x/4,z/4,307)>0.62)id=B.DIRT;
+  else id=B.STONE;
 }
-else if(y<h-3)id=B.STONE;
+else if(y<h-soilDepth)id=B.STONE;
 else if(y<h)id=beach?B.SAND:B.DIRT;
 else{ // surface block (y===h)
   if(beach)id=(biome===BIOME.SNOWY?B.SNOW:B.SAND);
@@ -437,8 +445,21 @@ const isBirch=hash2(x+123,z+456,8)<birchP;const logId=isBirch?B.BIRCH_LOG:B.LOG,
 // Jungle trees are noticeably taller; swamp trees a touch shorter.
 const baseTrunk=biome===BIOME.JUNGLE?7:(biome===BIOME.SWAMP?3:(isBirch?5:4));
 const trunkH=baseTrunk+Math.floor(hash2(x,z,9)*(biome===BIOME.JUNGLE?4:2));
-world[blockIndex(x,h,z)]=B.DIRT;for(let y=1;y<=trunkH;y++)world[blockIndex(x,h+y,z)]=logId;for(let dy=trunkH-2;dy<=trunkH+1;dy++){const r=dy>=trunkH?1:2;for(let dx=-r;dx<=r;dx++){for(let dz=-r;dz<=r;dz++){if(dx===0&&dz===0&&dy<=trunkH)continue;if(Math.abs(dx)===r&&Math.abs(dz)===r&&hash2(x+dx,z+dz,dy)<0.5)continue;const yy=h+dy,xx=x+dx,zz=z+dz;if(yy<WORLD_H&&world[blockIndex(xx,yy,zz)]===B.AIR)
-world[blockIndex(xx,yy,zz)]=leafId;}}}}}}
+world[blockIndex(x,h,z)]=B.DIRT;for(let y=1;y<=trunkH;y++)world[blockIndex(x,h+y,z)]=logId;
+// 樹冠: Minecraft風に層ごとの半径を変えて丸みのあるシルエットにする。
+// 下2層=半径2(角を間引く)、上1層=半径1、頂点=十字の小さな冠。
+const canopy=[[trunkH-2,2],[trunkH-1,2],[trunkH,1],[trunkH+1,1]];
+for(const[dy,r]of canopy){for(let dx=-r;dx<=r;dx++){for(let dz=-r;dz<=r;dz++){
+  if(dx===0&&dz===0&&dy<=trunkH)continue;                       // 幹の位置は葉にしない
+  const dist=Math.abs(dx)+Math.abs(dz);
+  // 角(最遠)を確率的に間引いて丸くする。最上層はさらに削る。
+  if(dist>r&&hash2(x+dx*7,z+dz*7,dy*3)<(dy>=trunkH?0.75:0.5))continue;
+  const yy=h+dy,xx=x+dx,zz=z+dz;
+  if(yy<WORLD_H&&world[blockIndex(xx,yy,zz)]===B.AIR)world[blockIndex(xx,yy,zz)]=leafId;
+}}}
+// 頂点に1枚葉を足して尖りを和らげる
+if(h+trunkH+2<WORLD_H&&world[blockIndex(x,h+trunkH+2,z)]===B.AIR&&hash2(x,z,99)<0.6)world[blockIndex(x,h+trunkH+2,z)]=leafId;
+}}}
 // OCEAN reef: scatter colourful coral and tall seaweed across shallow,
 // sunlit ocean floors so diving the sea has something to discover.
 function placeReef(){const CORALS=[B.CORAL_PINK,B.CORAL_PURPLE,B.CORAL_BLUE];

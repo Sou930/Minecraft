@@ -11,18 +11,51 @@ b.idx.push(base,base+1,base+2,base,base+2,base+3);}
 function pushFluidFace(b,x,y,z,f,tile,shade,alpha,topH){const base=b.pos.length/3;const{u1,u2,v1,v2}=tileUV(tile);const uvs=[[u1,v1],[u2,v1],[u2,v2],[u1,v2]];for(let i=0;i<4;i++){const c=f.corners[i];const cy=c[1]===1?topH:c[1];b.pos.push(x+c[0],y+cy,z+c[2]);b.nrm.push(f.dir[0],f.dir[1],f.dir[2]);b.uv.push(uvs[i][0],uvs[i][1]);b.col.push(shade,shade,shade,alpha);}
 b.idx.push(base,base+1,base+2,base,base+2,base+3);}
 // 作物用のクロス(×字)描画: 対角に交差する2枚のクワッドを両面で出す。
-function pushCross(b,x,y,z,tile,shade){const{u1,u2,v1,v2}=tileUV(tile);const planes=[[[0.0,0.0,0.0],[1.0,0.0,1.0]],[[0.0,0.0,1.0],[1.0,0.0,0.0]]];for(const[a,c]of planes){const corners=[[a[0],0,a[2]],[c[0],0,c[2]],[c[0],1,c[2]],[a[0],1,a[2]]];const uvs=[[u1,v1],[u2,v1],[u2,v2],[u1,v2]];// 表裏両面（2回、巻き順を反転）
-for(let side=0;side<2;side++){const base=b.pos.length/3;for(let i=0;i<4;i++){b.pos.push(x+corners[i][0],y+corners[i][1],z+corners[i][2]);b.nrm.push(0,1,0);b.uv.push(uvs[i][0],uvs[i][1]);b.col.push(shade,shade,shade,1);}
-if(side===0)b.idx.push(base,base+1,base+2,base,base+2,base+3);else b.idx.push(base,base+2,base+1,base,base+3,base+2);}}}
+// inset:四隅から内側へ寄せる量(0..0.5)。h:植物の高さ(0..1)。これにより
+// クロス植物がブロック対角いっぱいに引き伸ばされず、Minecraftのように
+// 中央付近に収まり、葉/サンゴの“黒い箱”状アーティファクトが出ない。
+function pushCross(b,x,y,z,tile,shade,inset,h){const{u1,u2,v1,v2}=tileUV(tile);
+  const lo=(inset||0),hi=1-(inset||0),top=(h===undefined?1:h);
+  // 中央で交差する2枚の対角クワッド
+  const planes=[[[lo,lo],[hi,hi]],[[lo,hi],[hi,lo]]];
+  for(const[a,c]of planes){const corners=[[a[0],0,a[1]],[c[0],0,c[1]],[c[0],top,c[1]],[a[0],top,c[1]===a[1]?c[1]:a[1]]];
+    // 上端は底辺と同じxz(縦の平面)。corners再定義:
+    const q=[[a[0],0,a[1]],[c[0],0,c[1]],[c[0],top,c[1]],[a[0],top,a[1]]];
+    const uvs=[[u1,v1],[u2,v1],[u2,v2],[u1,v2]];
+    for(let side=0;side<2;side++){const base=b.pos.length/3;for(let i=0;i<4;i++){b.pos.push(x+q[i][0],y+q[i][1],z+q[i][2]);b.nrm.push(0,1,0);b.uv.push(uvs[i][0],uvs[i][1]);b.col.push(shade,shade,shade,1);}
+    if(side===0)b.idx.push(base,base+1,base+2,base,base+2,base+3);else b.idx.push(base,base+2,base+1,base,base+3,base+2);}}}
+// たいまつ/ランタン用: 細い四角柱(中央に立つ薄い箱)として描画する。
+// 4側面 + 上面を出し、テクスチャの透明部分はアルファテストで抜ける。
+function pushColumn(b,x,y,z,tile,shade,hw,top){const{u1,u2,v1,v2}=tileUV(tile);
+  const a=0.5-hw,c=0.5+hw,t=(top===undefined?1:top);
+  // 各側面 + 上面(下面は地面に接するので省略)
+  const faces=[
+    {n:[0,0,1], q:[[a,0,c],[c,0,c],[c,t,c],[a,t,c]]},
+    {n:[0,0,-1],q:[[c,0,a],[a,0,a],[a,t,a],[c,t,a]]},
+    {n:[1,0,0], q:[[c,0,c],[c,0,a],[c,t,a],[c,t,c]]},
+    {n:[-1,0,0],q:[[a,0,a],[a,0,c],[a,t,c],[a,t,a]]},
+    {n:[0,1,0], q:[[a,t,c],[c,t,c],[c,t,a],[a,t,a]]},
+  ];
+  const uvs=[[u1,v1],[u2,v1],[u2,v2],[u1,v2]];
+  for(const f of faces){const base=b.pos.length/3;for(let i=0;i<4;i++){b.pos.push(x+f.q[i][0],y+f.q[i][1],z+f.q[i][2]);b.nrm.push(f.n[0],f.n[1],f.n[2]);b.uv.push(uvs[i][0],uvs[i][1]);b.col.push(shade,shade,shade,1);}b.idx.push(base,base+1,base+2,base,base+2,base+3);}}
+// レール等の平板: 地表すぐ上に1枚の水平クワッドを置く(両面)。
+function pushFlat(b,x,y,z,tile,shade){const{u1,u2,v1,v2}=tileUV(tile);const yy=0.02;const q=[[0,yy,1],[1,yy,1],[1,yy,0],[0,yy,0]];const uvs=[[u1,v1],[u2,v1],[u2,v2],[u1,v2]];for(let side=0;side<2;side++){const base=b.pos.length/3;for(let i=0;i<4;i++){b.pos.push(x+q[i][0],y+q[i][1],z+q[i][2]);b.nrm.push(0,1,0);b.uv.push(uvs[i][0],uvs[i][1]);b.col.push(shade,shade,shade,1);}if(side===0)b.idx.push(base,base+1,base+2,base,base+2,base+3);else b.idx.push(base,base+2,base+1,base,base+3,base+2);}}
 // 洞窟の暗さ: 天空に開けていない面は skyMul で暗くする。emissive(発光)
 // ブロックや溶岩は自発光なので暗くしない。CAVE_MIN は地下の最低明度(真っ暗寄り)。
 const CAVE_MIN=0.10;function skyMulAt(x,y,z,def){if(def&&def.emissive)return 1;const s=skyLightAt(x,y,z);return CAVE_MIN+(1-CAVE_MIN)*s;}
 const x0=cx*CHUNK,z0=cz*CHUNK;for(let x=x0;x<x0+CHUNK;x++){for(let z=z0;z<z0+CHUNK;z++){for(let y=0;y<WORLD_H;y++){const id=world[blockIndex(x,y,z)];if(id===B.AIR)continue;const def=BLOCKS[id];
 const skyMul=skyMulAt(x,y,z,def);
 // 作物: クロス形状で成長段階に応じたタイルを描画する。
-if(def&&def.crop){const tile=(typeof FARM!=='undefined')?FARM.stageTileAt(x,y,z,def):def.stages[def.stages.length-1];pushCross(buf,x,y,z,tile,0.95*skyMul);continue;}
-// 枯れ草など非作物のクロス植物(×字)を平面2枚で描画する。
-if(def&&def.crossPlant){pushCross(buf,x,y,z,def.all,0.92*skyMul);continue;}
+if(def&&def.crop){const tile=(typeof FARM!=='undefined')?FARM.stageTileAt(x,y,z,def):def.stages[def.stages.length-1];pushCross(buf,x,y,z,tile,0.95*skyMul,0.08,1);continue;}
+// 枯れ木など非作物のクロス植物(×字)を平面2枚で描画する。
+if(def&&def.crossPlant){pushCross(buf,x,y,z,def.all,0.92*skyMul,0.06,1);continue;}
+// たいまつ/ランタン: 細い柱(箱)として描画。フルキューブの黒い箱にならない。
+if(def&&def.torch){const sh=(def.emissive?1:0.95*skyMul);pushColumn(buf,x,y,z,def.all,sh,0.12,0.62);continue;}
+if(def&&def.lanternBox){const sh=(def.emissive?1:0.95*skyMul);pushColumn(buf,x,y,z,def.all,sh,0.20,0.72);continue;}
+// サンゴ・海藻・クモの巣・アメジストの塊・ヒカリゴケなどの×字クロス。
+if(def&&def.cross){const sh=(def.emissive?1:0.94*skyMul);pushCross(buf,x,y,z,def.all,sh,0.04,1);continue;}
+// レールなどの平板(水平1枚)。
+if(def&&def.flat){pushFlat(buf,x,y,z,def.all,0.95*skyMul);continue;}
 // TASK7: 液体セルは流体シミュレーションの量(level)に応じた上面高さで描画。
 const isFluidCell=(id===B.WATER||id===B.LAVA);const topH=isFluidCell&&typeof FLUID!=='undefined'?FLUID.surfaceHeight(x,y,z):1;
 for(const f of FACES){const n=getBlock(x+f.dir[0],y+f.dir[1],z+f.dir[2]);if(id===B.WATER){
