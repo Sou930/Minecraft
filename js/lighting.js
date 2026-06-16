@@ -8,6 +8,15 @@
 //   ・溶岩は光源 + ダメージ（ダメージは player.js 側で処理）。
 // =====================================================================
 const LIGHTING = (function () {
+  // === 重要な仕様変更 ===
+  // 以前は Babylon.js の PointLight で松明等を表現していたが、PointLight は
+  // 壁を貫通してしまい「壁の外側だけ明るく、室内が暗い」現象を起こしていた。
+  // 現在は world.js の computeBlockLight（壁を遮蔽するフラッドフィル）で
+  // 計算した光をメッシュ頂点色へ焼き込む方式に変更している。
+  // そのため PointLight の点灯は無効化（USE_POINT_LIGHTS=false）し、
+  // この LIGHTING モジュールは「夜の明るさ係数(nightFactor)の保持」と
+  // 「ブロック変更時にチャンク再描画を促す通知」のみを担当する。
+  const USE_POINT_LIGHTS = false;
   // 発光ブロックごとの光の強さ・半径・色。
   // intensity: PointLight 強度 / range: 届く距離 / color
   const LIGHT_DEFS = {};
@@ -31,6 +40,7 @@ const LIGHTING = (function () {
 
   function init() {
     if (inited || typeof scene === 'undefined') return;
+    if (!USE_POINT_LIGHTS) { inited = true; return; } // PointLight は使わない
     for (let i = 0; i < POOL_SIZE; i++) {
       const l = new BABYLON.PointLight('plight' + i, new BABYLON.Vector3(0, -999, 0), scene);
       l.intensity = 0;
@@ -50,7 +60,7 @@ const LIGHTING = (function () {
   let scanTimer = 0;
   const SCAN_RADIUS = 18;   // この範囲内の発光ブロックだけ光源にする
   function update(dt) {
-    if (!inited) return;
+    if (!inited || !USE_POINT_LIGHTS) return;
     scanTimer -= dt;
     if (scanTimer > 0) return;
     scanTimer = 0.2; // 5回/秒で十分滑らか
@@ -111,7 +121,7 @@ const LIGHTING = (function () {
 
   // 1ブロックが変化したら、その位置の光源割り当てを即時更新（消灯/点灯を反映）。
   function notifyBlockChanged(x, y, z) {
-    if (!inited) return;
+    if (!inited || !USE_POINT_LIGHTS) return; // 焼き込み方式では render.js 側が再描画する
     const key = x + ',' + y + ',' + z;
     const id = getBlock(x, y, z);
     if (!isLightSource(id)) {
