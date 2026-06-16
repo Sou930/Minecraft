@@ -41,7 +41,7 @@ for(let d=0.3;d<=dist;d+=0.2){const tx=eyeX+fwd.x*sign*d,ty=eyeY+fwd.y*sign*d,tz
 camera.position.set(eyeX+fwd.x*sign*dist,eyeY+fwd.y*sign*dist,eyeZ+fwd.z*sign*dist);
 if(view===1)camera.rotation.set(player.pitch,player.yaw,0);
 else camera.rotation.set(-player.pitch,player.yaw+Math.PI,0);}
-let hudTimer=0;function updateHUD(dt){if(!worldReady)return;hudTimer+=dt;if(hudTimer<0.25)return;hudTimer=0;document.getElementById('fps-display').textContent=`FPS: ${engine.getFps().toFixed(0)}`;document.getElementById('pos-display').textContent=`X: ${player.pos.x.toFixed(0)} Y: ${player.pos.y.toFixed(0)} Z: ${player.pos.z.toFixed(0)}`;const bx=Math.floor(player.pos.x),bz=Math.floor(player.pos.z);const bio=(bx>=0&&bx<WORLD_W&&bz>=0&&bz<WORLD_D)?biomeMap[colIndex(bx,bz)]:biomeAt(bx,bz);document.getElementById('biome-display').textContent=BIOME_NAME[bio];updateChunkStreaming(4);}
+let hudTimer=0;function updateHUD(dt){if(!worldReady)return;hudTimer+=dt;if(hudTimer<0.25)return;hudTimer=0;document.getElementById('fps-display').textContent=`FPS: ${engine.getFps().toFixed(0)}`;document.getElementById('pos-display').textContent=`X: ${player.pos.x.toFixed(0)} Y: ${player.pos.y.toFixed(0)} Z: ${player.pos.z.toFixed(0)}`;const bx=Math.floor(player.pos.x),bz=Math.floor(player.pos.z);const bio=(bx>=0&&bx<WORLD_W&&bz>=0&&bz<WORLD_D)?biomeMap[colIndex(bx,bz)]:biomeAt(bx,bz);document.getElementById('biome-display').textContent=BIOME_NAME[bio];updateChunkStreaming(6);}
 // Render loop is started immediately, but gameplay (update) is gated by the
 // `started` flag and `worldReady`, so the loop just paints the loading sky
 // until generation finishes. This avoids blocking the main thread.
@@ -57,14 +57,15 @@ async function bootstrap(){
   // Mesh only the chunks the player can immediately see (the full view box is
   // (2*VIEW_DIST+1)^2 chunks). Build a few per frame so the loading screen
   // stays smooth; remaining far chunks stream in lazily during play.
-  const need=(VIEW_DIST_CHUNKS*2+1)*(VIEW_DIST_CHUNKS*2+1);
+  // ロードは近距離(INITIAL_LOAD_CHUNKS)のみ生成。遠方はプレイ中にストリーミング。
+  const need=(INITIAL_LOAD_CHUNKS*2+1)*(INITIAL_LOAD_CHUNKS*2+1);
   let metaBuilt=0,guard=0;
   while(guard++<600){
-    const n=updateChunkStreaming(5);
+    const n=updateChunkStreaming(5,INITIAL_LOAD_CHUNKS);
     metaBuilt+=n;
     setLoadProgress(Math.min(1,metaBuilt/need),'地形を描画中...');
     await new Promise(r=>requestAnimationFrame(()=>r()));
-    if(n===0)break; // all in-view chunks meshed
+    if(n===0)break; // all initial chunks meshed
   }
   loadInventory();createInventoryUI();renderHotbar();updateVitalsUI();if(typeof initAchievementsUI==='function')initAchievementsUI();
   applyPose();if(typeof buildPlayerModel==='function')buildPlayerModel();if(typeof trySpawnMobs==='function'){trySpawnMobs();trySpawnMobs();}

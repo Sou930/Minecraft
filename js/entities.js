@@ -54,7 +54,14 @@ function spawnHeightAt(x,z){for(let y=WORLD_H-2;y>1;y--){const id=getBlock(x,y,z
 
 function pickAnimalType(){const r=Math.random();if(r<0.3)return 'pig';if(r<0.6)return 'sheep';if(r<0.82)return 'cow';return 'chicken';}
 
-function spawnMob(type,x,y,z){const meshes=buildMobMesh(type);const t=MOB_TYPES[type];const mob={type,t,meshes,pos:new BABYLON.Vector3(x+0.5,y,z+0.5),vel:new BABYLON.Vector3(0,0,0),yaw:Math.random()*Math.PI*2,onGround:false,wanderTimer:0,targetYaw:Math.random()*Math.PI*2,moving:false,walkPhase:0,hp:t.hp,halfW:0.32,height:Math.max(0.5,t.bodyH+t.legH)};meshes.root.position.copyFrom(mob.pos);mobs.push(mob);return mob;}
+function spawnMob(type,x,y,z){const meshes=buildMobMesh(type);const t=MOB_TYPES[type];const mob={type,t,meshes,pos:new BABYLON.Vector3(x+0.5,y,z+0.5),vel:new BABYLON.Vector3(0,0,0),yaw:Math.random()*Math.PI*2,onGround:false,wanderTimer:0,targetYaw:Math.random()*Math.PI*2,moving:false,walkPhase:0,hp:t.hp,halfW:0.32,height:Math.max(0.5,t.bodyH+t.legH),
+  // 滑らかな動きのための追加状態
+  speedMul:0,          // 現在の移動倍率(0..1) を目標へ補間して急発進/急停止を防ぐ
+  headYaw:0,headPitch:0,// 頭の向き(胴体相対)。歩行中は進行方向、停止中はゆらゆら見回す
+  lookTimer:0,         // 見回し更新タイマー
+  jumpCooldown:0,      // 連続ジャンプ防止
+  stuckTimer:0,prevX:x+0.5,prevZ:z+0.5,
+  };meshes.root.position.copyFrom(mob.pos);mobs.push(mob);return mob;}
 
 // プレイヤー周囲に動物を湧かせる（地表のみ・最大数まで）。
 function trySpawnMobs(){if(mobs.length>=MAX_MOBS)return;if(typeof player==='undefined')return;for(let attempt=0;attempt<6&&mobs.length<MAX_MOBS;attempt++){const ang=Math.random()*Math.PI*2;const r=14+Math.random()*16;const x=Math.floor(player.pos.x+Math.cos(ang)*r);const z=Math.floor(player.pos.z+Math.sin(ang)*r);if(x<2||x>=WORLD_W-2||z<2||z>=WORLD_D-2)continue;const y=spawnHeightAt(x,z);if(y===null)continue;spawnMob(pickAnimalType(),x,y,z);}}
@@ -71,36 +78,94 @@ function updateMobs(dt){if(!worldReady||!started)return;
 
 function despawnFarMobs(){for(let i=mobs.length-1;i>=0;i--){const m=mobs[i];const dx=m.pos.x-player.pos.x,dz=m.pos.z-player.pos.z;if(dx*dx+dz*dz>70*70){m.meshes.root.dispose();m.meshes.legs.forEach(l=>l.dispose&&l.dispose());mobs.splice(i,1);}}}
 
+// 滑らかな角度補間（最短回り）。
+function approachAngle(cur,target,maxStep){let dy=target-cur;while(dy>Math.PI)dy-=Math.PI*2;while(dy<-Math.PI)dy+=Math.PI*2;if(Math.abs(dy)<=maxStep)return target;return cur+Math.sign(dy)*maxStep;}
+
 function updateOneMob(mob,dt){
-  // ふらふら歩く: 一定時間で目標方向と「歩く/止まる」を切り替える
-  mob.wanderTimer-=dt;if(mob.wanderTimer<=0){mob.wanderTimer=1.5+Math.random()*3;mob.moving=Math.random()<0.65;mob.targetYaw=Math.random()*Math.PI*2;}
-  // プレイヤーが近すぎると軽く逃げる
-  const dx=mob.pos.x-player.pos.x,dz=mob.pos.z-player.pos.z;const distSq=dx*dx+dz*dz;if(distSq<9){mob.targetYaw=Math.atan2(dx,dz);mob.moving=true;}
-  // 向きを目標へ滑らかに回転
-  let dy=mob.targetYaw-mob.yaw;while(dy>Math.PI)dy-=Math.PI*2;while(dy<-Math.PI)dy+=Math.PI*2;mob.yaw+=dy*Math.min(1,dt*4);
-  // 移動速度
-  const sp=mob.moving?mob.t.speed:0;const wishX=Math.sin(mob.yaw)*sp,wishZ=Math.cos(mob.yaw)*sp;const accel=Math.min(1,dt*8);mob.vel.x+=(wishX-mob.vel.x)*accel;mob.vel.z+=(wishZ-mob.vel.z)*accel;
-  // 重力
+  // === 行動決定: ゆるやかに「歩く/立ち止まる」を切り替える ===
+  // 以前は moving を一瞬で 0/1 切替して急発進・急停止していた。
+  // ここでは目標速度倍率(targetSpeedMul)を決め、speedMul を補間して自然にする。
+  mob.wanderTimer-=dt;
+  if(mob.wanderTimer<=0){
+    // 立ち止まり時間は長め、歩き出しはたまに。生き物らしい間を作る。
+    if(mob.moving){mob.moving=false;mob.wanderTimer=1.2+Math.random()*2.6;}
+    else{
+      mob.moving=Math.random()<0.7;
+      mob.wanderTimer=mob.moving?(2.0+Math.random()*3.5):(1.0+Math.random()*2.0);
+      // 新しい進行方向は今の向きから ±やや の範囲で選び、急な反転を減らす。
+      if(mob.moving){const turn=(Math.random()-0.5)*Math.PI*1.2;mob.targetYaw=mob.yaw+turn;}
+    }
+  }
+
+  // === プレイヤーが近いと逃げる（距離に応じて滑らかに加速） ===
+  const dx=mob.pos.x-player.pos.x,dz=mob.pos.z-player.pos.z;const distSq=dx*dx+dz*dz;
+  let fleeing=false;
+  if(distSq<16){fleeing=true;mob.moving=true;mob.targetYaw=Math.atan2(dx,dz);mob.wanderTimer=Math.max(mob.wanderTimer,0.5);}
+
+  // === 向きを目標へ滑らかに回転（過回転しない最短回り） ===
+  const turnRate=fleeing?6.0:2.6; // 逃走時はやや速く向き直る
+  mob.yaw=approachAngle(mob.yaw,mob.targetYaw,turnRate*dt);
+
+  // === 速度倍率を補間（急発進/急停止を防ぐ） ===
+  const targetSpeedMul=mob.moving?(fleeing?1.35:1.0):0;
+  mob.speedMul+=(targetSpeedMul-mob.speedMul)*Math.min(1,dt*3.5);
+  if(mob.speedMul<0.02)mob.speedMul=0;
+  const sp=mob.t.speed*mob.speedMul;
+  const wishX=Math.sin(mob.yaw)*sp,wishZ=Math.cos(mob.yaw)*sp;
+  const accel=Math.min(1,dt*6);mob.vel.x+=(wishX-mob.vel.x)*accel;mob.vel.z+=(wishZ-mob.vel.z)*accel;
+
+  // === 重力 ===
   mob.vel.y+=MOB_GRAVITY*dt;if(mob.vel.y<-40)mob.vel.y=-40;
   // 水中は浮く
   const inWater=getBlock(Math.floor(mob.pos.x),Math.floor(mob.pos.y+0.3),Math.floor(mob.pos.z))===B.WATER;if(inWater){mob.vel.y=Math.max(mob.vel.y,1.8);}
-  // 前方が壁・崖ならジャンプ/方向転換
+
+  if(mob.jumpCooldown>0)mob.jumpCooldown-=dt;
+
+  // === 移動と衝突。前方の段差は飛び越える、壁は向きを変える ===
   const hitX=mobMoveAxis(mob,'x',mob.vel.x*dt);const hitZ=mobMoveAxis(mob,'z',mob.vel.z*dt);
   if((hitX||hitZ)&&mob.onGround){
-    // 1ブロックの段差なら飛び越える、そうでなければ方向転換
     const fx=Math.floor(mob.pos.x+Math.sin(mob.yaw)*0.6),fz=Math.floor(mob.pos.z+Math.cos(mob.yaw)*0.6);const fy=Math.floor(mob.pos.y);
-    if(isSolid(getBlock(fx,fy,fz))&&!isSolid(getBlock(fx,fy+1,fz))&&!isSolid(getBlock(fx,fy+2,fz))){mob.vel.y=7.0;}
-    else{mob.targetYaw=mob.yaw+Math.PI*(0.5+Math.random());}
+    // 1ブロックの段差なら飛び越える
+    if(mob.jumpCooldown<=0&&isSolid(getBlock(fx,fy,fz))&&!isSolid(getBlock(fx,fy+1,fz))&&!isSolid(getBlock(fx,fy+2,fz))){mob.vel.y=6.6;mob.jumpCooldown=0.6;}
+    else{mob.targetYaw=mob.yaw+(Math.random()<0.5?1:-1)*Math.PI*(0.35+Math.random()*0.4);mob.wanderTimer=Math.max(mob.wanderTimer,0.6);}
     if(hitX)mob.vel.x=0;if(hitZ)mob.vel.z=0;
   }
+
+  // === 崖回避: 進行方向の足元が空(崖)なら向きを変えて落下を防ぐ ===
+  if(mob.onGround&&mob.speedMul>0.3&&mob.jumpCooldown<=0){
+    const ahead=0.7;const ax=mob.pos.x+Math.sin(mob.yaw)*ahead,az=mob.pos.z+Math.cos(mob.yaw)*ahead;
+    const groundBelow=getBlock(Math.floor(ax),Math.floor(mob.pos.y-1),Math.floor(az));
+    const ground2=getBlock(Math.floor(ax),Math.floor(mob.pos.y-2),Math.floor(az));
+    if(!isSolid(groundBelow)&&!isSolid(ground2)&&getBlock(Math.floor(ax),Math.floor(mob.pos.y-2),Math.floor(az))!==B.WATER){
+      mob.targetYaw=mob.yaw+Math.PI*(0.5+Math.random()*0.5);mob.wanderTimer=Math.max(mob.wanderTimer,0.4);
+    }
+  }
+
   const prevVy=mob.vel.y;const hitY=mobMoveAxis(mob,'y',mob.vel.y*dt);mob.onGround=false;if(hitY){if(prevVy<0)mob.onGround=true;mob.vel.y=0;}
+
+  // === 詰まり検出: しばらく動けていなければ向きを変える ===
+  mob.stuckTimer+=dt;
+  if(mob.stuckTimer>0.5){const moved=Math.hypot(mob.pos.x-mob.prevX,mob.pos.z-mob.prevZ);if(mob.speedMul>0.3&&moved<0.05){mob.targetYaw=mob.yaw+Math.PI*(0.5+Math.random());}mob.prevX=mob.pos.x;mob.prevZ=mob.pos.z;mob.stuckTimer=0;}
+
   // 落下死防止: 奈落に落ちたら消す
   if(mob.pos.y<-5){mob.meshes.root.dispose();const i=mobs.indexOf(mob);if(i>=0)mobs.splice(i,1);return;}
-  // メッシュへ反映
+
+  // === メッシュへ反映 ===
   mob.meshes.root.position.copyFrom(mob.pos);mob.meshes.root.rotation.y=mob.yaw;
-  // 脚アニメーション
-  const moving=Math.hypot(mob.vel.x,mob.vel.z)>0.3;if(moving){mob.walkPhase+=dt*8;}else{mob.walkPhase*=0.85;}
-  const swing=Math.sin(mob.walkPhase)*0.5;mob.meshes.legs.forEach((leg,i)=>{const s=(i===0||i===3)?swing:-swing;leg.rotation.x=s;});
+
+  // === 頭の動き: 停止中はゆっくり見回し、移動中は正面を向く ===
+  mob.lookTimer-=dt;
+  if(mob.lookTimer<=0){mob.lookTimer=1.0+Math.random()*2.5;
+    if(mob.speedMul<0.2){mob.headYaw=(Math.random()-0.5)*0.9;mob.headPitch=(Math.random()-0.4)*0.5;}
+    else{mob.headYaw=0;mob.headPitch=0;}
+  }
+  if(mob.meshes.head){mob.meshes.head.rotation.y=approachAngle(mob.meshes.head.rotation.y,mob.headYaw,dt*3);mob.meshes.head.rotation.x=mob.meshes.head.rotation.x+(mob.headPitch-mob.meshes.head.rotation.x)*Math.min(1,dt*3);}
+
+  // === 脚アニメーション: 実際の移動速度に応じて歩幅・速度を変える ===
+  const groundSpeed=Math.hypot(mob.vel.x,mob.vel.z);const moving=groundSpeed>0.25;
+  if(moving){mob.walkPhase+=dt*(5+groundSpeed*3.2);}else{mob.walkPhase*=0.82;}
+  const amp=Math.min(0.6,0.25+groundSpeed*0.22);const swing=Math.sin(mob.walkPhase)*amp;
+  mob.meshes.legs.forEach((leg,i)=>{const s=(i===0||i===3)?swing:-swing;leg.rotation.x=s;});
 }
 
 // ===== 3人称用プレイヤーモデル =====

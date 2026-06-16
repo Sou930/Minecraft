@@ -13,6 +13,68 @@ function skyExposed(x,y,z){for(let yy=y+1;yy<WORLD_H;yy++){if(blocksSky(getBlock
 // セル(x,y,z)の「天空光レベル」を 0..1 で返す。直上が空に開けていれば 1。
 // そうでなければ近傍（上方含む斜め）を少しだけ参照し、洞窟入口付近をなだらかにする。
 function skyLightAt(x,y,z){if(skyExposed(x,y,z))return 1;let best=0;const offs=[[1,0],[-1,0],[0,1],[0,-1]];for(const[dx,dz]of offs){if(skyExposed(x+dx,y+1,z+dz)){best=Math.max(best,0.55);}}return best;}
+// === ブロック光源(blocklight) ===
+// 松明/ランタン/溶岩/アメジスト/ヒカリゴケなどの発光ブロックの明るさを、
+// 壁を「貫通させずに」周囲へ伝播させる（Minecraft 風のフラッドフィル）。
+// PointLight は壁を透過してしまい「壁の外側だけ明るく室内が暗い」現象を起こすため、
+// 代わりにここで計算した値をメッシュ頂点色へ焼き込み、室内をきちんと照らす。
+// 値は 0..15 の整数（Minecraft 同様の光レベル）。1 ブロックごとに 1 減衰する。
+//
+// パフォーマンス: 全ワールド(768×96×768)を一度に計算すると重いので、
+// チャンク描画時に「そのチャンク＋余白」だけを範囲限定でフラッドフィルする。
+// 透明でないブロック(壁)は光を遮る。透明ブロック(ガラス/葉/作物/液体)は通す。
+const BLOCKLIGHT_MAX=15;       // 光源の最大レベル
+const BLOCKLIGHT_DEFS_CACHE={};
+function blockLightEmission(id){
+  // 各発光ブロックが放つ光レベル(0..15)。半径はこのレベル分だけ届く。
+  if(id in BLOCKLIGHT_DEFS_CACHE)return BLOCKLIGHT_DEFS_CACHE[id];
+  let v=0;
+  if(id===B.LAVA)v=15;
+  else if(id===B.LANTERN)v=14;
+  else if(id===B.TORCH)v=13;
+  else if(id===B.AMETHYST_CLUSTER)v=8;
+  else if(id===B.GLOW_LICHEN)v=7;
+  BLOCKLIGHT_DEFS_CACHE[id]=v;return v;
+}
+// 光が通過できるか（壁=不透明は遮る）。空気・透明ブロック・液体・作物は通す。
+function lightPasses(id){if(id===B.AIR)return true;const d=BLOCKS[id];if(!d)return true;if(d.transparent||d.crop||d.crossPlant||d.cross||d.fluid||d.torch||d.lanternBox||d.flat)return true;return false;}
+
+// 範囲限定の blocklight フラッドフィル。
+// (bx0..bx1, ...) の立方体について blocklight を計算し Uint8Array で返す。
+// margin はチャンク外からの光のにじみを拾うための余白（= BLOCKLIGHT_MAX 推奨）。
+function computeBlockLight(bx0,by0,bz0,sx,sy,sz){
+  const N=sx*sy*sz;const lv=new Uint8Array(N);
+  const idx=(x,y,z)=>((y*sz)+z)*sx+x; // ローカル添字
+  // BFS キュー（バケット方式: レベルごとに処理して O(N) に近づける）
+  // 1) 領域内の光源を初期セルとして種まき
+  let queue=[];
+  for(let y=0;y<sy;y++)for(let z=0;z<sz;z++)for(let x=0;x<sx;x++){
+    const wx=bx0+x,wy=by0+y,wz=bz0+z;
+    const id=getBlock(wx,wy,wz);
+    const e=blockLightEmission(id);
+    if(e>0){const i=idx(x,y,z);lv[i]=e;queue.push(i);}
+  }
+  // 2) フラッドフィル（6方向）。隣が壁(光を通さない)なら伝播しない。
+  const NEI=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+  let head=0;
+  while(head<queue.length){
+    const i=queue[head++];const cur=lv[i];
+    if(cur<=1)continue;
+    // i から x,y,z を復元
+    const x=i%sx,z=(((i-x)/sx)|0)%sz,y=(((i-x)/sx-z)/sz)|0;
+    for(const[dx,dy,dz]of NEI){
+      const nx=x+dx,ny=y+dy,nz=z+dz;
+      if(nx<0||nx>=sx||ny<0||ny>=sy||nz<0||nz>=sz)continue;
+      const wx=bx0+nx,wy=by0+ny,wz=bz0+nz;
+      if(wy<0||wy>=WORLD_H)continue;
+      // 壁は光を通さない（その壁自身は隣の光で照らされてよいので、面の明るさは別途参照する）
+      if(!lightPasses(getBlock(wx,wy,wz)))continue;
+      const ni=idx(nx,ny,nz);const nl=cur-1;
+      if(lv[ni]<nl){lv[ni]=nl;queue.push(ni);}
+    }
+  }
+  return {lv,bx0,by0,bz0,sx,sy,sz,idx};
+}
 // Biome-aware terrain height. A gentle rolling base is modulated per biome so
 // mountains tower, oceans sink below sea level, mesas form flat plateaus and
 // volcanoes build steep cones — all blended smoothly via the climate fields.
