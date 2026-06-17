@@ -1,6 +1,4 @@
-// ===== アチーブメント（実績）システム =====
-// ゲーム内の行動を累計カウントし、目標値に達したら実績を解除して
-// 画面右上にトースト通知を出す。進捗は localStorage に保存される。
+// Achievement system: track actions, unlock on goal, show toast
 const ACH = (function () {
   const STATS_KEY = 'bw_ach_stats';
   const DONE_KEY = 'bw_ach_done';
@@ -9,7 +7,7 @@ const ACH = (function () {
     harvest: 0, eaten: 0, diamond: 0, obsidian: 0, swim: 0, fly: 0, night: 0,
   };
   let stats = Object.assign({}, DEFAULT_STATS);
-  let done = {};            // id -> true（解除済み）
+  let done = {};
   let saveTimer = null;
 
   function load() {
@@ -36,7 +34,6 @@ const ACH = (function () {
   function progressFor(a) { return Math.min(stats[a.stat] || 0, a.goal); }
   function isDone(a) { return !!done[a.id]; }
 
-  // 実績の達成判定。新しく解除されたものはトースト表示。
   function check() {
     for (const a of ACHIEVEMENTS) {
       if (done[a.id]) continue;
@@ -49,14 +46,12 @@ const ACH = (function () {
     }
   }
 
-  // 行動を加算するメイン入口。kind は stats のキー名。
   function track(kind, amount) {
     if (!(kind in stats)) return;
     stats[kind] += (amount === undefined ? 1 : amount);
     check();
     scheduleSave();
   }
-  // 一度きりのフラグ（例: 初飛行）。既に立っていれば何もしない。
   function flag(kind) {
     if (!(kind in stats) || stats[kind] >= 1) return;
     stats[kind] = 1;
@@ -64,7 +59,6 @@ const ACH = (function () {
     scheduleSave();
   }
 
-  // ===== トースト通知 =====
   function showToast(a) {
     const wrap = document.getElementById('ach-toast-wrap');
     if (!wrap) return;
@@ -72,7 +66,7 @@ const ACH = (function () {
     el.className = 'ach-toast';
     el.innerHTML =
       '<div class="ach-toast-icon">' + a.icon + '</div>' +
-      '<div class="ach-toast-text"><div class="ach-toast-title">実績解除！</div>' +
+      '<div class="ach-toast-text"><div class="ach-toast-title">Achievement Unlocked!</div>' +
       '<div class="ach-toast-name">' + a.name + '</div></div>';
     wrap.appendChild(el);
     requestAnimationFrame(() => el.classList.add('show'));
@@ -97,7 +91,6 @@ const ACH = (function () {
   };
 })();
 
-// ===== アチーブメントパネル UI =====
 let achPanelOpen = false;
 function updateAchBadge() {
   const badge = document.getElementById('ach-count');
@@ -154,7 +147,7 @@ function renderAchPanel() {
   const sum = document.getElementById('ach-summary');
   if (sum) {
     const u = ACH.unlockedCount(), t = ACH.total();
-    sum.textContent = `${u} / ${t} 達成（${Math.round((u / t) * 100)}%）`;
+    sum.textContent = `${u} / ${t} unlocked (${Math.round((u / t) * 100)}%)`;
   }
 }
 function setAchPanel(open) {

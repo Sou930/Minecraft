@@ -2,31 +2,17 @@ const world=new Uint8Array(WORLD_W*WORLD_H*WORLD_D);function blockIndex(x,y,z){r
 function getBlock(x,y,z){if(y<0)return B.BEDROCK;if(y>=WORLD_H)return B.AIR;if(x<0||x>=WORLD_W||z<0||z>=WORLD_D)return B.STONE;return world[blockIndex(x,y,z)];}
 function isCrop(id){const d=BLOCKS[id];return!!(d&&d.crop);}
 function isSolid(id){return id!==B.AIR&&id!==B.WATER&&id!==B.LAVA&&id!==B.SEAWEED&&id!==B.DEAD_BUSH&&!isCrop(id);}
-// raycast 用: 衝突しない作物もブロック選択（破壊・操作）のターゲットにする。
+// Crops are targetable even though non-solid
 function isTargetable(id){return isSolid(id)||isCrop(id);}
-// === 天空光(skylight) ===
-// あるセルの真上に不透明ブロックがあるか（空が見えないか）を調べる。
-// 空が見えない＝地下/室内とみなし、洞窟内を「真っ暗」にするために使う。
-// 透明ブロック(葉・ガラス等)と流体は遮蔽に数えない。
+// Skylight: returns 0 if block above is opaque (underground)
 function blocksSky(id){if(id===B.AIR||id===B.WATER||id===B.LAVA)return false;const d=BLOCKS[id];if(d&&(d.transparent||d.crop||d.crossPlant))return false;return true;}
 function skyExposed(x,y,z){for(let yy=y+1;yy<WORLD_H;yy++){if(blocksSky(getBlock(x,yy,z)))return false;}return true;}
-// セル(x,y,z)の「天空光レベル」を 0..1 で返す。直上が空に開けていれば 1。
-// そうでなければ近傍（上方含む斜め）を少しだけ参照し、洞窟入口付近をなだらかにする。
+// Sky light level 0..1; 1=open sky, gradient near cave entrances
 function skyLightAt(x,y,z){if(skyExposed(x,y,z))return 1;let best=0;const offs=[[1,0],[-1,0],[0,1],[0,-1]];for(const[dx,dz]of offs){if(skyExposed(x+dx,y+1,z+dz)){best=Math.max(best,0.55);}}return best;}
-// === ブロック光源(blocklight) ===
-// 松明/ランタン/溶岩/アメジスト/ヒカリゴケなどの発光ブロックの明るさを、
-// 壁を「貫通させずに」周囲へ伝播させる（Minecraft 風のフラッドフィル）。
-// PointLight は壁を透過してしまい「壁の外側だけ明るく室内が暗い」現象を起こすため、
-// 代わりにここで計算した値をメッシュ頂点色へ焼き込み、室内をきちんと照らす。
-// 値は 0..15 の整数（Minecraft 同様の光レベル）。1 ブロックごとに 1 減衰する。
-//
-// パフォーマンス: 全ワールド(768×96×768)を一度に計算すると重いので、
-// チャンク描画時に「そのチャンク＋余白」だけを範囲限定でフラッドフィルする。
-// 透明でないブロック(壁)は光を遮る。透明ブロック(ガラス/葉/作物/液体)は通す。
-const BLOCKLIGHT_MAX=15;       // 光源の最大レベル
+// Block light: flood-fill from emissive blocks (torches/lava/etc), 0..15 range
+const BLOCKLIGHT_MAX=15;
 const BLOCKLIGHT_DEFS_CACHE={};
 function blockLightEmission(id){
-  // 各発光ブロックが放つ光レベル(0..15)。半径はこのレベル分だけ届く。
   if(id in BLOCKLIGHT_DEFS_CACHE)return BLOCKLIGHT_DEFS_CACHE[id];
   let v=0;
   if(id===B.LAVA)v=15;
@@ -36,17 +22,14 @@ function blockLightEmission(id){
   else if(id===B.GLOW_LICHEN)v=7;
   BLOCKLIGHT_DEFS_CACHE[id]=v;return v;
 }
-// 光が通過できるか（壁=不透明は遮る）。空気・透明ブロック・液体・作物は通す。
+// Returns true if light can pass through this block
 function lightPasses(id){if(id===B.AIR)return true;const d=BLOCKS[id];if(!d)return true;if(d.transparent||d.crop||d.crossPlant||d.cross||d.fluid||d.torch||d.lanternBox||d.flat)return true;return false;}
 
-// 範囲限定の blocklight フラッドフィル。
-// (bx0..bx1, ...) の立方体について blocklight を計算し Uint8Array で返す。
-// margin はチャンク外からの光のにじみを拾うための余白（= BLOCKLIGHT_MAX 推奨）。
+// Compute block light for a region using BFS flood-fill
 function computeBlockLight(bx0,by0,bz0,sx,sy,sz){
   const N=sx*sy*sz;const lv=new Uint8Array(N);
-  const idx=(x,y,z)=>((y*sz)+z)*sx+x; // ローカル添字
-  // BFS キュー（バケット方式: レベルごとに処理して O(N) に近づける）
-  // 1) 領域内の光源を初期セルとして種まき
+  const idx=(x,y,z)=>((y*sz)+z)*sx+x;
+  // Seed emissive blocks
   let queue=[];
   for(let y=0;y<sy;y++)for(let z=0;z<sz;z++)for(let x=0;x<sx;x++){
     const wx=bx0+x,wy=by0+y,wz=bz0+z;
@@ -54,20 +37,18 @@ function computeBlockLight(bx0,by0,bz0,sx,sy,sz){
     const e=blockLightEmission(id);
     if(e>0){const i=idx(x,y,z);lv[i]=e;queue.push(i);}
   }
-  // 2) フラッドフィル（6方向）。隣が壁(光を通さない)なら伝播しない。
+  // BFS flood-fill in 6 directions
   const NEI=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
   let head=0;
   while(head<queue.length){
     const i=queue[head++];const cur=lv[i];
     if(cur<=1)continue;
-    // i から x,y,z を復元
     const x=i%sx,z=(((i-x)/sx)|0)%sz,y=(((i-x)/sx-z)/sz)|0;
     for(const[dx,dy,dz]of NEI){
       const nx=x+dx,ny=y+dy,nz=z+dz;
       if(nx<0||nx>=sx||ny<0||ny>=sy||nz<0||nz>=sz)continue;
       const wx=bx0+nx,wy=by0+ny,wz=bz0+nz;
       if(wy<0||wy>=WORLD_H)continue;
-      // 壁は光を通さない（その壁自身は隣の光で照らされてよいので、面の明るさは別途参照する）
       if(!lightPasses(getBlock(wx,wy,wz)))continue;
       const ni=idx(nx,ny,nz);const nl=cur-1;
       if(lv[ni]<nl){lv[ni]=nl;queue.push(ni);}
@@ -182,8 +163,6 @@ function heightAtRaw(x,z){
   }
   return h;
 }
-// floor 済みの整数高さ(従来 API)。スムージング前の生値が欲しい場合は
-// heightAtRaw() を使う。
 function heightAt(x,z){return Math.floor(Math.max(2,Math.min(WORLD_H-6,heightAtRaw(x,z))));}
 // Lava level inside a volcano crater. Returns the height the molten pool fills
 // up to (the crater rim), or -1 when this column is not a flooded crater.
@@ -207,15 +186,9 @@ const heightMap=new Int16Array(WORLD_W*WORLD_D);const biomeMap=new Uint8Array(WO
 function generateWorld(){generateClimateAndHeight();generateTerrainColumns(0,WORLD_W);carveCaves();carveLargeCaves();carveCaveFeatures();placeAmethystGeodes();placeOresAndGravel();placeVegetation();if(typeof placeStructures==='function')placeStructures();}
 // --- Split phases so generation can be driven asynchronously --------------
 function generateClimateAndHeight(){
-  // 1) 各列の高さ(float)とバイオームを計算。floor する前の値を一時保持して
-  //    スムージングの精度を上げる(整数化による段差ノイズを防ぐ)。
   const tmp=new Float32Array(WORLD_W*WORLD_D);
   for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){tmp[colIndex(x,z)]=heightAtRaw(x,z);biomeMap[colIndex(x,z)]=biomeAt(x,z);}}
-  // 2) 軽いスムージングパス: 隣接列との高度差が大きい “荒い段差/トゲ” を、
-  //    近傍 3x3 のガウシアン気味の重み付き平均で緩和する。海岸の崖や山肌など
-  //    本来の大きな起伏は、急峻な部分ほど元の値を残す重みにして保持する。
   const smoothed=new Float32Array(WORLD_W*WORLD_D);
-  // 9近傍ガウシアン重み(中心4, 辺2, 角1 / 合計16)
   const W=[[1,2,1],[2,4,2],[1,2,1]];
   for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){
     const c=tmp[colIndex(x,z)];
@@ -229,12 +202,9 @@ function generateClimateAndHeight(){
       const d=Math.abs(v-c);if(d>maxDiff)maxDiff=d;
     }}
     const avg=sum/wsum;
-    // ブレンド率: 段差が小さい所(=細かい地形ノイズ)ほど強く平滑化し、
-    // 急峻な所(崖・山)は元の形を残す。0.65→急峻でほぼ0へフェード。
     const blend=0.65*(1-Math.min(1,maxDiff/8));
     smoothed[colIndex(x,z)]=c*(1-blend)+avg*blend;
   }}
-  // 3) 整数化して最終 heightMap へ確定。
   for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){
     heightMap[colIndex(x,z)]=Math.floor(Math.max(2,Math.min(WORLD_H-6,smoothed[colIndex(x,z)])));
   }}
@@ -242,14 +212,11 @@ function generateClimateAndHeight(){
 // Build terrain blocks for columns in the x-range [x0,x1).
 function generateTerrainColumns(x0,x1){for(let x=x0;x<x1;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];const biome=biomeMap[colIndex(x,z)];const beach=h<=SEA_LEVEL+1;
 const highRock=h>=SEA_LEVEL+34;            // bare stone above this on mountains
-// 表土(土/砂)の厚みを列ごとにノイズで 3〜5 ブロックに揺らす。Minecraft の
-// ように一定でなく、斜面や尾根で地肌(石)が覗く自然な見た目になる。
 const soilDepth=3+Math.floor(valueNoise(x/6,z/6,301)*3);   // 3..5
-// 山岳の雪線は標高でなだらかに: 高いほど雪、境界はノイズでギザギザに。
 const snowLine=SEA_LEVEL+38+Math.floor(valueNoise(x/5,z/5,303)*6);
 for(let y=0;y<=h&&y<WORLD_H;y++){let id;
 if(y===0)id=B.BEDROCK;
-else if(y<=2&&hash3(x,y,z,305)<0.6)id=B.BEDROCK;          // 岩盤層を不規則に厚く
+else if(y<=2&&hash3(x,y,z,305)<0.6)id=B.BEDROCK;
 else if((biome===BIOME.DESERT||biome===BIOME.MESA)&&!beach){
   // sandy column with sandstone banding (mesa adds wider banding)
   if(y>=h-1)id=B.SAND;else if(y>=h-(biome===BIOME.MESA?8:5))id=B.SANDSTONE;else id=B.STONE;
@@ -259,7 +226,6 @@ else if(biome===BIOME.VOLCANO&&!beach){
   if(y>=h-1&&h>=SEA_LEVEL+30)id=B.OBSIDIAN;else id=B.STONE;
 }
 else if((biome===BIOME.MOUNTAINS)&&highRock){
-  // 高山: 基本は石。雪線より上の地表は雪冠、少し下は石肌に薄く土が乗る。
   if(y>=h){ if(h>=snowLine)id=B.SNOW; else if(valueNoise(x/4,z/4,307)>0.62)id=B.GRASS; else id=B.STONE; }
   else if(y>=h-1&&h<snowLine&&valueNoise(x/4,z/4,307)>0.62)id=B.DIRT;
   else id=B.STONE;
@@ -332,60 +298,39 @@ function carveLargeCaves(){
   }
 }
 // ===========================================================================
-//  TASK8 — 渓谷・洞窟強化:  鍾乳洞・溶岩湖・地下水湖・アメジスト晶洞
-//  carveLargeCaves() で掘った大空洞を、種で決まる位置に再走査して装飾する。
-//  ・LIMESTONE CAVERN(鍾乳洞)… 天井から鍾乳石、床から石筍、苔・ヒカリゴケ。
-//  ・LAVA LAKE(溶岩湖)        … 深部の大空洞の床を溶岩で満たす。
-//  ・WATER LAKE(地下水湖)      … 中層の大空洞の床を水で満たす。
-//  ・AMETHYST GEODE(晶洞)      … 玄武岩→方解石→アメジストの層構造の球殻。
 // ===========================================================================
 
-// 指定座標が「空洞内の空気」で、上下に固い天井/床があるかを調べる小道具。
 function isCaveAir(x,y,z){return getBlock(x,y,z)===B.AIR;}
-// 天井(上向きに最初に当たる固体)を探す。見つからなければ -1。
 function ceilingAbove(x,y,z,maxUp){for(let dy=1;dy<=maxUp;dy++){const id=getBlock(x,y+dy,z);if(id===B.AIR)continue;if(id===B.WATER||id===B.LAVA)return -1;return y+dy-1;}return -1;}
-// 床(下向きに最初に当たる固体)を探す。
 function floorBelow(x,y,z,maxDown){for(let dy=1;dy<=maxDown;dy++){const id=getBlock(x,y-dy,z);if(id===B.AIR)continue;if(id===B.WATER||id===B.LAVA)return -1;return y-dy+1;}return -1;}
 
-// 1本の鍾乳石(天井から下垂)を生やす。長さ len。
 function growStalactite(x,topY,z,len){for(let i=0;i<len;i++){const yy=topY-i;if(yy<=1)break;if(getBlock(x,yy,z)!==B.AIR)break;world[blockIndex(x,yy,z)]=B.DRIPSTONE;}}
-// 1本の石筍(床から上昇)を生やす。
 function growStalagmite(x,botY,z,len){for(let i=0;i<len;i++){const yy=botY+i;if(yy>=WORLD_H-1)break;if(getBlock(x,yy,z)!==B.AIR)break;world[blockIndex(x,yy,z)]=B.DRIPSTONE;}}
 
-// 大空洞1つを装飾する。中心(cx,cy,cz)と半径(rx,ry,rz)を与え、内部の
-// 空気セルを走査して天井に鍾乳石・床に石筍・苔・発光地衣を散らす。
-// flood>=0 のときはその高さまで床を溶岩/水で満たす(湖)。
 function decorateChamber(cx,cy,cz,rx,ry,rz,opts){
   const rng=opts.rng;
   const x0=Math.max(2,cx-rx-1),x1=Math.min(WORLD_W-3,cx+rx+1);
   const z0=Math.max(2,cz-rz-1),z1=Math.min(WORLD_D-3,cz+rz+1);
   const yTop=Math.min(WORLD_H-2,cy+ry+1),yBot=Math.max(2,cy-ry-1);
-  // --- 湖(溶岩/地下水): 空洞の底の窪みに液体を溜める ---
   if(opts.lake){
     const liquid=opts.lake;             // B.LAVA or B.WATER
-    const level=cy-ry+1+Math.floor((ry)*0.55); // 床から少し上まで満たす
+    const level=cy-ry+1+Math.floor((ry)*0.55);
     for(let x=x0;x<=x1;x++)for(let z=z0;z<=z1;z++){
-      // この柱で床面を探す
       let floorY=-1;
       for(let y=yBot;y<=cy+ry;y++){ if(getBlock(x,y,z)===B.AIR){ if(getBlock(x,y-1,z)!==B.AIR){floorY=y;} break; } }
       if(floorY<0)continue;
-      // 楕円体内かざっくり判定
       const d=((x-cx)*(x-cx))/(rx*rx)+((z-cz)*(z-cz))/(rz*rz);
       if(d>1.05)continue;
       for(let y=floorY;y<=level&&y<WORLD_H;y++){ if(getBlock(x,y,z)===B.AIR)world[blockIndex(x,y,z)]=liquid; }
     }
   }
-  // --- 鍾乳石・石筍・苔・発光地衣 ---
   for(let x=x0;x<=x1;x++)for(let z=z0;z<=z1;z++){
     const d=((x-cx)*(x-cx))/(rx*rx)+((z-cz)*(z-cz))/(rz*rz);
     if(d>1.05)continue;
-    // この柱の天井と床
     let ceil=-1,flr=-1;
     for(let y=yTop;y>=yBot;y--){ if(getBlock(x,y,z)===B.AIR&&getBlock(x,y+1,z)!==B.AIR&&getBlock(x,y+1,z)!==B.WATER&&getBlock(x,y+1,z)!==B.LAVA){ceil=y;break;} }
     for(let y=yBot;y<=yTop;y++){ const below=getBlock(x,y-1,z); if(getBlock(x,y,z)===B.AIR&&below!==B.AIR){flr=y;break;} }
-    // 天井から鍾乳石
     if(ceil>0&&rng()<opts.dripP){ growStalactite(x,ceil,z,1+Math.floor(rng()*opts.dripLen)); }
-    // 床から石筍(立てる土台が固体のときだけ)
     if(flr>0){
       const ground=getBlock(x,flr-1,z);
       if(ground!==B.WATER&&ground!==B.LAVA){
@@ -393,24 +338,20 @@ function decorateChamber(cx,cy,cz,rx,ry,rz,opts){
         else if(opts.moss&&rng()<opts.mossP){ world[blockIndex(x,flr-1,z)]=B.MOSS; if(rng()<0.25&&getBlock(x,flr,z)===B.AIR)world[blockIndex(x,flr,z)]=B.GLOW_LICHEN; }
       }
     }
-    // 壁/天井のヒカリゴケ(雰囲気照明)
     if(opts.lichen&&ceil>0&&rng()<opts.lichenP&&getBlock(x,ceil,z)===B.AIR){ world[blockIndex(x,ceil,z)]=B.GLOW_LICHEN; }
   }
 }
 
-// 鍾乳洞・溶岩湖・地下水湖を、種で決まる場所に生成する。
 function carveCaveFeatures(){
   const rng=mulberry32((SEED^0x68bc21ab)>>>0);
   const area=WORLD_W*WORLD_D;
-  // --- 1) 鍾乳洞(石灰質の大空洞) ---
   const limeCount=Math.floor(area/120000)+4;
   for(let i=0;i<limeCount;i++){
     const cx=6+Math.floor(rng()*(WORLD_W-12));
     const cz=6+Math.floor(rng()*(WORLD_D-12));
     const cy=12+Math.floor(rng()*24);
     const rx=9+Math.floor(rng()*8),ry=5+Math.floor(rng()*4),rz=9+Math.floor(rng()*8);
-    if(heightMap[colIndex(cx,cz)]<cy+ry+4)continue;   // 地表に近すぎる所は避ける
-    // まず楕円の空洞を掘る(wobble付き)
+    if(heightMap[colIndex(cx,cz)]<cy+ry+4)continue;
     for(let dx=-rx;dx<=rx;dx++)for(let dy=-ry;dy<=ry;dy++)for(let dz=-rz;dz<=rz;dz++){
       const wob=valueNoise3((cx+dx)/8,(cy+dy)/8,(cz+dz)/8,211)*0.4;
       const d=(dx*dx)/(rx*rx)+(dy*dy)/(ry*ry)+(dz*dz)/(rz*rz);
@@ -418,7 +359,6 @@ function carveCaveFeatures(){
     }
     decorateChamber(cx,cy,cz,rx,ry,rz,{rng,dripP:0.30,dripLen:5,moss:true,mossP:0.18,lichen:true,lichenP:0.10});
   }
-  // --- 2) 溶岩湖(深部 y<18) ---
   const lavaCount=Math.floor(area/200000)+3;
   for(let i=0;i<lavaCount;i++){
     const cx=6+Math.floor(rng()*(WORLD_W-12));
@@ -433,7 +373,6 @@ function carveCaveFeatures(){
     }
     decorateChamber(cx,cy,cz,rx,ry,rz,{rng,dripP:0.16,dripLen:4,moss:false,mossP:0,lichen:false,lichenP:0,lake:B.LAVA});
   }
-  // --- 3) 地下水湖(中層 y 18..40) ---
   const waterCount=Math.floor(area/200000)+3;
   for(let i=0;i<waterCount;i++){
     const cx=6+Math.floor(rng()*(WORLD_W-12));
@@ -450,18 +389,15 @@ function carveCaveFeatures(){
   }
 }
 
-// --- 4) アメジスト晶洞(geode) ---------------------------------------------
-// 球状の層構造:外殻=滑らかな玄武岩、中間層=方解石、内張り=アメジスト
-// ブロック、中空の内部にアメジストの塊が内向きに群生する。
 function placeAmethystGeodes(){
   const rng=mulberry32((SEED^0x3c6ef372)>>>0);
   const count=Math.floor((WORLD_W*WORLD_D)/170000)+3;
   for(let i=0;i<count;i++){
     const cx=8+Math.floor(rng()*(WORLD_W-16));
     const cz=8+Math.floor(rng()*(WORLD_D-16));
-    const r=5+Math.floor(rng()*3);                 // 内部半径
-    const cy=r+4+Math.floor(rng()*22);             // 地中深め
-    if(cy+r+3>=heightMap[colIndex(cx,cz)])continue; // 必ず地表より下
+    const r=5+Math.floor(rng()*3);
+    const cy=r+4+Math.floor(rng()*22);
+    if(cy+r+3>=heightMap[colIndex(cx,cz)])continue;
     buildGeode(cx,cy,cz,r,rng);
   }
 }
@@ -473,16 +409,14 @@ function buildGeode(cx,cy,cz,r,rng){
     const wob=valueNoise3(x/6,y/6,z/6,241)*0.6;
     const dist=Math.sqrt(dx*dx+dy*dy+dz*dz)+wob;
     if(dist>outer+0.5)continue;
-    if(dist>mid+0.5){ if(getBlock(x,y,z)!==B.BEDROCK)world[blockIndex(x,y,z)]=B.SMOOTH_BASALT; }      // 外殻
-    else if(dist>inner+0.5){ world[blockIndex(x,y,z)]=B.CALCITE; }                                    // 中間層
-    else if(dist>inner-0.6){ world[blockIndex(x,y,z)]=B.AMETHYST_BLOCK; }                              // 内張り
-    else { world[blockIndex(x,y,z)]=B.AIR; }                                                           // 中空
+    if(dist>mid+0.5){ if(getBlock(x,y,z)!==B.BEDROCK)world[blockIndex(x,y,z)]=B.SMOOTH_BASALT; }
+    else if(dist>inner+0.5){ world[blockIndex(x,y,z)]=B.CALCITE; }
+    else if(dist>inner-0.6){ world[blockIndex(x,y,z)]=B.AMETHYST_BLOCK; }
+    else { world[blockIndex(x,y,z)]=B.AIR; }
   }
-  // 内張りの表面にアメジストの塊を内向きに生やす
   for(let dx=-inner;dx<=inner;dx++)for(let dy=-inner;dy<=inner;dy++)for(let dz=-inner;dz<=inner;dz++){
     const x=cx+dx,y=cy+dy,z=cz+dz;
     if(getBlock(x,y,z)!==B.AIR)continue;
-    // 隣接にアメジストブロックがあれば、その空気側に塊を置く
     const nb=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
     let touch=false;for(const[ax,ay,az] of nb){ if(getBlock(x+ax,y+ay,z+az)===B.AMETHYST_BLOCK){touch=true;break;} }
     if(touch&&rng()<0.55)world[blockIndex(x,y,z)]=B.AMETHYST_CLUSTER;
@@ -508,18 +442,14 @@ const isBirch=hash2(x+123,z+456,8)<birchP;const logId=isBirch?B.BIRCH_LOG:B.LOG,
 const baseTrunk=biome===BIOME.JUNGLE?7:(biome===BIOME.SWAMP?3:(isBirch?5:4));
 const trunkH=baseTrunk+Math.floor(hash2(x,z,9)*(biome===BIOME.JUNGLE?4:2));
 world[blockIndex(x,h,z)]=B.DIRT;for(let y=1;y<=trunkH;y++)world[blockIndex(x,h+y,z)]=logId;
-// 樹冠: Minecraft風に層ごとの半径を変えて丸みのあるシルエットにする。
-// 下2層=半径2(角を間引く)、上1層=半径1、頂点=十字の小さな冠。
 const canopy=[[trunkH-2,2],[trunkH-1,2],[trunkH,1],[trunkH+1,1]];
 for(const[dy,r]of canopy){for(let dx=-r;dx<=r;dx++){for(let dz=-r;dz<=r;dz++){
-  if(dx===0&&dz===0&&dy<=trunkH)continue;                       // 幹の位置は葉にしない
+  if(dx===0&&dz===0&&dy<=trunkH)continue;
   const dist=Math.abs(dx)+Math.abs(dz);
-  // 角(最遠)を確率的に間引いて丸くする。最上層はさらに削る。
   if(dist>r&&hash2(x+dx*7,z+dz*7,dy*3)<(dy>=trunkH?0.75:0.5))continue;
   const yy=h+dy,xx=x+dx,zz=z+dz;
   if(yy<WORLD_H&&world[blockIndex(xx,yy,zz)]===B.AIR)world[blockIndex(xx,yy,zz)]=leafId;
 }}}
-// 頂点に1枚葉を足して尖りを和らげる
 if(h+trunkH+2<WORLD_H&&world[blockIndex(x,h+trunkH+2,z)]===B.AIR&&hash2(x,z,99)<0.6)world[blockIndex(x,h+trunkH+2,z)]=leafId;
 }}}
 // OCEAN reef: scatter colourful coral and tall seaweed across shallow,
@@ -561,44 +491,44 @@ function generateWorldAsync(onProgress){
   const nextFrame=()=>new Promise(r=>requestAnimationFrame(()=>r()));
   const report=(f,label)=>{if(onProgress)onProgress(Math.max(0,Math.min(1,f)),label);};
   return (async()=>{
-    report(0.02,'気候・地形を計算中...');
+    report(0.02,'Calculating climate & terrain...');
     await nextFrame();
     generateClimateAndHeight();
     // Terrain blocks, sliced into vertical bands so each frame stays short.
     const BAND=16; // columns of x processed per frame
     for(let x0=0;x0<WORLD_W;x0+=BAND){
       generateTerrainColumns(x0,Math.min(WORLD_W,x0+BAND));
-      report(0.05+0.55*(x0/WORLD_W),'地形を生成中...');
+      report(0.05+0.55*(x0/WORLD_W),'Generating terrain...');
       await nextFrame();
     }
-    report(0.62,'洞窟を掘削中...');
+    report(0.62,'Carving caves...');
     await nextFrame();
     carveCaves();
-    report(0.74,'大洞窟を生成中...');
+    report(0.74,'Generating large caves...');
     await nextFrame();
     carveLargeCaves();
-    report(0.78,'鍾乳洞・溶岩湖・地下水湖を生成中...');
+    report(0.78,'Generating caverns & lava lakes...');
     await nextFrame();
     carveCaveFeatures();
-    report(0.82,'アメジスト晶洞を生成中...');
+    report(0.82,'Generating amethyst geodes...');
     await nextFrame();
     placeAmethystGeodes();
-    report(0.84,'鉱石を配置中...');
+    report(0.84,'Placing ores...');
     await nextFrame();
     placeOresAndGravel();
-    report(0.88,'植生を配置中...');
+    report(0.88,'Placing vegetation...');
     await nextFrame();
     placeVegetation();
-    report(0.93,'村を建設中...');
+    report(0.93,'Building villages...');
     await nextFrame();
     if(typeof placeVillages==='function')placeVillages();
-    report(0.96,'廃坑を掘削中...');
+    report(0.96,'Digging mineshafts...');
     await nextFrame();
     if(typeof placeMineshafts==='function')placeMineshafts();
-    report(0.98,'要塞を建造中...');
+    report(0.98,'Building strongholds...');
     await nextFrame();
     if(typeof placeStronghold==='function')placeStronghold();
-    report(1.0,'完了');
+    report(1.0,'Done');
     await nextFrame();
   })();
 }
