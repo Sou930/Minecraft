@@ -1,19 +1,12 @@
 "use strict";
-// =====================================================================
-// SFX — Web Audio API procedural sound engine
-//   ・ブロック破壊音（素材ごとに音色を変える）
-//   ・設置音 / 足音（立っている地面素材で変化）
-//   ・環境音（風・水のせせらぎ・洞窟のこだま）
-// 外部音源ファイルを使わず、すべて WebAudio のオシレータ/ノイズで合成する。
-// =====================================================================
+// SFX — procedural audio via Web Audio API (no external files)
 const SFX = (function () {
-  let ctx = null;          // AudioContext（ユーザー操作後に生成）
-  let master = null;       // 全体音量
-  let enabled = true;      // ミュート状態
+  let ctx = null;
+  let master = null;
+  let enabled = true;
   let masterVol = 0.6;
 
-  // --- 環境音用の常時鳴っているノード群 ---
-  let ambient = null;      // {wind, water, cave, ...}
+  let ambient = null;
 
   function ensure() {
     if (ctx) return ctx;
@@ -26,14 +19,12 @@ const SFX = (function () {
     return ctx;
   }
 
-  // ユーザー操作（クリック/タップ/キー）で AudioContext を resume。
   function resume() {
     const c = ensure();
     if (c && c.state === 'suspended') c.resume();
   }
 
-  // ----- 低レベルヘルパ ------------------------------------------------
-  // ホワイトノイズのバッファ（破壊音・足音・環境音で再利用）
+  // White noise buffer
   let noiseBuf = null;
   function noiseBuffer() {
     if (noiseBuf) return noiseBuf;
@@ -44,7 +35,7 @@ const SFX = (function () {
     return noiseBuf;
   }
 
-  // ノイズバースト（破壊・足音の芯になる）
+  // Filtered noise burst
   function noiseBurst({ dur = 0.15, vol = 0.4, type = 'bandpass', freq = 800, q = 1, decay = 1, dest = null }) {
     const src = ctx.createBufferSource();
     src.buffer = noiseBuffer();
@@ -61,7 +52,7 @@ const SFX = (function () {
     src.start(now); src.stop(now + dur * decay + 0.02);
   }
 
-  // 単音（オシレータ）— 設置音や金属感の付与に使用
+  // Oscillator tone
   function tone({ freq = 440, dur = 0.12, vol = 0.25, type = 'sine', glide = 0, dest = null }) {
     const osc = ctx.createOscillator();
     const g = ctx.createGain();
@@ -76,10 +67,7 @@ const SFX = (function () {
     osc.start(now); osc.stop(now + dur + 0.02);
   }
 
-  // ----- 素材ごとの音の「レシピ」 -------------------------------------
-  // material: 'stone' | 'dirt' | 'grass' | 'sand' | 'wood' | 'glass'
-  //         | 'metal' | 'leaves' | 'gravel' | 'wool' | 'plant' | 'liquid'
-  // B (ブロックID) → 素材カテゴリへのマッピング。
+  // Block ID → material category
   function materialOf(id) {
     if (typeof B === 'undefined') return 'stone';
     switch (id) {
@@ -107,14 +95,12 @@ const SFX = (function () {
     }
   }
 
-  // 破壊完了音（素材で音色を変える）
+  // Full break sound
   function dig(id, opts) { return _step(id, true, opts); }
-  // 設置音
   function place(id, opts) {
     const mat = materialOf(id);
     if (!ensure() || !enabled) return;
     resume();
-    // 設置は「コツッ」と置く短い音 + 素材の質感を少し
     switch (mat) {
       case 'wood': tone({ freq: 180, dur: 0.1, vol: 0.22, type: 'square', glide: -60 }); noiseBurst({ dur: 0.06, vol: 0.12, freq: 900, q: 1.2 }); break;
       case 'glass': tone({ freq: 1200, dur: 0.08, vol: 0.16, type: 'triangle' }); tone({ freq: 1800, dur: 0.06, vol: 0.1, type: 'sine' }); break;
@@ -127,12 +113,12 @@ const SFX = (function () {
     }
   }
 
-  // 足音（地面素材で変化）
+  // Footstep sound
   function footstep(id) {
     if (!ensure() || !enabled) return;
     resume();
     const mat = materialOf(id);
-    const v = 0.10 + Math.random() * 0.04; // 微妙にばらつかせる
+    const v = 0.10 + Math.random() * 0.04;
     switch (mat) {
       case 'grass': case 'plant': case 'leaves': noiseBurst({ dur: 0.08, vol: v, freq: 1700 + Math.random() * 400, q: 0.6 }); break;
       case 'dirt': noiseBurst({ dur: 0.08, vol: v, freq: 600 + Math.random() * 200, q: 0.7, type: 'lowpass' }); break;
@@ -147,7 +133,6 @@ const SFX = (function () {
     }
   }
 
-  // dig/設置の素材別「破壊音」本体（dig=true）
   function _step(id, isDig, opts) {
     if (!ensure() || !enabled) return;
     resume();
@@ -158,8 +143,7 @@ const SFX = (function () {
         noiseBurst({ dur: 0.18, vol: v, freq: 420, q: 1.2, type: 'bandpass' });
         tone({ freq: 130, dur: 0.14, vol: v * 0.6, type: 'square', glide: -50 }); break;
       case 'glass':
-        // ガラス: 高い「パリン」
-        tone({ freq: 1800, dur: 0.12, vol: v * 0.6, type: 'triangle' });
+          tone({ freq: 1800, dur: 0.12, vol: v * 0.6, type: 'triangle' });
         tone({ freq: 2600, dur: 0.1, vol: v * 0.45, type: 'sine' });
         noiseBurst({ dur: 0.12, vol: v * 0.5, freq: 4000, q: 0.6 }); break;
       case 'metal':
@@ -184,7 +168,7 @@ const SFX = (function () {
     }
   }
 
-  // 採掘中の「コツコツ」というヒット音（破壊完了前に繰り返し鳴らす）
+  // Mining hit sound
   function digHit(id) {
     if (!ensure() || !enabled) return;
     resume();
@@ -201,26 +185,22 @@ const SFX = (function () {
     }
   }
 
-  // ----- 環境音（ループ） ---------------------------------------------
-  // wind: フィルタを通した低めのノイズを LFO でゆらす
-  // water: せせらぎ（明るいノイズ）。near water のとき音量を上げる
-  // cave: 低い唸り + たまに反響する水滴のこだま
+  // Ambient loops: wind, water, cave
   function startAmbient() {
     if (!ensure() || !enabled || ambient) return;
     resume();
     const now = ctx.currentTime;
-    // --- 風 ---
+    // Wind
     const windSrc = ctx.createBufferSource(); windSrc.buffer = noiseBuffer(); windSrc.loop = true;
     const windFilt = ctx.createBiquadFilter(); windFilt.type = 'lowpass'; windFilt.frequency.value = 500; windFilt.Q.value = 0.6;
     const windGain = ctx.createGain(); windGain.gain.value = 0.0;
     windSrc.connect(windFilt); windFilt.connect(windGain); windGain.connect(master);
-    // LFO で風の強弱
     const windLfo = ctx.createOscillator(); windLfo.frequency.value = 0.07;
     const windLfoGain = ctx.createGain(); windLfoGain.gain.value = 220;
     windLfo.connect(windLfoGain); windLfoGain.connect(windFilt.frequency);
     windSrc.start(now); windLfo.start(now);
 
-    // --- 水（せせらぎ）---
+    // Water
     const waterSrc = ctx.createBufferSource(); waterSrc.buffer = noiseBuffer(); waterSrc.loop = true;
     const waterFilt = ctx.createBiquadFilter(); waterFilt.type = 'bandpass'; waterFilt.frequency.value = 2600; waterFilt.Q.value = 0.8;
     const waterGain = ctx.createGain(); waterGain.gain.value = 0.0;
@@ -230,7 +210,7 @@ const SFX = (function () {
     waterLfo.connect(waterLfoGain); waterLfoGain.connect(waterFilt.frequency);
     waterSrc.start(now); waterLfo.start(now);
 
-    // --- 洞窟（低い唸り）---
+    // Cave
     const caveSrc = ctx.createBufferSource(); caveSrc.buffer = noiseBuffer(); caveSrc.loop = true;
     const caveFilt = ctx.createBiquadFilter(); caveFilt.type = 'lowpass'; caveFilt.frequency.value = 180; caveFilt.Q.value = 0.5;
     const caveGain = ctx.createGain(); caveGain.gain.value = 0.0;
@@ -244,12 +224,10 @@ const SFX = (function () {
     };
   }
 
-  // 毎フレーム、プレイヤーの状況に合わせて環境音の音量をクロスフェードする。
-  // state: { underground:bool, nearWater:bool, daylight:0..1, depth:number }
+  // Update ambient volumes each frame
   function updateAmbient(dt, state) {
     if (!ambient || !ctx) return;
     const t = ambient.targets;
-    // 地上では風、地下では洞窟の唸り、水の近くではせせらぎ。
     t.wind = state.underground ? 0.015 : (0.04 + (1 - state.daylight) * 0.02);
     t.cave = state.underground ? 0.085 : 0.0;
     t.water = state.nearWater ? (state.underground ? 0.05 : 0.09) : 0.0;
@@ -258,7 +236,7 @@ const SFX = (function () {
     lerp(ambient.waterGain, t.water);
     lerp(ambient.caveGain, t.cave);
 
-    // 洞窟のこだま（水滴）: 地下にいるとき不定期に「ポチャン...」と反響する。
+    // Cave drip
     if (state.underground) {
       ambient._dripTimer -= dt;
       if (ambient._dripTimer <= 0) {
@@ -268,7 +246,7 @@ const SFX = (function () {
     }
   }
 
-  // 洞窟内のこだまする水滴音（ディレイで反響を作る）
+  // Cave drip with delay feedback
   function caveDrip() {
     if (!ctx) return;
     const now = ctx.currentTime;
@@ -276,7 +254,6 @@ const SFX = (function () {
     const fb = ctx.createGain(); fb.gain.value = 0.45;
     const wet = ctx.createGain(); wet.gain.value = 0.5;
     delay.connect(fb); fb.connect(delay); delay.connect(wet); wet.connect(master);
-    // 「ポチャン」= 高めの減衰トーン
     const osc = ctx.createOscillator(); osc.type = 'sine';
     const g = ctx.createGain();
     const f0 = 900 + Math.random() * 600;
