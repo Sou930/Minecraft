@@ -91,3 +91,29 @@ body.is-mobile #joystick-knob{box-shadow:0 2px 6px rgba(0,0,0,.4)}
 .recipe-icon .tool-emoji::after{display:none}
 /* 道具が壊れたときのトースト */
 #tool-break-msg{position:fixed;left:50%;top:calc(50% + 48px);transform:translateX(-50%);color:#ffd54f;background:rgba(0,0,0,.6);padding:5px 12px;border-radius:6px;font-size:13px;font-weight:700;pointer-events:none;z-index:30;text-shadow:0 1px 2px #000;white-space:nowrap}
+/* === Settings: gear button === */
+#btn-settings{width:38px;height:34px;background:rgba(0,0,0,.45);border:2px solid rgba(180,180,255,.5);color:#dcd8ff;border-radius:9px;cursor:pointer;font-size:17px;-webkit-tap-highlight-color:transparent;touch-action:manipulation;flex:none;line-height:1}
+#btn-settings:active{background:rgba(255,255,255,.25)}
+body.is-mobile #btn-settings{width:36px;height:32px}
+/* === Settings overlay === */
+#settings-overlay{position:fixed;inset:0;z-index:80;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);top:var(--vv-top);height:var(--app-height)}
+#settings-panel{background:#c6c6c6;border:3px solid;border-color:#fff #555 #555 #fff;border-radius:8px;padding:18px;width:min(420px,92vw);max-height:calc(var(--app-height) - 24px);overflow:auto;color:#2c2c2c;box-shadow:0 12px 48px rgba(0,0,0,.6)}
+#settings-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;border-bottom:2px solid #999;padding-bottom:8px}
+#settings-header h2{font-size:18px}
+#btn-settings-close{background:#a33;color:#fff;border:none;width:28px;height:28px;border-radius:5px;cursor:pointer;font-size:14px}
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:14px 0;flex-wrap:wrap}
+.set-label{font-size:14px;font-weight:700;color:#2c2c2c}
+.set-options{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.set-chip{background:#8b8b8b;color:#222;border:2px solid;border-color:#e8e8e8 #555 #555 #e8e8e8;border-radius:5px;padding:6px 11px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent}
+.set-chip:hover{background:#a0a0a0}
+.set-chip.active{background:#43a047;color:#fff;border-color:#2e7d32 #6fd673 #6fd673 #2e7d32}
+.set-toggle{background:#8b8b8b;color:#222;border:2px solid;border-color:#e8e8e8 #555 #555 #e8e8e8;border-radius:5px;padding:6px 18px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;min-width:64px}
+.set-toggle.on{background:#43a047;color:#fff;border-color:#2e7d32 #6fd673 #6fd673 #2e7d32}
+.set-hint{font-size:11px;color:#555;margin-top:-4px}
+/* Tool textures rendered as canvases */
+.tool-tex{image-rendering:pixelated}
+.hotbar-slot .tool-tex{width:80%;height:80%}
+.inv-slot .tool-tex{width:80%;height:80%}
+.recipe-icon .tool-tex{width:22px;height:22px}
+.recipe-mat-icon .tool-tex{width:14px;height:14px}
+#held-item .tool-tex{width:32px;height:32px}
