@@ -47,6 +47,7 @@ let hudTimer=0;function updateHUD(dt){if(!worldReady)return;hudTimer+=dt;if(hudT
 let worldReady=false;
 function setLoadProgress(frac,label){const fill=document.getElementById('loading-bar-fill');const pct=document.getElementById('loading-percent');const st=document.getElementById('loading-status');if(fill)fill.style.width=(frac*100).toFixed(0)+'%';if(pct)pct.textContent=(frac*100).toFixed(0)+'%';if(st&&label)st.textContent=label;}
 async function bootstrap(){
+  if(typeof applyLanguageToUI==='function')applyLanguageToUI();
   await generateWorldAsync(setLoadProgress);
   loadEdits();
   spawnPoint=findSpawn();player.pos.copyFrom(spawnPoint);
@@ -68,6 +69,10 @@ async function bootstrap(){
   loadInventory();createInventoryUI();renderHotbar();updateVitalsUI();if(typeof initAchievementsUI==='function')initAchievementsUI();
   applyPose();if(typeof buildPlayerModel==='function')buildPlayerModel();if(typeof trySpawnMobs==='function'){trySpawnMobs();trySpawnMobs();}
   if(typeof LIGHTING!=='undefined')LIGHTING.init();
+  // Settings: bind UI + apply persisted language / render distance / quality.
+  if(typeof initSettingsUI==='function')initSettingsUI();
+  if(typeof applyRenderDistance==='function')applyRenderDistance();
+  if(typeof applyLowQuality==='function')applyLowQuality();
   worldReady=true;
   const lo=document.getElementById('loading-overlay');if(lo){lo.classList.add('hidden');setTimeout(()=>lo.remove(),450);}
 }

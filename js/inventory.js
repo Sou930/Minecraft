@@ -12,7 +12,10 @@ const cap=STACK_MAX;for(let i=0;i<INV_SIZE&&left>0;i++){const s=inventory[i];if(
 for(let i=0;i<INV_SIZE&&left>0;i++){if(!inventory[i]){const n=Math.min(cap,left);inventory[i]={id,count:n};left-=n;}}
 renderHotbar();if(inventoryOpen)renderInventory();scheduleInvSave();return left;}
 function consumeFromSlot(i,n){const s=inventory[i];if(!s)return;s.count-=n;if(s.count<=0)inventory[i]=null;renderHotbar();if(inventoryOpen)renderInventory();scheduleInvSave();}
-function makeItemNode(id){if(ITEMS[id]){const def=ITEMS[id];const em=document.createElement('span');em.className='item-emoji';em.textContent=def.emoji;
+function makeItemNode(id){
+// Tools & sticks: use the dedicated per-material pixel-art texture when available.
+if(typeof toolTextureFor==='function'){const tt=toolTextureFor(id);if(tt){const c=document.createElement('canvas');c.width=32;c.height=32;const ictx=c.getContext('2d');ictx.imageSmoothingEnabled=false;ictx.drawImage(tt,0,0,32,32);c.classList.add('tool-tex');return c;}}
+if(ITEMS[id]){const def=ITEMS[id];const em=document.createElement('span');em.className='item-emoji';em.textContent=def.emoji;
 if(def.toolColor){em.classList.add('tool-emoji');em.style.setProperty('--tool-color',def.toolColor);}
 return em;}
 const c=document.createElement('canvas');c.width=32;c.height=32;const ictx=c.getContext('2d');ictx.imageSmoothingEnabled=false;const def=BLOCKS[id];const tile=def.all!==undefined?def.all:def.side;ictx.drawImage(atlasCanvas,(tile%ATLAS_TILES)*TILE_PX,Math.floor(tile/ATLAS_TILES)*TILE_PX,TILE_PX,TILE_PX,0,0,32,32);return c;}

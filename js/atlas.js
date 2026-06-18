@@ -160,3 +160,67 @@ cropTile(T.POTATO0,7003,0.3,'#4a9a40','#5fbf50','leaf');cropTile(T.POTATO1,7003,
 // Pumpkin stem
 {const[ox,oy]=tileOrigin(T.PUMPKIN_STEM);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);ctx.fillStyle='#4e7a2a';ctx.fillRect(ox+14,oy+8,4,20);}
 })();function tileUV(t){const col=t%ATLAS_TILES,row=Math.floor(t/ATLAS_TILES);const padU=0.5/ATLAS_W,padV=0.5/ATLAS_H;return{u1:col/ATLAS_TILES+padU,u2:(col+1)/ATLAS_TILES-padU,v1:1-(row+1)/ATLAS_ROWS+padV,v2:1-row/ATLAS_ROWS-padV,};}
+/* ---------------------------------------------------------------------------
+ * Per-material tool textures (pickaxe / axe / shovel / hoe + stick).
+ * Each tool gets a 32x32 pixel-art canvas tinted with its material colour, so
+ * a Diamond Pickaxe looks different from a Wooden Pickaxe etc. The generated
+ * canvases are cached in TOOL_TEXTURES keyed by item id and consumed by the
+ * inventory/hotbar/held-item renderers (see inventory.js makeItemNode).
+ * ------------------------------------------------------------------------- */
+const TOOL_TEXTURES={};
+(function buildToolTextures(){
+  const TP=32; // texture resolution
+  // Material head palettes: [base, highlight, shadow]
+  const HEAD={
+    wood:   ['#9c6b3c','#c08c54','#6f4a24'],
+    stone:  ['#8a8a8a','#aeaeae','#5f5f5f'],
+    iron:   ['#d8d8d8','#f2f2f2','#9a9a9a'],
+    gold:   ['#f7d24a','#fff0a0','#c79a16'],
+    diamond:['#4fe6df','#a8fffb','#1f9aa0'],
+  };
+  const HANDLE=['#8a5a2c','#a8763f','#5e3a18']; // wooden stick handle
+  function px(ctx,x,y,c){ctx.fillStyle=c;ctx.fillRect(x,y,1,1);}
+  function rect(ctx,x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(x,y,w,h);}
+  // Draw a diagonal wooden handle from bottom-left to upper area
+  function handle(ctx){
+    const[b,hi,sh]=HANDLE;
+    for(let i=0;i<20;i++){const x=8+Math.floor(i*0.55),y=26-i;rect(ctx,x,y,3,2,b);px(ctx,x,y,hi);px(ctx,x+2,y+1,sh);}
+  }
+  function drawPick(ctx,mat){const[b,hi,sh]=HEAD[mat];handle(ctx);
+    // arc-shaped head across the top
+    const pts=[[6,9],[8,7],[11,6],[15,6],[19,6],[22,7],[24,9]];
+    for(const[x,y]of pts){rect(ctx,x,y,3,3,b);px(ctx,x,y,hi);px(ctx,x+2,y+2,sh);}
+    rect(ctx,14,8,4,4,b);px(ctx,15,9,hi);
+  }
+  function drawAxe(ctx,mat){const[b,hi,sh]=HEAD[mat];handle(ctx);
+    // blade block near top-right
+    rect(ctx,16,5,8,9,b);
+    rect(ctx,14,7,2,5,b);
+    for(let y=5;y<14;y++)px(ctx,16,y,hi);
+    rect(ctx,22,6,2,7,sh);
+    px(ctx,15,8,hi);px(ctx,15,9,hi);
+  }
+  function drawShovel(ctx,mat){const[b,hi,sh]=HEAD[mat];handle(ctx);
+    // rounded scoop near top
+    rect(ctx,12,4,8,8,b);
+    rect(ctx,13,3,6,1,b);
+    rect(ctx,13,12,6,2,b);
+    for(let y=4;y<12;y++)px(ctx,12,y,hi);
+    rect(ctx,18,5,2,7,sh);
+  }
+  function drawHoe(ctx,mat){const[b,hi,sh]=HEAD[mat];handle(ctx);
+    rect(ctx,12,5,11,3,b);
+    rect(ctx,12,8,3,4,b);
+    for(let x=12;x<23;x++)px(ctx,x,5,hi);
+    rect(ctx,12,10,3,2,sh);
+  }
+  const DRAW={pickaxe:drawPick,axe:drawAxe,shovel:drawShovel,hoe:drawHoe};
+  function make(kind,mat){const c=document.createElement('canvas');c.width=TP;c.height=TP;const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.clearRect(0,0,TP,TP);(DRAW[kind]||drawPick)(ctx,mat);return c;}
+  // Register a texture for every registered tool item (uses ITEMS metadata).
+  for(const idStr in ITEMS){const id=+idStr;const it=ITEMS[id];if(it&&it.toolClass&&it.material&&DRAW[it.toolClass]){TOOL_TEXTURES[id]=make(it.toolClass,it.material);}}
+  // The plain hoe (ITEM_HOE) has no material tier; give it a wood texture.
+  if(typeof ITEM_HOE!=='undefined')TOOL_TEXTURES[ITEM_HOE]=make('hoe','wood');
+  // Stick texture
+  if(typeof ITEM_STICK!=='undefined'){const c=document.createElement('canvas');c.width=TP;c.height=TP;const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=false;const[b,hi,sh]=HANDLE;for(let i=0;i<18;i++){const x=12+Math.floor(i*0.25),y=25-i;rect(ctx,x,y,3,2,b);px(ctx,x,y,hi);px(ctx,x+2,y+1,sh);}TOOL_TEXTURES[ITEM_STICK]=c;}
+})();
+function toolTextureFor(id){return TOOL_TEXTURES[id]||null;}
