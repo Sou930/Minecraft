@@ -8,8 +8,8 @@ const LIGHTING = (function () {
   function defs() {
     if (Object.keys(LIGHT_DEFS).length) return LIGHT_DEFS;
     if (typeof B === 'undefined') return LIGHT_DEFS;
-    LIGHT_DEFS[B.TORCH] = { intensity: 0.95, range: 11, color: [1.0, 0.78, 0.42] };
-    LIGHT_DEFS[B.LANTERN] = { intensity: 1.15, range: 14, color: [1.0, 0.85, 0.55] };
+    LIGHT_DEFS[B.TORCH] = { intensity: 1.9, range: 16, color: [1.0, 0.78, 0.42] };
+    LIGHT_DEFS[B.LANTERN] = { intensity: 2.3, range: 16, color: [1.0, 0.85, 0.55] };
     LIGHT_DEFS[B.LAVA] = { intensity: 1.3, range: 12, color: [1.0, 0.5, 0.16] };
     LIGHT_DEFS[B.AMETHYST_CLUSTER] = { intensity: 0.6, range: 8, color: [0.72, 0.5, 1.0] };
     LIGHT_DEFS[B.GLOW_LICHEN] = { intensity: 0.45, range: 7, color: [0.55, 0.95, 0.7] };
