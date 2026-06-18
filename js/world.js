@@ -1,9 +1,10 @@
 const world=new Uint8Array(WORLD_W*WORLD_H*WORLD_D);function blockIndex(x,y,z){return(y*WORLD_D+z)*WORLD_W+x;}
 function getBlock(x,y,z){if(y<0)return B.BEDROCK;if(y>=WORLD_H)return B.AIR;if(x<0||x>=WORLD_W||z<0||z>=WORLD_D)return B.STONE;return world[blockIndex(x,y,z)];}
 function isCrop(id){const d=BLOCKS[id];return!!(d&&d.crop);}
-function isSolid(id){return id!==B.AIR&&id!==B.WATER&&id!==B.LAVA&&id!==B.SEAWEED&&id!==B.DEAD_BUSH&&!isCrop(id);}
-// Crops are targetable even though non-solid
-function isTargetable(id){return isSolid(id)||isCrop(id);}
+function isCrossPlant(id){const d=BLOCKS[id];return!!(d&&d.crossPlant);}
+function isSolid(id){return id!==B.AIR&&id!==B.WATER&&id!==B.LAVA&&id!==B.SEAWEED&&!isCrossPlant(id)&&!isCrop(id);}
+// Crops and cross-shaped plants (grass/flowers) are targetable even though non-solid
+function isTargetable(id){return isSolid(id)||isCrop(id)||isCrossPlant(id);}
 // Skylight: returns 0 if block above is opaque (underground)
 function blocksSky(id){if(id===B.AIR||id===B.WATER||id===B.LAVA)return false;const d=BLOCKS[id];if(d&&(d.transparent||d.crop||d.crossPlant))return false;return true;}
 function skyExposed(x,y,z){for(let yy=y+1;yy<WORLD_H;yy++){if(blocksSky(getBlock(x,yy,z)))return false;}return true;}
@@ -451,7 +452,7 @@ for(const[dy,r]of canopy){for(let dx=-r;dx<=r;dx++){for(let dz=-r;dz<=r;dz++){
   if(yy<WORLD_H&&world[blockIndex(xx,yy,zz)]===B.AIR)world[blockIndex(xx,yy,zz)]=leafId;
 }}}
 if(h+trunkH+2<WORLD_H&&world[blockIndex(x,h+trunkH+2,z)]===B.AIR&&hash2(x,z,99)<0.6)world[blockIndex(x,h+trunkH+2,z)]=leafId;
-}}}
+}}placeGroundCover();}
 // OCEAN reef: scatter colourful coral and tall seaweed across shallow,
 // sunlit ocean floors so diving the sea has something to discover.
 function placeReef(){const CORALS=[B.CORAL_PINK,B.CORAL_PURPLE,B.CORAL_BLUE];
@@ -482,6 +483,30 @@ if(world[blockIndex(x,h+1,z)]!==B.AIR)continue;
 if(hash2(x+717,z-313,25)>0.06)continue;          // sparse but visible
 // a single dead bush block sitting on the surface (1 block tall, like MC)
 world[blockIndex(x,h+1,z)]=B.DEAD_BUSH;
+}}}
+// GROUND COVER: scatter tufts of tall grass and the occasional flower across
+// grassy biomes (plains/forest/jungle/swamp/snowy), Minecraft-style. Each is a
+// single 1-block-tall cross plant resting on a grass/snow surface with air above.
+const FLOWERS=[B.FLOWER_DANDELION,B.FLOWER_POPPY,B.FLOWER_CORNFLOWER];
+function placeGroundCover(){for(let x=3;x<WORLD_W-3;x++){for(let z=3;z<WORLD_D-3;z++){
+  const biome=biomeMap[colIndex(x,z)];
+  // only lush, grassy land gets ground cover
+  if(biome!==BIOME.PLAINS&&biome!==BIOME.FOREST&&biome!==BIOME.JUNGLE&&biome!==BIOME.SWAMP&&biome!==BIOME.SNOWY)continue;
+  const h=heightMap[colIndex(x,z)];if(h<SEA_LEVEL||h+2>=WORLD_H)continue;
+  const surf=world[blockIndex(x,h,z)];const ground=biome===BIOME.SNOWY?B.SNOW:B.GRASS;
+  if(surf!==ground)continue;                       // skip dirt/sand/paths under trees etc.
+  if(world[blockIndex(x,h+1,z)]!==B.AIR)continue;   // don't bury trunks/leaves/water
+  // Plains are flowery meadows; forests/jungles are grassy; snowy is sparse.
+  const density=biome===BIOME.PLAINS?0.30:(biome===BIOME.JUNGLE?0.40:(biome===BIOME.FOREST?0.22:(biome===BIOME.SWAMP?0.20:0.08)));
+  if(hash2(x+421,z-869,30)>density)continue;
+  // Roughly 1 in 7 patches is a flower, the rest are grass tufts.
+  let plant;
+  if(hash2(x-271,z+613,31)<(biome===BIOME.PLAINS?0.22:0.12)){
+    plant=FLOWERS[Math.floor(hash2(x+57,z+91,32)*FLOWERS.length)%FLOWERS.length];
+  }else{
+    plant=B.TALL_GRASS;
+  }
+  world[blockIndex(x,h+1,z)]=plant;
 }}}
 // Asynchronous world generation: runs the heavy phases across several frames
 // so the browser stays responsive and we can show a progress bar instead of a

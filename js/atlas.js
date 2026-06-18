@@ -87,6 +87,36 @@ ctx.fillStyle='#3e362e';for(let i=0;i<6;i++)ctx.fillRect(ox+Math.floor(rnd()*15)
  twig(15,18,-1,4,lite);twig(17,16, 1,5,mid);
  twig(15,14, 0,5,dark);
  twig(11,16,-1,3,mid); twig(21,18,1,3,mid);}
+// Tall grass: a tuft of short green blades on a transparent tile (cross plant)
+{const[ox,oy]=tileOrigin(T.TALL_GRASS);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+ const rnd=mulberry32(9301);const cols=['#4f9530','#58a034','#67ad3e','#74bd4a'];
+ // several blades fanning out from the base, slightly bending
+ const blades=[[10,1],[13,-1],[16,0],[19,1],[22,-1],[14,1],[18,-1]];
+ for(const[bx,dir]of blades){const col=cols[Math.floor(rnd()*cols.length)];const hgt=8+Math.floor(rnd()*4)*2;
+   ctx.fillStyle=col;let cx=bx;for(let i=0;i<hgt/2;i++){const y=TILE_PX-2-i*2;if(y<2)break;ctx.fillRect(ox+cx,oy+y,2,2);if(i%2===1)cx+=dir*2;cx=Math.max(2,Math.min(TILE_PX-4,cx));}}
+}
+// Generic flower helper: green stem + small leaves + a coloured blossom head
+function flowerTile(t,seed,petal,petalHi,center){const[ox,oy]=tileOrigin(t);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+ const rnd=mulberry32(seed);const stemX=15;
+ // stem
+ ctx.fillStyle='#3f8a2e';for(let y=TILE_PX-2;y>12;y-=2)ctx.fillRect(ox+stemX,oy+y,2,2);
+ ctx.fillStyle='#56a83a';ctx.fillRect(ox+stemX,oy+TILE_PX-2,2,2);
+ // a couple of leaves on the stem
+ ctx.fillStyle='#4f9530';ctx.fillRect(ox+stemX-2,oy+22,2,2);ctx.fillRect(ox+stemX+2,oy+18,2,2);
+ // blossom: 3x3 ring of petals around a centre at (stemX,10)
+ const bx=stemX,by=10;
+ ctx.fillStyle=petal;
+ ctx.fillRect(ox+bx-2,oy+by-2,2,2);ctx.fillRect(ox+bx,oy+by-2,2,2);ctx.fillRect(ox+bx+2,oy+by-2,2,2);
+ ctx.fillRect(ox+bx-2,oy+by,2,2);                                   ctx.fillRect(ox+bx+2,oy+by,2,2);
+ ctx.fillRect(ox+bx-2,oy+by+2,2,2);ctx.fillRect(ox+bx,oy+by+2,2,2);ctx.fillRect(ox+bx+2,oy+by+2,2,2);
+ ctx.fillStyle=petalHi;ctx.fillRect(ox+bx,oy+by-2,2,2);ctx.fillRect(ox+bx-2,oy+by,2,2);
+ // centre
+ ctx.fillStyle=center;ctx.fillRect(ox+bx,oy+by,2,2);
+ return rnd;
+}
+flowerTile(T.FLOWER_DANDELION,9311,'#f7d524','#ffe96a','#e0a800');   // yellow dandelion
+flowerTile(T.FLOWER_POPPY,9312,'#e23b32','#ff6b62','#3a2a16');       // red poppy, dark centre
+flowerTile(T.FLOWER_CORNFLOWER,9313,'#4a6cd8','#7d96f0','#243a8a');  // blue cornflower
 // Stone brick masonry
 function brickMasonry(t,base,variants,seed){noisy(t,base,variants,0.45);const[ox,oy]=tileOrigin(t);ctx.fillStyle='rgba(40,40,40,0.55)';ctx.fillRect(ox,oy+15,TILE_PX,2);ctx.fillRect(ox+15,oy,2,16);ctx.fillRect(ox+7,oy+16,2,16);ctx.fillRect(ox+23,oy+16,2,16);ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=1;ctx.strokeRect(ox+1,oy+1,30,30);return seed;}
 brickMasonry(T.STONE_BRICK,'#8d8d8d',['#7f7f7f','#9a9a9a','#757575','#868686'],5001);
