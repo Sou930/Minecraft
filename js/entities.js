@@ -161,9 +161,8 @@ function buildPlayerModel(){const root=new BABYLON.TransformNode('playerModel',s
 function setPlayerModelVisible(v){if(!playerModel)buildPlayerModel();playerModel.root.setEnabled(!!v);}
 function updatePlayerModel(dt){if(!playerModel)buildPlayerModel();const view=(typeof cameraView!=='undefined')?cameraView:0;if(view===0){playerModel.root.setEnabled(false);return;}
   playerModel.root.setEnabled(true);
-  const pose=player.pose;let scaleY=1,tilt=0,yOff=0;
-  if(pose===POSE.CROUCH){scaleY=0.72;}
-  else if(pose===POSE.PRONE){tilt=Math.PI*0.5*0.85;yOff=0;}
+  const pose=player.pose;let scaleY=1,tilt=0;
+  if(pose===POSE.CROUCH){scaleY=0.84;}
   playerModel.root.position.set(player.pos.x,player.pos.y,player.pos.z);
   playerModel.root.rotation.y=player.yaw;
   playerModel.root.rotation.x=tilt;
