@@ -17,8 +17,8 @@ function blockLightEmission(id){
   if(id in BLOCKLIGHT_DEFS_CACHE)return BLOCKLIGHT_DEFS_CACHE[id];
   let v=0;
   if(id===B.LAVA)v=15;
-  else if(id===B.LANTERN)v=14;
-  else if(id===B.TORCH)v=13;
+  else if(id===B.LANTERN)v=15;
+  else if(id===B.TORCH)v=15;
   else if(id===B.AMETHYST_CLUSTER)v=8;
   else if(id===B.GLOW_LICHEN)v=7;
   BLOCKLIGHT_DEFS_CACHE[id]=v;return v;
