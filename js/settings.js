@@ -41,23 +41,8 @@ const I18N = {
     play:'プレイ', resume:'再開', paused:'一時停止',
     resetWorld:'ワールドをリセット（地形と建築を消去）',
   },
-  zh: {
-    langName:'中文',
-    settings:'设置',
-    language:'语言',
-    renderDistance:'渲染距离',
-    lowQuality:'低画质纹理',
-    lowQualityHint:'降低纹理画质以提升性能',
-    close:'关闭',
-    near:'近', medium:'中', far:'远', extreme:'极远',
-    on:'开', off:'关',
-    openHint:'按 O 打开设置',
-    inventory:'物品栏', recipes:'配方', achievements:'成就',
-    play:'开始', resume:'继续', paused:'已暂停',
-    resetWorld:'重置世界（清除地形与建筑）',
-  },
 };
-const LANG_ORDER=['en','ja','zh'];
+const LANG_ORDER=['en','ja'];
 
 // Render distance presets (in chunks). VIEW_DIST_CHUNKS is set from these.
 const RENDER_PRESETS=[
