@@ -7,10 +7,9 @@ if(e.code>='Digit1'&&e.code<='Digit9')selectSlot(parseInt(e.code.slice(5),10)-1)
 if(e.code==='KeyR')respawn();
 // V: cycle camera views
 if(e.code==='KeyV')cycleCameraView();
-// Ctrl: crouch, X: prone
-if(e.code==='ControlLeft'||e.code==='ControlRight')togglePose(POSE.CROUCH);
-if(e.code==='KeyX')togglePose(POSE.PRONE);
-});document.addEventListener('keyup',(e)=>{keys[e.code]=false;});document.addEventListener('mousemove',(e)=>{if(document.pointerLockElement!==canvas)return;player.yaw+=e.movementX*0.0023;player.pitch+=e.movementY*0.0023;player.pitch=Math.max(-1.55,Math.min(1.55,player.pitch));});document.addEventListener('pointerlockchange',()=>{if(isMobile)return;if(document.pointerLockElement===canvas){paused=false;document.getElementById('start-overlay').style.display='none';}else if(started&&!inventoryOpen){paused=true;const ov=document.getElementById('start-overlay');ov.style.display='flex';ov.querySelector('h1').textContent='Paused';document.getElementById('btn-start').textContent='▶ Resume';}});let actionInterval=null;canvas.addEventListener('mousedown',(e)=>{if(isMobile||!started||paused)return;if(document.pointerLockElement!==canvas)return;if(e.button===0){mining.active=true;}else if(e.button===2){placeOrEat();clearInterval(actionInterval);actionInterval=setInterval(placeOrEat,240);}});document.addEventListener('mouseup',(e)=>{clearInterval(actionInterval);if(e.button===0){mining.active=false;resetMining();}});document.addEventListener('contextmenu',(e)=>e.preventDefault());canvas.addEventListener('wheel',(e)=>{if(!started||paused||inventoryOpen)return;selectSlot((selectedSlot+(e.deltaY>0?1:-1)+9)%9);},{passive:true});(function setupJoystick(){const zone=document.getElementById('joystick-zone');const base=document.getElementById('joystick-base');const knob=document.getElementById('joystick-knob');let touchId=null;function center(){const r=base.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2,rad:r.width/2};}
+// Ctrl: crouch (hold to crouch, release to stand up)
+if(e.code==='ControlLeft'||e.code==='ControlRight')setCrouch(true);
+});document.addEventListener('keyup',(e)=>{keys[e.code]=false;if((e.code==='ControlLeft'||e.code==='ControlRight')&&started&&!paused)setCrouch(false);});document.addEventListener('mousemove',(e)=>{if(document.pointerLockElement!==canvas)return;player.yaw+=e.movementX*0.0023;player.pitch+=e.movementY*0.0023;player.pitch=Math.max(-1.55,Math.min(1.55,player.pitch));});document.addEventListener('pointerlockchange',()=>{if(isMobile)return;if(document.pointerLockElement===canvas){paused=false;document.getElementById('start-overlay').style.display='none';}else if(started&&!inventoryOpen){paused=true;const ov=document.getElementById('start-overlay');ov.style.display='flex';ov.querySelector('h1').textContent='Paused';document.getElementById('btn-start').textContent='▶ Resume';}});let actionInterval=null;canvas.addEventListener('mousedown',(e)=>{if(isMobile||!started||paused)return;if(document.pointerLockElement!==canvas)return;if(e.button===0){mining.active=true;}else if(e.button===2){placeOrEat();clearInterval(actionInterval);actionInterval=setInterval(placeOrEat,240);}});document.addEventListener('mouseup',(e)=>{clearInterval(actionInterval);if(e.button===0){mining.active=false;resetMining();}});document.addEventListener('contextmenu',(e)=>e.preventDefault());canvas.addEventListener('wheel',(e)=>{if(!started||paused||inventoryOpen)return;selectSlot((selectedSlot+(e.deltaY>0?1:-1)+9)%9);},{passive:true});(function setupJoystick(){const zone=document.getElementById('joystick-zone');const base=document.getElementById('joystick-base');const knob=document.getElementById('joystick-knob');let touchId=null;function center(){const r=base.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2,rad:r.width/2};}
 function update(t){const c=center();let dx=t.clientX-c.x,dy=t.clientY-c.y;const len=Math.hypot(dx,dy),max=c.rad;if(len>max){dx=dx/len*max;dy=dy/len*max;}
 knob.style.transform=`translate(${dx}px,${dy}px)`;joy.x=dx/max;joy.y=dy/max;joy.active=true;}
 zone.addEventListener('touchstart',(e)=>{if(touchId!==null)return;const t=e.changedTouches[0];touchId=t.identifier;update(t);e.preventDefault();},{passive:false});zone.addEventListener('touchmove',(e)=>{for(const t of e.changedTouches)if(t.identifier===touchId){update(t);e.preventDefault();}},{passive:false});function end(e){for(const t of e.changedTouches)if(t.identifier===touchId){touchId=null;joy.active=false;joy.x=joy.y=0;knob.style.transform='translate(0,0)';}}
@@ -69,12 +68,17 @@ function plantSeed(itemId,blockId){if(!currentTarget)return false;const{px,py,pz
 function eatFood(slotIndex){const slot=inventory[slotIndex];if(!slot||!ITEMS[slot.id])return;if(player.eatCooldown>0||player.hunger>=20)return;player.hunger=Math.min(20,player.hunger+ITEMS[slot.id].food);player.eatCooldown=1.5;consumeFromSlot(slotIndex,1);updateVitalsUI();if(typeof ACH!=='undefined')ACH.track('eaten');}
 function damage(amount){if(player.dead||amount<=0)return;player.hp=Math.max(0,player.hp-amount);if(typeof SFX!=='undefined')SFX.hurt();const flash=document.getElementById('damage-flash');flash.style.transition='none';flash.style.opacity='1';requestAnimationFrame(()=>{flash.style.transition='opacity .45s';flash.style.opacity='0';});updateVitalsUI();if(player.hp<=0)die();}
 function die(){player.dead=true;document.getElementById('death-overlay').style.display='flex';setTimeout(()=>{respawn();document.getElementById('death-overlay').style.display='none';},1600);}
-function respawn(){player.pos.copyFrom(spawnPoint);player.vel.set(0,0,0);player.hp=20;player.hunger=20;player.dead=false;player.fallStartY=null;player.pose=POSE.STAND;applyPose();mining.active=false;resetMining();updateVitalsUI();updatePoseUI();}
-function togglePose(target){if(player.flying)return;const next=(player.pose===target)?POSE.STAND:target;if(next<player.pose){
-  if(!poseFits(next)){return;}
-}
-player.pose=next;applyPose();updatePoseUI();}
-function updatePoseUI(){const el=document.getElementById('pose-display');if(!el)return;const labels=['','🦵 Crouch','🐍 Prone'];el.textContent=labels[player.pose]||'';el.style.display=player.pose===POSE.STAND?'none':'block';}
+function respawn(){player.pos.copyFrom(spawnPoint);player.vel.set(0,0,0);player.hp=20;player.hunger=20;player.dead=false;player.fallStartY=null;player.pose=POSE.STAND;player.wantCrouch=false;applyPose();mining.active=false;resetMining();updateVitalsUI();updatePoseUI();}
+// Hold-to-crouch. wantCrouch tracks the player's intent; the actual pose
+// only returns to STAND when there is enough headroom to stand up.
+function setCrouch(on){if(player.flying){player.wantCrouch=false;return;}player.wantCrouch=!!on;updateCrouchPose();}
+function updateCrouchPose(){if(player.flying){if(player.pose!==POSE.STAND){player.pose=POSE.STAND;applyPose();updatePoseUI();}return;}
+  const target=player.wantCrouch?POSE.CROUCH:POSE.STAND;
+  if(target===player.pose)return;
+  // Standing up requires headroom; if blocked, stay crouched until it clears.
+  if(target===POSE.STAND&&!poseFits(POSE.STAND))return;
+  player.pose=target;applyPose();updatePoseUI();}
+function updatePoseUI(){const el=document.getElementById('pose-display');if(!el)return;el.textContent=player.pose===POSE.CROUCH?'🦵 Crouch':'';el.style.display=player.pose===POSE.CROUCH?'block':'none';}
 const VIEW={FIRST:0,THIRD_BACK:1,THIRD_FRONT:2};
 let cameraView=VIEW.FIRST;
 const VIEW_NAMES=['1st Person','3rd Person (Back)','3rd Person (Front)'];

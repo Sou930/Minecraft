@@ -91,14 +91,13 @@ else if(tMaxY<tMaxZ){t=tMaxY;tMaxY+=tDY;y+=stepY;}
 else{t=tMaxZ;tMaxZ+=tDZ;z+=stepZ;}
 if(t>maxDist)return null;const id2=getBlock(x,y,z);if(isTargetable(id2))return{x,y,z,px,py,pz,id:id2};}
 return null;}
-const POSE={STAND:0,CROUCH:1,PRONE:2};
+const POSE={STAND:0,CROUCH:1};
 const POSES=[
   {height:1.8,eye:1.62,name:'Stand'},   
-  {height:1.3,eye:1.12,name:'Crouch'}, 
-  {height:0.65,eye:0.5,name:'Prone'},  
+  {height:1.5,eye:1.32,name:'Crouch'}, 
 ];
 const PLAYER={halfW:0.3,height:1.8,eye:1.62};
-const player={pos:new BABYLON.Vector3(WORLD_W/2+0.5,40,WORLD_D/2+0.5),vel:new BABYLON.Vector3(0,0,0),yaw:Math.PI*0.25,pitch:0,onGround:false,flying:false,hp:20,hunger:20,fallStartY:null,dead:false,eatCooldown:0,regenTimer:0,starveTimer:0,hungerTimer:0,idleTimer:0,pose:POSE.STAND,};
+const player={pos:new BABYLON.Vector3(WORLD_W/2+0.5,40,WORLD_D/2+0.5),vel:new BABYLON.Vector3(0,0,0),yaw:Math.PI*0.25,pitch:0,onGround:false,flying:false,hp:20,hunger:20,fallStartY:null,dead:false,eatCooldown:0,regenTimer:0,starveTimer:0,hungerTimer:0,idleTimer:0,pose:POSE.STAND,wantCrouch:false,};
 function poseFits(poseIndex){const h=POSES[poseIndex].height;const box={minX:player.pos.x-PLAYER.halfW,maxX:player.pos.x+PLAYER.halfW,minY:player.pos.y,maxY:player.pos.y+h,minZ:player.pos.z-PLAYER.halfW,maxZ:player.pos.z+PLAYER.halfW};let blocked=false;forEachOverlapBlock(box,()=>{blocked=true;return true;});return !blocked;}
 function applyPose(){const p=POSES[player.pose];PLAYER.height=p.height;PLAYER.eye=p.eye;}let spawnPoint=null;function findSpawn(){const cx=Math.floor(WORLD_W/2),cz=Math.floor(WORLD_D/2);let best=null;for(let r=0;r<20&&!best;r++){for(let dx=-r;dx<=r&&!best;dx++){for(let dz=-r;dz<=r&&!best;dz++){const x=cx+dx,z=cz+dz;if(x<2||x>=WORLD_W-2||z<2||z>=WORLD_D-2)continue;for(let y=WORLD_H-2;y>0;y--){const id=getBlock(x,y,z);if(id===B.WATER)break;if(isSolid(id)){if(getBlock(x,y+1,z)===B.AIR&&getBlock(x,y+2,z)===B.AIR)
 best=new BABYLON.Vector3(x+0.5,y+1.01,z+0.5);break;}}}}}

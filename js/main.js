@@ -5,8 +5,8 @@ return;}
 let mx=0,mz=0;if(keys['KeyW'])mz+=1;if(keys['KeyS'])mz-=1;if(keys['KeyA'])mx-=1;if(keys['KeyD'])mx+=1;if(joy.active){mx+=joy.x;mz+=-joy.y;}
 const mlen=Math.hypot(mx,mz);if(mlen>1){mx/=mlen;mz/=mlen;}
 const sin=Math.sin(player.yaw),cos=Math.cos(player.yaw);const dirX=mx*cos+mz*sin,dirZ=-mx*sin+mz*cos;const inWaterBody=isInWater(0.5);const inWaterHead=isInWater(PLAYER.eye-0.1);if(inWaterHead&&typeof ACH!=='undefined')ACH.flag('swim');const sprint=(!!keys['ShiftLeft']||!!keys['ShiftRight'])&&player.pose===POSE.STAND;let speed=player.flying?10:(sprint?6.6:4.3);
-// Crouch/prone slows movement
-if(!player.flying){if(player.pose===POSE.CROUCH)speed*=0.45;else if(player.pose===POSE.PRONE)speed*=0.28;}
+// Crouch slows movement (sneak speed)
+if(!player.flying&&player.pose===POSE.CROUCH)speed*=0.5;
 if(inWaterBody&&!player.flying)speed*=0.55;const accel=Math.min(1,dt*12);player.vel.x+=(dirX*speed-player.vel.x)*accel;player.vel.z+=(dirZ*speed-player.vel.z)*accel;if(player.flying){let vy=0;if(keys['Space'])vy+=8;if(keys['KeyC'])vy-=8;player.vel.y+=(vy-player.vel.y)*Math.min(1,dt*10);player.fallStartY=null;}else if(inWaterBody){player.vel.y+=GRAVITY*0.25*dt;if(player.vel.y<-2.5)player.vel.y=-2.5;if(keys['Space']){if(!isInWater(1.0)){player.vel.y=Math.max(player.vel.y,7.6);}else{player.vel.y=Math.min(player.vel.y+30*dt,4);}}
 player.fallStartY=null;}else if(isInLava(0.5)){player.vel.y+=GRAVITY*0.18*dt;if(player.vel.y<-1.6)player.vel.y=-1.6;if(keys['Space'])player.vel.y=Math.min(player.vel.y+24*dt,3);player.fallStartY=null;}else{player.vel.y+=GRAVITY*dt;if(player.vel.y<-50)player.vel.y=-50;if(keys['Space']&&player.onGround){player.vel.y=8.2;player.onGround=false;}
 if(player.vel.y<-0.1&&player.fallStartY===null)player.fallStartY=player.pos.y;}
@@ -21,7 +21,10 @@ const hitY=moveAxis('y',player.vel.y*dt);player.onGround=false;if(hitY){if(prevV
 player.fallStartY=null;}
 player.vel.y=0;}
 player.pos.x=Math.max(0.31,Math.min(WORLD_W-0.31,player.pos.x));player.pos.z=Math.max(0.31,Math.min(WORLD_D-0.31,player.pos.z));if(player.pos.y<-12){damage(100);player.pos.y=5;}
-player.eatCooldown=Math.max(0,player.eatCooldown-dt);const moving=mlen>0.05;
+player.eatCooldown=Math.max(0,player.eatCooldown-dt);
+// Re-evaluate crouch each frame: stand back up automatically once headroom clears.
+if(typeof updateCrouchPose==='function')updateCrouchPose();
+const moving=mlen>0.05;
 if(typeof SFX!=='undefined'){if(moving&&player.onGround&&!player.flying&&!inWaterBody){player.stepTimer=(player.stepTimer||0)-dt;const interval=sprint?0.28:(player.pose===POSE.STAND?0.42:0.6);if(player.stepTimer<=0){player.stepTimer=interval;const gx=Math.floor(player.pos.x),gz=Math.floor(player.pos.z),gy=Math.floor(player.pos.y-0.2);let ground=getBlock(gx,gy,gz);if(!isSolid(ground))ground=getBlock(gx,gy-1,gz);SFX.footstep(ground);}}else if(player.flying||!player.onGround){player.stepTimer=0;}}
 player.hungerTimer+=dt*(moving?(sprint?3.2:1.4):0.4);if(player.hungerTimer>22){player.hungerTimer=0;if(player.hunger>0){player.hunger--;updateVitalsUI();}}
 if(player.hunger>=14&&player.hp<20){player.regenTimer+=dt;if(player.regenTimer>3.5){player.regenTimer=0;player.hp=Math.min(20,player.hp+1);updateVitalsUI();}}else player.regenTimer=0;if(player.hunger<=0){player.starveTimer+=dt;if(player.starveTimer>4){player.starveTimer=0;if(player.hp>1)damage(1);}}else player.starveTimer=0;if(inWaterHead){player.idleTimer+=dt;if(player.idleTimer>8){player.idleTimer=6.5;damage(1);}}else player.idleTimer=0;
