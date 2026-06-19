@@ -5,8 +5,8 @@ function valueNoise(x,z,salt){const xi=Math.floor(x),zi=Math.floor(z);const xf=x
 function hash3(x,y,z,salt){let n=(Math.imul(x,374761393)+Math.imul(y,217645177)+Math.imul(z,668265263)+Math.imul(SEED+(salt|0),987654071))|0;n=Math.imul(n^(n>>>13),1274126177);n^=n>>>16;return(n>>>0)/4294967296;}
 function lerp(a,b,t){return a+(b-a)*t;}
 function valueNoise3(x,y,z,salt){const xi=Math.floor(x),yi=Math.floor(y),zi=Math.floor(z);const u=smoothstep(x-xi),v=smoothstep(y-yi),w=smoothstep(z-zi);const c000=hash3(xi,yi,zi,salt),c100=hash3(xi+1,yi,zi,salt);const c010=hash3(xi,yi+1,zi,salt),c110=hash3(xi+1,yi+1,zi,salt);const c001=hash3(xi,yi,zi+1,salt),c101=hash3(xi+1,yi,zi+1,salt);const c011=hash3(xi,yi+1,zi+1,salt),c111=hash3(xi+1,yi+1,zi+1,salt);return lerp(lerp(lerp(c000,c100,u),lerp(c010,c110,u),v),lerp(lerp(c001,c101,u),lerp(c011,c111,u),v),w);}
-const BIOME={PLAINS:0,FOREST:1,DESERT:2,SNOWY:3,MOUNTAINS:4,OCEAN:5,JUNGLE:6,SWAMP:7,MESA:8,VOLCANO:9,SAVANNA:10,TAIGA:11,GIANT_FOREST:12,CHERRY:13};
-const BIOME_NAME=['🌾 Plains','🌲 Forest','🏜 Desert','⛄ Snowy','⛰ Mountains','🌊 Ocean','🌴 Jungle','🐊 Swamp','🏔 Mesa','🌋 Volcano','🦒 Savanna','🌲 Taiga','🌳 Giant Forest','🌸 Cherry Grove'];
+const BIOME={PLAINS:0,FOREST:1,DESERT:2,SNOWY:3,MOUNTAINS:4,OCEAN:5,JUNGLE:6,SWAMP:7,MESA:8,VOLCANO:9,SAVANNA:10,TAIGA:11,GIANT_FOREST:12,CHERRY:13,MANGROVE:14,OASIS:15,AUTUMN:16,FLOWER_FIELD:17};
+const BIOME_NAME=['🌾 Plains','🌲 Forest','🏜 Desert','⛄ Snowy','⛰ Mountains','🌊 Ocean','🌴 Jungle','🐊 Swamp','🏔 Mesa','🌋 Volcano','🦒 Savanna','🌲 Taiga','🌳 Giant Forest','🌸 Cherry Grove','🌿 Mangrove Swamp','🏝 Oasis','🍁 Autumn Forest','🌷 Flower Field'];
 // Fractal Brownian Motion — multi-octave value noise
 function fbm2(x,z,salt,octaves,baseFreq,persistence,lacunarity){
   let amp=1,freq=baseFreq,sum=0,norm=0;
@@ -49,6 +49,10 @@ function biomeAt(x,z){
     // SAVANNA: hot grassland on the moister fringe of the desert belt — dry
     // golden grass with sparse, flat-topped acacia groves.
     if(m>0.36) return BIOME.SAVANNA;
+    // OASIS: rare lush water-and-palm pockets dotted through the dry desert,
+    // selected by sharp peaks of a dedicated noise field so they are special,
+    // sparse surprises rather than common.
+    {const oa=fbm2(x,z,211,3,1/70,0.5,2.0);if(oa>0.74)return BIOME.OASIS;}
     return BIOME.DESERT;
   }
   // Jungle
@@ -59,10 +63,24 @@ function biomeAt(x,z){
   // CHERRY GROVE: a mild, gentle climate pocket selected by the weirdness field
   // so blossoming groves appear as occasional surprises among the forests.
   if(t>=0.42&&t<=0.58&&m>=0.50&&m<0.74&&w>0.60) return BIOME.CHERRY;
+  // AUTUMN FOREST: a warm, moderately-moist temperate woodland pocket dressed in
+  // fiery red/orange/yellow maple foliage. Selected by a dedicated noise field so
+  // splashes of autumn colour surface among the green forests.
+  if(t>=0.40&&t<=0.62&&m>=0.50&&m<0.74){const au=fbm2(x,z,217,3,1/120,0.5,2.0);if(au>0.62)return BIOME.AUTUMN;}
+  // MANGROVE SWAMP: a warm, very wet marsh — the lush upgrade of the plain swamp.
+  // Sits in the same low, soggy lowlands but only where it is genuinely warm,
+  // producing root-tangled trees standing in shallow water.
+  if(m>0.60&&e<0.46&&t>0.50) return BIOME.MANGROVE;
   // Swamp
   if(m>0.60&&e<0.46) return BIOME.SWAMP;
-  // Forest
-  if(m>0.50) return BIOME.FOREST;
-  // Default: plains
+  // FLOWER FIELD: a denser, more colourful variant of the plains, chosen by a
+  // dedicated noise field so vivid wildflower meadows appear here and there.
+  if(m>0.50){
+    const ff=fbm2(x,z,223,3,1/110,0.5,2.0);if(ff>0.66&&t>=0.40&&t<=0.62)return BIOME.FLOWER_FIELD;
+    // Forest
+    return BIOME.FOREST;
+  }
+  // Default: plains — occasionally a flower field
+  {const ff=fbm2(x,z,223,3,1/110,0.5,2.0);if(ff>0.66)return BIOME.FLOWER_FIELD;}
   return BIOME.PLAINS;
 }
