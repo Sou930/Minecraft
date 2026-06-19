@@ -109,7 +109,7 @@ function tryBuildVillage(cx,cz,rng){
     const r=rng();
     if(!builtFarm&&i>=4&&r<0.5){buildFarm(hx,hz,ground,desert);builtFarm=true;continue;}
     if(!builtMarket&&i>=4&&r<0.35){buildMarket(hx,hz,ground,desert);builtMarket=true;continue;}
-    buildHouse(hx,hz,ground,rng,desert,snowy);
+    buildHouse(hx,hz,ground,rng,desert,snowy,cx,cz);
     // a lamp post beside most houses
     if(rng()<0.7)buildLampPost(hx+(houseSpots[i][0]<0?3:-3),hz+2,ground);
   }
@@ -162,7 +162,7 @@ function buildWell(cx,cz,gy,desert){
 
 // Timber-framed cottage: planks walls, log corner posts, glass windows, a
 // sloped plank roof, a door gap, and a cosy interior (chest + torch).
-function buildHouse(hx,hz,gy,rng,desert,snowy){
+function buildHouse(hx,hz,gy,rng,desert,snowy,villageX,villageZ){
   const w=5+(rng()<0.5?0:1);     // width  (x)
   const d=5+(rng()<0.5?0:1);     // depth  (z)
   const wallH=3+(rng()<0.4?1:0);
@@ -188,9 +188,29 @@ function buildHouse(hx,hz,gy,rng,desert,snowy){
   sBlock(x0+1,wy,z0,B.GLASS);sBlock(x1-1,wy,z0,B.GLASS);
   sBlock(x0+1,wy,z1,B.GLASS);sBlock(x1-1,wy,z1,B.GLASS);
   sBlock(x0,wy,z0+1,B.GLASS);sBlock(x1,wy,z0+1,B.GLASS);
-  // door on the wall facing the village centre (toward hx<0 etc.) – pick z0 side
-  const doorX=hx,doorZ=z1;        // facing +z
-  sBlock(doorX,gy+1,doorZ,B.AIR);sBlock(doorX,gy+2,doorZ,B.AIR);
+  // Doorway: a real 2-tall wooden door set into the wall that faces the village
+  // centre, so every entrance opens toward the plaza. Facings: N=0,E=1,S=2,W=3
+  // with +Z=South and +X=East (matching doorFacing in config / player.js).
+  // Desert (sandstone) cottages get a door too so every house has an entrance.
+  let doorX,doorZ,doorBottom,doorTop,frontDX=0,frontDZ=0;
+  const toCx=(villageX!==undefined)?villageX-hx:0;
+  const toCz=(villageZ!==undefined)?villageZ-hz:1; // default: face +z
+  if(Math.abs(toCz)>=Math.abs(toCx)){
+    // door on a z-facing wall (north or south)
+    doorX=hx;
+    if(toCz>=0){ doorZ=z1; doorBottom=B.DOOR_BOTTOM_S_CLOSED; doorTop=B.DOOR_TOP_S_CLOSED; frontDZ=1; }
+    else        { doorZ=z0; doorBottom=B.DOOR_BOTTOM_N_CLOSED; doorTop=B.DOOR_TOP_N_CLOSED; frontDZ=-1; }
+  }else{
+    // door on an x-facing wall (east or west)
+    doorZ=hz;
+    if(toCx>=0){ doorX=x1; doorBottom=B.DOOR_BOTTOM_E_CLOSED; doorTop=B.DOOR_TOP_E_CLOSED; frontDX=1; }
+    else        { doorX=x0; doorBottom=B.DOOR_BOTTOM_W_CLOSED; doorTop=B.DOOR_TOP_W_CLOSED; frontDX=-1; }
+  }
+  sBlock(doorX,gy+1,doorZ,doorBottom);
+  sBlock(doorX,gy+2,doorZ,doorTop);
+  // keep the step just outside the door clear so the player can walk through
+  sBlock(doorX+frontDX,gy+1,doorZ+frontDZ,B.AIR);
+  sBlock(doorX+frontDX,gy+2,doorZ+frontDZ,B.AIR);
   // pitched roof out of planks/logs
   buildRoof(x0,z0,x1,z1,gy+wallH+1,desert);
   // interior furnishings
