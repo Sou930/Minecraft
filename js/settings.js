@@ -136,6 +136,9 @@ function applyRenderDistance(){
   if(typeof setViewDistance==='function')setViewDistance(p.chunks);
   if(typeof scene!=='undefined'){scene.fogStart=p.fogStart;scene.fogEnd=p.fogEnd;}
   if(typeof camera!=='undefined')camera.maxZ=Math.max(520,p.fogEnd+120);
+  // The adaptive FPS governor treats the chosen preset as its quality *ceiling*
+  // and may scale below it on slower hardware to hold ~60 FPS.
+  if(typeof PERF!=='undefined'&&PERF.onPresetChanged)PERF.onPresetChanged(p.chunks);
   if(typeof updateChunkStreaming==='function'&&typeof worldReady!=='undefined'&&worldReady)updateChunkStreaming(40);
 }
 function applyLowQuality(){
