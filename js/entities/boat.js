@@ -43,11 +43,17 @@ function removeBoat(boat){const i=boats.indexOf(boat);if(i>=0)boats.splice(i,1);
 
 function isWaterAt(x,y,z){return getBlock(Math.floor(x),Math.floor(y),Math.floor(z))===B.WATER;}
 
-// Find the water surface Y at (x,z): the Y of the topmost WATER block + ~0.05.
+// Height (in world Y) the boat root should float at so the hull rides ON TOP
+// of the water rather than being submerged in it. A water block at integer Y
+// fills the cube from Y to Y+1, so the real water surface is at Y+1. We seat
+// the boat root just above that line; the hull floor (local y≈0.1) then floats
+// neatly at the waterline.
+const BOAT_FLOAT_OFFSET=0.9;
+// Find the water surface float-height at (x,z), or null if there is no water.
 function waterSurfaceY(x,z){
   const bx=Math.floor(x),bz=Math.floor(z);
   for(let y=Math.min(WORLD_H-1,SEA_LEVEL+6);y>1;y--){
-    if(getBlock(bx,y,bz)===B.WATER&&getBlock(bx,y+1,bz)!==B.WATER)return y+0.18;
+    if(getBlock(bx,y,bz)===B.WATER&&getBlock(bx,y+1,bz)!==B.WATER)return y+BOAT_FLOAT_OFFSET;
   }
   return null;
 }
@@ -66,7 +72,7 @@ function tryPlaceBoat(){
   let surfY=waterSurfaceY(bx+0.5,bz+0.5);
   if(surfY===null){
     // Allow placing on the targeted water block directly.
-    if(getBlock(bx,by,bz)===B.WATER)surfY=by+0.18;else return false;
+    if(getBlock(bx,by,bz)===B.WATER)surfY=by+BOAT_FLOAT_OFFSET;else return false;
   }
   const boat=spawnBoat(bx+0.5,surfY,bz+0.5,player.yaw);
   enterBoat(boat);
@@ -114,6 +120,27 @@ function tryEnterNearbyBoat(){
   }
   if(best){enterBoat(best);return true;}
   return false;
+}
+
+// Left-click (attack) an existing boat within reach to pick it back up. The
+// boat is removed from the world and a Boat item is returned to the inventory
+// so the player can re-place it elsewhere. Returns true if a boat was
+// recovered (so the caller skips the normal attack / mining action).
+function tryRecoverNearbyBoat(){
+  if(ridingBoat)return false;            // can't pick up the boat you're sitting in
+  if(typeof camera==='undefined')return false;
+  const origin=camera.position;const dir=camera.getDirection(BABYLON.Vector3.Forward());
+  let best=null,bestT=4.5;
+  for(const boat of boats){
+    const minX=boat.pos.x-0.85,maxX=boat.pos.x+0.85,minY=boat.pos.y-0.2,maxY=boat.pos.y+0.7,minZ=boat.pos.z-1.4,maxZ=boat.pos.z+1.4;
+    const t=(typeof rayBoxHit==='function')?rayBoxHit(origin,dir,minX,minY,minZ,maxX,maxY,maxZ):null;
+    if(t!==null&&t<bestT){bestT=t;best=boat;}
+  }
+  if(!best)return false;
+  removeBoat(best);
+  if(typeof addToInventory==='function'&&typeof ITEM_BOAT!=='undefined')addToInventory(ITEM_BOAT,1);
+  if(typeof SFX!=='undefined'&&SFX.dig)SFX.dig(B.PLANKS);
+  return true;
 }
 
 // --- Boat physics / steering -----------------------------------------------
