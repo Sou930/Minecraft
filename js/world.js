@@ -2,11 +2,13 @@ const world=new Uint8Array(WORLD_W*WORLD_H*WORLD_D);function blockIndex(x,y,z){r
 function getBlock(x,y,z){if(y<0)return B.BEDROCK;if(y>=WORLD_H)return B.AIR;if(x<0||x>=WORLD_W||z<0||z>=WORLD_D)return B.STONE;return world[blockIndex(x,y,z)];}
 function isCrop(id){const d=BLOCKS[id];return!!(d&&d.crop);}
 function isCrossPlant(id){const d=BLOCKS[id];return!!(d&&d.crossPlant);}
-function isSolid(id){return id!==B.AIR&&id!==B.WATER&&id!==B.LAVA&&id!==B.SEAWEED&&!isCrossPlant(id)&&!isCrop(id);}
-// Crops and cross-shaped plants (grass/flowers) are targetable even though non-solid
-function isTargetable(id){return isSolid(id)||isCrop(id)||isCrossPlant(id);}
+function isBamboo(id){const d=BLOCKS[id];return!!(d&&d.bamboo);}
+function isSolid(id){return id!==B.AIR&&id!==B.WATER&&id!==B.LAVA&&id!==B.SEAWEED&&!isCrossPlant(id)&&!isCrop(id)&&!isBamboo(id);}
+// Crops, cross-shaped plants (grass/flowers) and thin bamboo stalks are
+// targetable even though non-solid (so they can be broken / passed through).
+function isTargetable(id){return isSolid(id)||isCrop(id)||isCrossPlant(id)||isBamboo(id);}
 // Skylight: returns 0 if block above is opaque (underground)
-function blocksSky(id){if(id===B.AIR||id===B.WATER||id===B.LAVA)return false;const d=BLOCKS[id];if(d&&(d.transparent||d.crop||d.crossPlant))return false;return true;}
+function blocksSky(id){if(id===B.AIR||id===B.WATER||id===B.LAVA)return false;const d=BLOCKS[id];if(d&&(d.transparent||d.crop||d.crossPlant||d.bamboo))return false;return true;}
 function skyExposed(x,y,z){for(let yy=y+1;yy<WORLD_H;yy++){if(blocksSky(getBlock(x,yy,z)))return false;}return true;}
 // Sky light level 0..1; 1=open sky, gradient near cave entrances
 function skyLightAt(x,y,z){if(skyExposed(x,y,z))return 1;let best=0;const offs=[[1,0],[-1,0],[0,1],[0,-1]];for(const[dx,dz]of offs){if(skyExposed(x+dx,y+1,z+dz)){best=Math.max(best,0.55);}}return best;}
@@ -24,7 +26,7 @@ function blockLightEmission(id){
   BLOCKLIGHT_DEFS_CACHE[id]=v;return v;
 }
 // Returns true if light can pass through this block
-function lightPasses(id){if(id===B.AIR)return true;const d=BLOCKS[id];if(!d)return true;if(d.transparent||d.crop||d.crossPlant||d.cross||d.fluid||d.torch||d.lanternBox||d.flat)return true;return false;}
+function lightPasses(id){if(id===B.AIR)return true;const d=BLOCKS[id];if(!d)return true;if(d.transparent||d.crop||d.crossPlant||d.cross||d.fluid||d.torch||d.lanternBox||d.flat||d.bamboo)return true;return false;}
 
 // Compute block light for a region using BFS flood-fill
 function computeBlockLight(bx0,by0,bz0,sx,sy,sz){
@@ -196,25 +198,56 @@ function generateWorld(){generateClimateAndHeight();generateTerrainColumns(0,WOR
 function generateClimateAndHeight(){
   const tmp=new Float32Array(WORLD_W*WORLD_D);
   for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){tmp[colIndex(x,z)]=heightAtRaw(x,z);biomeMap[colIndex(x,z)]=biomeAt(x,z);}}
+  // --- Pass 1: weighted 3x3 box blur -----------------------------------
+  // Previously the blur was *weakened* where neighbours differed a lot, which
+  // left the very places that needed it (cliff edges) almost untouched. We now
+  // blur the whole field uniformly so abrupt steps start to soften.
+  let cur=tmp;
   const smoothed=new Float32Array(WORLD_W*WORLD_D);
   const W=[[1,2,1],[2,4,2],[1,2,1]];
   for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){
-    const c=tmp[colIndex(x,z)];
-    let sum=0,wsum=0,maxDiff=0;
+    let sum=0,wsum=0;
     for(let dz=-1;dz<=1;dz++){for(let dx=-1;dx<=1;dx++){
       const xx=Math.min(WORLD_W-1,Math.max(0,x+dx));
       const zz=Math.min(WORLD_D-1,Math.max(0,z+dz));
-      const v=tmp[colIndex(xx,zz)];
       const w=W[dz+1][dx+1];
-      sum+=v*w;wsum+=w;
-      const d=Math.abs(v-c);if(d>maxDiff)maxDiff=d;
+      sum+=cur[colIndex(xx,zz)]*w;wsum+=w;
     }}
-    const avg=sum/wsum;
-    const blend=0.65*(1-Math.min(1,maxDiff/8));
-    smoothed[colIndex(x,z)]=c*(1-blend)+avg*blend;
+    smoothed[colIndex(x,z)]=sum/wsum;
   }}
+  cur=smoothed;
+  // --- Pass 2: thermal-erosion slope limiter ---------------------------
+  // Walk the map several times and, wherever the height step to a 4-neighbour
+  // exceeds MAX_STEP (the "talus angle"), shovel material from the high column
+  // down onto the low one. This caps the maximum slope so towering vertical
+  // cliffs collapse into walkable, gently terraced hillsides while leaving
+  // already-gentle terrain essentially untouched.
+  const h2=new Float32Array(WORLD_W*WORLD_D);h2.set(cur);
+  const MAX_STEP=2.2;        // largest allowed height difference per block
+  const TALUS=0.5;           // fraction of the excess moved each iteration
+  const ITER=6;
+  const NB=[[1,0],[-1,0],[0,1],[0,-1]];
+  for(let it=0;it<ITER;it++){
+    for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){
+      const i=colIndex(x,z);const ch=h2[i];
+      let lowest=ch,li=-1;
+      for(const[dx,dz]of NB){
+        const xx=x+dx,zz=z+dz;
+        if(xx<0||xx>=WORLD_W||zz<0||zz>=WORLD_D)continue;
+        const v=h2[colIndex(xx,zz)];
+        if(v<lowest){lowest=v;li=colIndex(xx,zz);}
+      }
+      if(li<0)continue;
+      const diff=ch-lowest;
+      if(diff>MAX_STEP){
+        const move=(diff-MAX_STEP)*TALUS;
+        h2[i]-=move;h2[li]+=move;
+      }
+    }}
+  }
+  cur=h2;
   for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){
-    heightMap[colIndex(x,z)]=Math.floor(Math.max(2,Math.min(WORLD_H-6,smoothed[colIndex(x,z)])));
+    heightMap[colIndex(x,z)]=Math.floor(Math.max(2,Math.min(WORLD_H-6,cur[colIndex(x,z)])));
   }}
 }
 // Build terrain blocks for columns in the x-range [x0,x1).
@@ -579,7 +612,36 @@ for(const[dy,r]of canopy){for(let dx=-r;dx<=r;dx++){for(let dz=-r;dz<=r;dz++){
   if(yy<WORLD_H&&world[blockIndex(xx,yy,zz)]===B.AIR)world[blockIndex(xx,yy,zz)]=leafId;
 }}}
 if(h+trunkH+2<WORLD_H&&world[blockIndex(x,h+trunkH+2,z)]===B.AIR&&hash2(x,z,99)<0.6)world[blockIndex(x,h+trunkH+2,z)]=leafId;
-}}placeGroundCover();}
+}}placeBamboo();placeGroundCover();}
+// BAMBOO GROVES: dense thickets of slim, single-block-wide bamboo canes growing
+// straight up. Each stalk is a vertical stack of BAMBOO blocks (3..7 tall).
+// Groves are seeded as soft circular blobs of low-frequency noise inside warm,
+// humid jungles so the canes cluster into believable bamboo forests rather than
+// dotting the whole map. Placed after trees so canes fill the open gaps.
+function placeBamboo(){
+  for(let x=3;x<WORLD_W-3;x++){for(let z=3;z<WORLD_D-3;z++){
+    const biome=biomeMap[colIndex(x,z)];
+    if(biome!==BIOME.JUNGLE)continue;                 // bamboo lives in the jungle
+    const h=heightMap[colIndex(x,z)];
+    if(h<SEA_LEVEL||h+9>=WORLD_H)continue;            // skip submerged / too-tall columns
+    if(world[blockIndex(x,h,z)]!==B.GRASS)continue;   // only on grassy ground
+    if(world[blockIndex(x,h+1,z)]!==B.AIR)continue;   // keep clear of trunks/leaves
+    // Grove mask: smooth blobs across the jungle become dense bamboo thickets.
+    const grove=valueNoise(x/26,z/26,401);
+    if(grove<0.58)continue;                            // outside a grove -> bare
+    // Within a grove, fill most columns but leave organic gaps.
+    const local=(grove-0.58)/0.42;                     // 0..1 toward grove centre
+    const density=0.35+0.5*local;                      // denser at the core
+    if(hash2(x+613,z-247,402)>density)continue;
+    // Stalk height: taller toward the grove centre, with per-stalk jitter.
+    const hgt=3+Math.floor(local*3)+Math.floor(hash2(x,z,403)*3); // 3..8
+    for(let y=1;y<=hgt;y++){
+      const yy=h+y;if(yy>=WORLD_H)break;
+      if(world[blockIndex(x,yy,z)]!==B.AIR)break;
+      world[blockIndex(x,yy,z)]=B.BAMBOO;
+    }
+  }}
+}
 // OCEAN reef: scatter colourful coral and tall seaweed across shallow,
 // sunlit ocean floors so diving the sea has something to discover.
 function placeReef(){const CORALS=[B.CORAL_PINK,B.CORAL_PURPLE,B.CORAL_BLUE];
