@@ -5,7 +5,23 @@ const ACH = (function () {
   const DEFAULT_STATS = {
     mined: 0, placed: 0, crafted: 0, workbench: 0, wood: 0,
     harvest: 0, eaten: 0, diamond: 0, obsidian: 0, swim: 0, fly: 0, night: 0,
+    // Combat: total kills + per-species kill flags.
+    hunt: 0, kill_pig: 0, kill_sheep: 0, kill_cow: 0, kill_chicken: 0,
+    // Exploration: one flag per biome reached.
+    biome_plains: 0, biome_forest: 0, biome_desert: 0, biome_snowy: 0,
+    biome_mountains: 0, biome_ocean: 0, biome_jungle: 0, biome_swamp: 0,
+    biome_mesa: 0, biome_volcano: 0,
+    // Derived counters.
+    biomes_visited: 0,   // number of distinct biomes flagged
+    species_killed: 0,   // number of distinct animal species defeated
   };
+  const BIOME_FLAGS = ['biome_plains','biome_forest','biome_desert','biome_snowy','biome_mountains','biome_ocean','biome_jungle','biome_swamp','biome_mesa','biome_volcano'];
+  const SPECIES_FLAGS = ['kill_pig','kill_sheep','kill_cow','kill_chicken'];
+  // Recompute the distinct-count derived stats from their underlying flags.
+  function recomputeDerived(){
+    stats.biomes_visited = BIOME_FLAGS.reduce((n,k)=>n+(stats[k]?1:0),0);
+    stats.species_killed = SPECIES_FLAGS.reduce((n,k)=>n+(stats[k]?1:0),0);
+  }
   let stats = Object.assign({}, DEFAULT_STATS);
   let done = {};
   let saveTimer = null;
@@ -19,6 +35,7 @@ const ACH = (function () {
       const d = JSON.parse(WORLDS.getItem(DONE_KEY) || 'null');
       if (d && typeof d === 'object') done = d;
     } catch (e) {}
+    recomputeDerived();
   }
   function scheduleSave() {
     clearTimeout(saveTimer);
@@ -55,6 +72,7 @@ const ACH = (function () {
   function flag(kind) {
     if (!(kind in stats) || stats[kind] >= 1) return;
     stats[kind] = 1;
+    recomputeDerived();
     check();
     scheduleSave();
   }

@@ -48,7 +48,10 @@ for(let d=0.3;d<=dist;d+=0.2){const tx=eyeX+fwd.x*sign*d,ty=eyeY+fwd.y*sign*d,tz
 camera.position.set(eyeX+fwd.x*sign*dist,eyeY+fwd.y*sign*dist,eyeZ+fwd.z*sign*dist);
 if(view===1)camera.rotation.set(player.pitch,player.yaw,0);
 else camera.rotation.set(-player.pitch,player.yaw+Math.PI,0);}
-let hudTimer=0;function updateHUD(dt){if(!worldReady)return;hudTimer+=dt;if(hudTimer<0.25)return;hudTimer=0;document.getElementById('fps-display').textContent=`FPS: ${engine.getFps().toFixed(0)}`;document.getElementById('pos-display').textContent=`X: ${player.pos.x.toFixed(0)} Y: ${player.pos.y.toFixed(0)} Z: ${player.pos.z.toFixed(0)}`;const bx=Math.floor(player.pos.x),bz=Math.floor(player.pos.z);const bio=(bx>=0&&bx<WORLD_W&&bz>=0&&bz<WORLD_D)?biomeMap[colIndex(bx,bz)]:biomeAt(bx,bz);document.getElementById('biome-display').textContent=BIOME_NAME[bio];updateChunkStreaming(6);}
+let hudTimer=0;function updateHUD(dt){if(!worldReady)return;hudTimer+=dt;if(hudTimer<0.25)return;hudTimer=0;document.getElementById('fps-display').textContent=`FPS: ${engine.getFps().toFixed(0)}`;document.getElementById('pos-display').textContent=`X: ${player.pos.x.toFixed(0)} Y: ${player.pos.y.toFixed(0)} Z: ${player.pos.z.toFixed(0)}`;const bx=Math.floor(player.pos.x),bz=Math.floor(player.pos.z);const bio=(bx>=0&&bx<WORLD_W&&bz>=0&&bz<WORLD_D)?biomeMap[colIndex(bx,bz)]:biomeAt(bx,bz);document.getElementById('biome-display').textContent=BIOME_NAME[bio];
+// Flag the current biome as visited for exploration achievements.
+if(started&&worldReady&&typeof ACH!=='undefined'&&typeof BIOME!=='undefined'){const BIOME_ACH=['biome_plains','biome_forest','biome_desert','biome_snowy','biome_mountains','biome_ocean','biome_jungle','biome_swamp','biome_mesa','biome_volcano'];if(BIOME_ACH[bio])ACH.flag(BIOME_ACH[bio]);}
+updateChunkStreaming(6);}
 // Render loop is started immediately, but gameplay (update) is gated by the
 // `started` flag and `worldReady`, so the loop just paints the loading sky
 // until generation finishes. This avoids blocking the main thread.
@@ -93,8 +96,11 @@ if(isMobile){document.getElementById('start-help-pc').style.display='none';docum
 // screen calls bootstrapWorld() once the user picks or creates a world.
 let booted=false;
 function bootstrapWorld(){if(booted)return;booted=true;document.body.classList.add('playing');const lo=document.getElementById('loading-overlay');if(lo){lo.classList.remove('hidden');lo.style.display='';}bootstrap();}
-if(typeof WORLDS!=='undefined'&&WORLDS.hasActive()){bootstrapWorld();}
-else{if(typeof showHome==='function')showHome();}
+// Always start on the Home / world-select screen. Even if a world was left
+// active from a previous session, we clear it so the player must explicitly
+// pick (or create) a world from Home before entering the game.
+if(typeof WORLDS!=='undefined'&&typeof WORLDS.clearActive==='function')WORLDS.clearActive();
+if(typeof showHome==='function')showHome();
 function startGame(){started=true;if(typeof SFX!=='undefined'){SFX.resume();SFX.startAmbient();}if(isMobile){paused=false;document.getElementById('start-overlay').style.display='none';}else{canvas.requestPointerLock();setTimeout(()=>{if(document.pointerLockElement!==canvas){paused=false;document.getElementById('start-overlay').style.display='none';}},300);}}
 {const sb=document.getElementById('btn-sound');if(sb){const sync=()=>{const m=typeof SFX!=='undefined'&&SFX.isMuted();sb.textContent=m?'🔇':'🔊';sb.classList.toggle('muted',m);};sb.addEventListener('click',(e)=>{e.stopPropagation();if(typeof SFX!=='undefined'){SFX.resume();SFX.setMuted(!SFX.isMuted());if(!SFX.isMuted())SFX.startAmbient();sync();}});sb.addEventListener('touchstart',(e)=>e.stopPropagation(),{passive:true});sync();}}
 document.getElementById('btn-start').addEventListener('click',(e)=>{e.stopPropagation();startGame();});document.getElementById('start-overlay').addEventListener('click',startGame);{const hb=document.getElementById('btn-home');if(hb)hb.addEventListener('click',(e)=>{e.stopPropagation();if(typeof WORLDS!=='undefined')WORLDS.clearActive();location.reload();});}

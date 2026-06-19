@@ -61,7 +61,33 @@ function spawnMob(type,x,y,z){const meshes=buildMobMesh(type);const t=MOB_TYPES[
 
 function trySpawnMobs(){if(mobs.length>=MAX_MOBS)return;if(typeof player==='undefined')return;for(let attempt=0;attempt<6&&mobs.length<MAX_MOBS;attempt++){const ang=Math.random()*Math.PI*2;const r=14+Math.random()*16;const x=Math.floor(player.pos.x+Math.cos(ang)*r);const z=Math.floor(player.pos.z+Math.sin(ang)*r);if(x<2||x>=WORLD_W-2||z<2||z>=WORLD_D-2)continue;const y=spawnHeightAt(x,z);if(y===null)continue;spawnMob(pickAnimalType(),x,y,z);}}
 
-function mobMoveAxis(mob,axis,delta){if(delta===0)return false;mob.pos[axis]+=delta;const hw=mob.halfW,h=mob.height;const box={minX:mob.pos.x-hw,maxX:mob.pos.x+hw,minY:mob.pos.y,maxY:mob.pos.y+h,minZ:mob.pos.z-hw,maxZ:mob.pos.z+hw};let hit=false;const x0=Math.floor(box.minX),x1=Math.floor(box.maxX),y0=Math.floor(box.minY),y1=Math.floor(box.maxY),z0=Math.floor(box.minZ),z1=Math.floor(box.maxZ);for(let bx=x0;bx<=x1;bx++)for(let by=y0;by<=y1;by++)for(let bz=z0;bz<=z1;bz++){if(!isSolid(getBlock(bx,by,bz)))continue;hit=true;if(axis==='x')mob.pos.x=delta>0?bx-hw-0.001:bx+1+hw+0.001;if(axis==='z')mob.pos.z=delta>0?bz-hw-0.001:bz+1+hw+0.001;if(axis==='y')mob.pos.y=delta>0?by-h-0.001:by+1+0.001;return false;}return hit;}
+// Swept axis-aligned collision for a mob. Mirrors the player's moveAxis():
+// after resolving against the first overlapping block we recompute the AABB
+// and keep scanning, so a mob spanning several blocks is fully pushed out
+// instead of being left half-buried (which previously made animals sink into
+// the ground or get squeezed out at high speed = "flying away").
+function mobMoveAxis(mob,axis,delta){
+  if(delta===0)return false;
+  const hw=mob.halfW,h=mob.height;
+  mob.pos[axis]+=delta;
+  let hit=false;
+  // Iterate a few times so multi-block overlaps are all resolved.
+  for(let pass=0;pass<4;pass++){
+    const box={minX:mob.pos.x-hw,maxX:mob.pos.x+hw,minY:mob.pos.y,maxY:mob.pos.y+h,minZ:mob.pos.z-hw,maxZ:mob.pos.z+hw};
+    const x0=Math.floor(box.minX),x1=Math.floor(box.maxX),y0=Math.floor(box.minY),y1=Math.floor(box.maxY),z0=Math.floor(box.minZ),z1=Math.floor(box.maxZ);
+    let resolved=false;
+    for(let bx=x0;bx<=x1&&!resolved;bx++)
+      for(let by=y0;by<=y1&&!resolved;by++)
+        for(let bz=z0;bz<=z1&&!resolved;bz++){
+          if(!isSolid(getBlock(bx,by,bz)))continue;
+          hit=true;resolved=true;
+          if(axis==='x')mob.pos.x=delta>0?bx-hw-0.001:bx+1+hw+0.001;
+          else if(axis==='z')mob.pos.z=delta>0?bz-hw-0.001:bz+1+hw+0.001;
+          else if(axis==='y')mob.pos.y=delta>0?by-h-0.001:by+1+0.001;
+        }
+    if(!resolved)break;
+  }
+  return hit;}
 
 const MOB_GRAVITY=-22;
 function updateMobs(dt){if(!worldReady||!started)return;
@@ -97,9 +123,14 @@ function updateOneMob(mob,dt){
   const sp=mob.t.speed*mob.speedMul;
   const wishX=Math.sin(mob.yaw)*sp,wishZ=Math.cos(mob.yaw)*sp;
   const accel=Math.min(1,dt*6);mob.vel.x+=(wishX-mob.vel.x)*accel;mob.vel.z+=(wishZ-mob.vel.z)*accel;
+  // Clamp horizontal speed so a knockback that gets trapped against a wall can
+  // never accumulate into a teleport ("animal flying away") next frame.
+  const MAX_HVEL=10;const hv=Math.hypot(mob.vel.x,mob.vel.z);if(hv>MAX_HVEL){const k=MAX_HVEL/hv;mob.vel.x*=k;mob.vel.z*=k;}
 
   mob.vel.y+=MOB_GRAVITY*dt;if(mob.vel.y<-40)mob.vel.y=-40;
-  const inWater=getBlock(Math.floor(mob.pos.x),Math.floor(mob.pos.y+0.3),Math.floor(mob.pos.z))===B.WATER;if(inWater){mob.vel.y=Math.max(mob.vel.y,1.8);}
+  // Float up only while the mob is actually submerged, and cap the rise so it
+  // doesn't get flung above the water surface.
+  const inWater=getBlock(Math.floor(mob.pos.x),Math.floor(mob.pos.y+0.3),Math.floor(mob.pos.z))===B.WATER;if(inWater){mob.vel.y=Math.min(Math.max(mob.vel.y,1.4),2.2);}
 
   if(mob.jumpCooldown>0)mob.jumpCooldown-=dt;
 
@@ -125,7 +156,15 @@ function updateOneMob(mob,dt){
   mob.stuckTimer+=dt;
   if(mob.stuckTimer>0.5){const moved=Math.hypot(mob.pos.x-mob.prevX,mob.pos.z-mob.prevZ);if(mob.speedMul>0.3&&moved<0.05){mob.targetYaw=mob.yaw+Math.PI*(0.5+Math.random());}mob.prevX=mob.pos.x;mob.prevZ=mob.pos.z;mob.stuckTimer=0;}
 
-  if(mob.pos.y<-5){mob.meshes.root.dispose();const i=mobs.indexOf(mob);if(i>=0)mobs.splice(i,1);return;}
+  // Safety net: if a mob somehow falls through the world, try to rescue it back
+  // onto solid ground near its horizontal position before giving up. Only
+  // despawn if there is genuinely nowhere to stand (e.g. over a deep void).
+  if(mob.pos.y<2){
+    const gx=Math.floor(mob.pos.x),gz=Math.floor(mob.pos.z);
+    const sy=spawnHeightAt(gx,gz);
+    if(sy!==null){mob.pos.y=sy;mob.vel.set(0,0,0);mob.onGround=true;}
+    else if(mob.pos.y<-5){mob.meshes.root.dispose();mob.meshes.legs.forEach(l=>l.dispose&&l.dispose());const i=mobs.indexOf(mob);if(i>=0)mobs.splice(i,1);return;}
+  }
 
   mob.meshes.root.position.copyFrom(mob.pos);mob.meshes.root.rotation.y=mob.yaw;
 
@@ -195,7 +234,11 @@ function killMob(mob){
   if(typeof addToInventory==='function'){
     for(const d of drops){const n=d.min+Math.floor(Math.random()*(d.max-d.min+1));for(let i=0;i<n;i++)addToInventory(d.id,1);}
   }
-  if(typeof ACH!=='undefined'&&ACH.track)ACH.track('hunt');
+  if(typeof ACH!=='undefined'){
+    if(ACH.track)ACH.track('hunt');
+    // Per-species kill flag (kill_pig / kill_sheep / kill_cow / kill_chicken).
+    if(ACH.flag&&mob.type)ACH.flag('kill_'+mob.type);
+  }
   // Despawn.
   const idx=mobs.indexOf(mob);if(idx>=0)mobs.splice(idx,1);
   mob.meshes.root.dispose();mob.meshes.legs.forEach(l=>l.dispose&&l.dispose());
