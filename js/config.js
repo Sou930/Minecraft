@@ -129,11 +129,29 @@ const ACHIEVEMENTS=[
   {id:'gourmet',icon:'\ud83c\udf7d',name:'Gourmet',desc:'Eat 10 times',stat:'eaten',goal:10},
   {id:'hunter',icon:'\ud83c\udf56',name:'Hunter',desc:'Defeat your first animal',stat:'hunt',goal:1},
   {id:'hunter_10',icon:'\ud83d\udcaa',name:'Big Game Hunter',desc:'Defeat 10 animals',stat:'hunt',goal:10},
+  {id:'hunter_50',icon:'\ud83c\udff9',name:'Apex Predator',desc:'Defeat 50 animals',stat:'hunt',goal:50},
+  // --- New: per-species hunting achievements ---
+  {id:'kill_pig',icon:'\ud83d\udc37',name:'Pork Chop',desc:'Defeat a pig',stat:'kill_pig',goal:1},
+  {id:'kill_sheep',icon:'\ud83d\udc11',name:'Shear Terror',desc:'Defeat a sheep',stat:'kill_sheep',goal:1},
+  {id:'kill_cow',icon:'\ud83d\udc04',name:'Cowboy',desc:'Defeat a cow',stat:'kill_cow',goal:1},
+  {id:'kill_chicken',icon:'\ud83d\udc14',name:'Fowl Play',desc:'Defeat a chicken',stat:'kill_chicken',goal:1},
+  {id:'zookeeper',icon:'\ud83d\udc3e',name:'Zookeeper',desc:'Defeat every kind of animal',stat:'species_killed',goal:4},
   {id:'diamond',icon:'\ud83d\udc8e',name:'Diamonds!',desc:'Mine diamond ore',stat:'diamond',goal:1},
   {id:'obsidian',icon:'\ud83d\udfea',name:'Obsidian Getter',desc:'Obtain obsidian',stat:'obsidian',goal:1},
   {id:'swimmer',icon:'\ud83c\udfca',name:'Swimmer',desc:'Submerge in water',stat:'swim',goal:1},
   {id:'flyer',icon:'\ud83d\udd4a',name:'Creative Mode',desc:'Use fly mode',stat:'fly',goal:1},
   {id:'night',icon:'\ud83c\udf19',name:'Nightfall',desc:'Experience your first night',stat:'night',goal:1},
+  // --- New: biome / exploration achievements ---
+  {id:'biome_desert',icon:'\ud83c\udfdc',name:'Sandstorm',desc:'Reach the Desert biome',stat:'biome_desert',goal:1},
+  {id:'biome_snowy',icon:'\u2744',name:'Cold Front',desc:'Reach the Snowy biome',stat:'biome_snowy',goal:1},
+  {id:'biome_mountains',icon:'\u26f0',name:'Summit Seeker',desc:'Reach the Mountains biome',stat:'biome_mountains',goal:1},
+  {id:'biome_ocean',icon:'\ud83c\udf0a',name:'Open Water',desc:'Reach the Ocean biome',stat:'biome_ocean',goal:1},
+  {id:'biome_jungle',icon:'\ud83c\udf34',name:'Into the Jungle',desc:'Reach the Jungle biome',stat:'biome_jungle',goal:1},
+  {id:'biome_swamp',icon:'\ud83d\udc0a',name:'Swamp Thing',desc:'Reach the Swamp biome',stat:'biome_swamp',goal:1},
+  {id:'biome_mesa',icon:'\ud83c\udfd4',name:'Painted Cliffs',desc:'Reach the Mesa biome',stat:'biome_mesa',goal:1},
+  {id:'biome_volcano',icon:'\ud83c\udf0b',name:'Into the Fire',desc:'Reach the Volcano biome',stat:'biome_volcano',goal:1},
+  {id:'globetrotter',icon:'\ud83e\udded',name:'Globetrotter',desc:'Visit 5 different biomes',stat:'biomes_visited',goal:5},
+  {id:'explorer_all',icon:'\ud83c\udf0d',name:'World Explorer',desc:'Visit all 10 biomes',stat:'biomes_visited',goal:10},
 ];
 const isMobile=('ontouchstart'in window)&&/Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac|iPad/i.test(navigator.userAgent));if(isMobile)document.body.classList.add('is-mobile');
 // World schema version — bump when dimensions change to invalidate saved data.
