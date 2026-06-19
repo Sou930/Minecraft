@@ -44,15 +44,15 @@ function pushCross(b,x,y,z,tile,shade,inset,h){const{u1,u2,v1,v2}=tileUV(tile);
     for(let side=0;side<2;side++){const base=b.pos.length/3;for(let i=0;i<4;i++){b.pos.push(x+q[i][0],y+q[i][1],z+q[i][2]);b.nrm.push(0,1,0);b.uv.push(uvs[i][0],uvs[i][1]);b.col.push(shade,shade,shade,1);}
     if(side===0)b.idx.push(base,base+1,base+2,base,base+2,base+3);else b.idx.push(base,base+2,base+1,base,base+3,base+2);}}}
 // Thin column (torch/lantern)
-function pushColumn(b,x,y,z,tile,shade,hw,top){const{u1,u2,v1,v2}=tileUV(tile);
+function pushColumn(b,x,y,z,tile,shade,hw,top,noTop){const{u1,u2,v1,v2}=tileUV(tile);
   const a=0.5-hw,c=0.5+hw,t=(top===undefined?1:top);
   const faces=[
     {n:[0,0,1], q:[[a,0,c],[c,0,c],[c,t,c],[a,t,c]]},
     {n:[0,0,-1],q:[[c,0,a],[a,0,a],[a,t,a],[c,t,a]]},
     {n:[1,0,0], q:[[c,0,c],[c,0,a],[c,t,a],[c,t,c]]},
     {n:[-1,0,0],q:[[a,0,a],[a,0,c],[a,t,c],[a,t,a]]},
-    {n:[0,1,0], q:[[a,t,c],[c,t,c],[c,t,a],[a,t,a]]},
   ];
+  if(!noTop)faces.push({n:[0,1,0], q:[[a,t,c],[c,t,c],[c,t,a],[a,t,a]]});
   const uvs=[[u1,v1],[u2,v1],[u2,v2],[u1,v2]];
   for(const f of faces){const base=b.pos.length/3;for(let i=0;i<4;i++){b.pos.push(x+f.q[i][0],y+f.q[i][1],z+f.q[i][2]);b.nrm.push(f.n[0],f.n[1],f.n[2]);b.uv.push(uvs[i][0],uvs[i][1]);b.col.push(shade,shade,shade,1);}b.idx.push(base,base+1,base+2,base,base+2,base+3);}}
 // Flat quad (rail)
@@ -76,6 +76,9 @@ const cellMul=(def&&def.emissive)?1:Math.max(skyMulAt(x,y,z,def),CAVE_MIN+(1-CAV
 if(def&&def.crop){const tile=(typeof FARM!=='undefined')?FARM.stageTileAt(x,y,z,def):def.stages[def.stages.length-1];pushCross(buf,x,y,z,tile,0.95*cellMul,0.08,1);continue;}
 // Non-crop cross plant
 if(def&&def.crossPlant){pushCross(buf,x,y,z,def.all,0.92*cellMul,0.06,1);continue;}
+// Bamboo: a slim full-height vertical cane (thin square column). Hide the top
+// cap when another bamboo block sits above so a stalk reads as one tall cane.
+if(def&&def.bamboo){const above=getBlock(x,y+1,z);pushColumn(buf,x,y,z,def.all,0.95*cellMul,0.17,1,above===id);continue;}
 // Torch/lantern: thin column
 if(def&&def.torch){const sh=(def.emissive?1:0.95*cellMul);pushColumn(buf,x,y,z,def.all,sh,0.12,0.62);continue;}
 if(def&&def.lanternBox){const sh=(def.emissive?1:0.95*cellMul);pushColumn(buf,x,y,z,def.all,sh,0.20,0.72);continue;}

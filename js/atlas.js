@@ -204,6 +204,24 @@ cropTile(T.POTATO0,7003,0.3,'#4a9a40','#5fbf50','leaf');cropTile(T.POTATO1,7003,
 // ---- Savanna dry grass: golden-tan grass top & side overlay ----
 {noisy(T.DRY_GRASS_TOP,'#b6a14e',['#a89344','#c2ad58','#9e8a3e','#bba955'],0.9);const[ox,oy]=tileOrigin(T.DRY_GRASS_TOP);const rnd=mulberry32(9320);const cols=['#9e8a3e','#c8b766','#a89344'];for(let i=0;i<10;i++){const cx=Math.floor(rnd()*15)*2,cy=Math.floor(rnd()*15)*2;ctx.fillStyle=cols[Math.floor(rnd()*cols.length)];ctx.fillRect(ox+cx,oy+cy,2,2);if(rnd()<0.6)ctx.fillRect(ox+cx+2,oy+cy,2,2);}}
 {noisy(T.DRY_GRASS_SIDE,'#8b5d3b',['#7a5132','#9a6a44','#6f4a2d','#84583a'],0.8);const[ox,oy]=tileOrigin(T.DRY_GRASS_SIDE);const rnd=mulberry32(9321);ctx.fillStyle='#5e3f28';for(let i=0;i<5;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+10+Math.floor(rnd()*10)*2,2,2);ctx.fillStyle='#b6a14e';ctx.fillRect(ox,oy,TILE_PX,7);for(let x=0;x<TILE_PX;x+=2){const h=6+Math.floor(rnd()*5)*2;ctx.fillStyle=rnd()<0.4?'#a89344':(rnd()<0.5?'#c8b766':'#b6a14e');ctx.fillRect(ox+x,oy,2,h);}ctx.fillStyle='#c8b766';for(let x=0;x<TILE_PX;x+=2)if(rnd()<0.4)ctx.fillRect(ox+x,oy,2,2);}
+// Bamboo: a slim vertical cane drawn on a transparent tile. Rendered as a thin
+// column, so the tile is mostly filled by the cane with darker node bands and a
+// couple of small leaf sprigs poking out the sides.
+{const[ox,oy]=tileOrigin(T.BAMBOO);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+ const cane='#7ba428',caneHi='#9bc24a',caneLo='#5f8420',node='#4a6618',leaf='#6fae3a';
+ // main cane occupies the central columns of the tile
+ const cx0=8,cw=16;
+ ctx.fillStyle=cane;ctx.fillRect(ox+cx0,oy,cw,TILE_PX);
+ // vertical shading: highlight on the left edge, shadow on the right
+ ctx.fillStyle=caneHi;ctx.fillRect(ox+cx0,oy,4,TILE_PX);
+ ctx.fillStyle=caneLo;ctx.fillRect(ox+cx0+cw-4,oy,4,TILE_PX);
+ // node rings banding the cane every ~8px
+ ctx.fillStyle=node;for(let y=2;y<TILE_PX;y+=8)ctx.fillRect(ox+cx0,oy+y,cw,2);
+ // small leaf sprigs jutting from a couple of nodes
+ ctx.fillStyle=leaf;
+ ctx.fillRect(ox+cx0-5,oy+9,5,2);ctx.fillRect(ox+cx0-7,oy+11,4,2);
+ ctx.fillRect(ox+cx0+cw,oy+19,5,2);ctx.fillRect(ox+cx0+cw+3,oy+21,4,2);
+}
 })();function tileUV(t){const col=t%ATLAS_TILES,row=Math.floor(t/ATLAS_TILES);const padU=0.5/ATLAS_W,padV=0.5/ATLAS_H;return{u1:col/ATLAS_TILES+padU,u2:(col+1)/ATLAS_TILES-padU,v1:1-(row+1)/ATLAS_ROWS+padV,v2:1-row/ATLAS_ROWS-padV,};}
 /* ---------------------------------------------------------------------------
  * Per-material tool textures (pickaxe / axe / shovel / hoe + stick).
