@@ -7,7 +7,7 @@ if(e.code==='KeyO'&&typeof toggleSettings==='function'){toggleSettings();return;
 if(typeof settingsOpen!=='undefined'&&settingsOpen){if(e.code==='Escape')toggleSettings(false);return;}
 if(!started||paused)return;if(e.code==='KeyE'){toggleInventory();return;}
 if(inventoryOpen){if(e.code==='Escape')toggleInventory(false);return;}
-if(e.code>='Digit1'&&e.code<='Digit9')selectSlot(parseInt(e.code.slice(5),10)-1);if(e.code==='KeyF'){if(typeof ridingBoat!=='undefined'&&ridingBoat){exitBoat();return;}player.flying=!player.flying;player.vel.y=0;if(player.flying&&typeof ACH!=='undefined')ACH.flag('fly');}
+if(e.code>='Digit1'&&e.code<='Digit9')selectSlot(parseInt(e.code.slice(5),10)-1);if(e.code==='KeyF'){if(typeof ridingBoat!=='undefined'&&ridingBoat){exitBoat();return;}if(typeof ridingCart!=='undefined'&&ridingCart){exitMinecart();return;}if(typeof FISHING!=='undefined'&&FISHING.active){reelIn();return;}player.flying=!player.flying;player.vel.y=0;if(player.flying&&typeof ACH!=='undefined')ACH.flag('fly');}
 if(e.code==='KeyR')respawn();
 // V: cycle camera views (PC)
 if(e.code==='KeyV')cycleCameraView();
@@ -62,8 +62,12 @@ if(typeof refreshToolUI==='function')refreshToolUI();}
 function placeOrEat(){if(player.dead||inventoryOpen)return;
 // While riding a boat, a right-click disembarks instead of placing/eating.
 if(typeof ridingBoat!=='undefined'&&ridingBoat){clearInterval(actionInterval);exitBoat();return;}
+// While riding a minecart, a right-click disembarks.
+if(typeof ridingCart!=='undefined'&&ridingCart){clearInterval(actionInterval);exitMinecart();return;}
 // Right-click an existing boat in the world to board it.
 if(typeof tryEnterNearbyBoat==='function'&&tryEnterNearbyBoat()){clearInterval(actionInterval);return;}
+// Right-click an existing minecart on a rail to board it.
+if(typeof tryEnterNearbyMinecart==='function'&&tryEnterNearbyMinecart()){clearInterval(actionInterval);return;}
 if(currentTarget&&currentTarget.id===B.CRAFTING){clearInterval(actionInterval);toggleInventory(true,3);return;}
 // Right-click a bed (red wool) at night to sleep through it, fast-forwarding
 // to the next morning. During the day, fall through so red wool can still be
@@ -72,6 +76,10 @@ if(currentTarget&&currentTarget.id===B.WOOL_RED&&typeof isNightTime==='function'
 const slot=inventory[selectedSlot];if(!slot)return;const itemDef=ITEMS[slot.id];
 // Boat item: place a boat on the targeted water.
 if(itemDef&&itemDef.boat){clearInterval(actionInterval);if(typeof tryPlaceBoat==='function'&&tryPlaceBoat())consumeFromSlot(selectedSlot,1);return;}
+// Minecart item: place a minecart on the targeted rail.
+if(itemDef&&itemDef.minecart){clearInterval(actionInterval);if(typeof tryPlaceMinecart==='function'&&tryPlaceMinecart())consumeFromSlot(selectedSlot,1);return;}
+// Fishing rod: cast / reel in on water.
+if(itemDef&&itemDef.fishingRod){clearInterval(actionInterval);if(typeof useFishingRod==='function')useFishingRod();return;}
 if(itemDef&&itemDef.tool==='hoe'){tillSoil();return;}
 if(itemDef&&itemDef.plant!==undefined){if(plantSeed(slot.id,itemDef.plant))return;}
 if(itemDef){if(itemDef.food)eatFood(selectedSlot);return;}
@@ -83,7 +91,7 @@ function plantSeed(itemId,blockId){if(!currentTarget)return false;const{px,py,pz
 function eatFood(slotIndex){const slot=inventory[slotIndex];if(!slot||!ITEMS[slot.id])return;if(player.eatCooldown>0||player.hunger>=20)return;player.hunger=Math.min(20,player.hunger+ITEMS[slot.id].food);player.eatCooldown=1.5;consumeFromSlot(slotIndex,1);updateVitalsUI();if(typeof ACH!=='undefined')ACH.track('eaten');}
 function damage(amount){if(player.dead||amount<=0)return;player.hp=Math.max(0,player.hp-amount);if(typeof SFX!=='undefined')SFX.hurt();const flash=document.getElementById('damage-flash');flash.style.transition='none';flash.style.opacity='1';requestAnimationFrame(()=>{flash.style.transition='opacity .45s';flash.style.opacity='0';});updateVitalsUI();if(player.hp<=0)die();}
 function die(){player.dead=true;document.getElementById('death-overlay').style.display='flex';setTimeout(()=>{respawn();document.getElementById('death-overlay').style.display='none';},1600);}
-function respawn(){if(typeof ridingBoat!=='undefined'&&ridingBoat){ridingBoat=null;if(typeof _showBoatHint==='function')_showBoatHint(false);}player.pos.copyFrom(spawnPoint);player.vel.set(0,0,0);player.hp=20;player.hunger=20;player.dead=false;player.fallStartY=null;player.pose=POSE.STAND;player.wantCrouch=false;applyPose();mining.active=false;resetMining();updateVitalsUI();updatePoseUI();}
+function respawn(){if(typeof ridingBoat!=='undefined'&&ridingBoat){ridingBoat=null;if(typeof _showBoatHint==='function')_showBoatHint(false);}if(typeof ridingCart!=='undefined'&&ridingCart){ridingCart=null;if(typeof _showCartHint==='function')_showCartHint(false);}if(typeof cancelFishing==='function')cancelFishing();player.pos.copyFrom(spawnPoint);player.vel.set(0,0,0);player.hp=20;player.hunger=20;player.dead=false;player.fallStartY=null;player.pose=POSE.STAND;player.wantCrouch=false;applyPose();mining.active=false;resetMining();updateVitalsUI();updatePoseUI();}
 // Hold-to-crouch. wantCrouch tracks the player's intent; the actual pose
 // only returns to STAND when there is enough headroom to stand up.
 function setCrouch(on){if(player.flying){player.wantCrouch=false;return;}player.wantCrouch=!!on;updateCrouchPose();}
