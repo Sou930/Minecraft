@@ -5,8 +5,11 @@
 const _mobMats={};
 function mobMat(hex){if(_mobMats[hex])return _mobMats[hex];const m=new BABYLON.StandardMaterial('mobMat_'+hex,scene);const c=BABYLON.Color3.FromHexString(hex);m.diffuseColor=c;m.emissiveColor=c.scale(0.35);m.specularColor=new BABYLON.Color3(0,0,0);_mobMats[hex]=m;return m;}
 
-// Create a box part relative to a parent node
-function makePart(parent,name,size,pos,hex){const box=BABYLON.MeshBuilder.CreateBox(name,{width:size[0],height:size[1],depth:size[2]},scene);box.material=mobMat(hex);box.isPickable=false;box.parent=parent;box.position.set(pos[0],pos[1],pos[2]);return box;}
+// Create a box part relative to a parent node.
+// `partList` (optional) collects every created box so callers can later apply a
+// per-mesh hurt overlay (Minecraft-style red flash) without touching the shared
+// material cache.
+function makePart(parent,name,size,pos,hex,partList){const box=BABYLON.MeshBuilder.CreateBox(name,{width:size[0],height:size[1],depth:size[2]},scene);box.material=mobMat(hex);box.isPickable=false;box.parent=parent;box.position.set(pos[0],pos[1],pos[2]);if(partList)partList.push(box);return box;}
 
 // Mob type definitions
 const MOB_TYPES={
@@ -22,24 +25,26 @@ function buildMobMesh(type){
   const s=t.small?0.8:1;
   const bodyW=0.6*s,bodyD=1.0*s,bodyH=t.bodyH*s;
   const legY=t.legH*s;
+  // Every box mesh that makes up this mob, so we can flash them red on hurt.
+  const parts=[];
   // Body
-  const body=makePart(root,'body',[bodyW,bodyH,bodyD],[0,legY+bodyH/2,0],t.body);
-  if(t.patch){const p=makePart(root,'patch',[bodyW+0.02,bodyH*0.5,bodyD*0.45],[0,legY+bodyH*0.55,0.05],t.patch);}
+  const body=makePart(root,'body',[bodyW,bodyH,bodyD],[0,legY+bodyH/2,0],t.body,parts);
+  if(t.patch){const p=makePart(root,'patch',[bodyW+0.02,bodyH*0.5,bodyD*0.45],[0,legY+bodyH*0.55,0.05],t.patch,parts);}
   if(t.fluffy){body.scaling.x=1.25;body.scaling.y=1.15;}
   // Head
   const hs=t.headSize*s;
   const headGroup=new BABYLON.TransformNode('headGroup',scene);headGroup.parent=root;headGroup.position.set(0,legY+bodyH*0.75,bodyD/2+hs*0.35);
-  const head=makePart(headGroup,'head',[hs,hs,hs],[0,0,0],t.head);
-  if(t.snout)makePart(headGroup,'snout',[hs*0.5,hs*0.45,hs*0.4],[0,-hs*0.1,hs*0.55],t.snout);
+  const head=makePart(headGroup,'head',[hs,hs,hs],[0,0,0],t.head,parts);
+  if(t.snout)makePart(headGroup,'snout',[hs*0.5,hs*0.45,hs*0.4],[0,-hs*0.1,hs*0.55],t.snout,parts);
   // Eyes
-  makePart(headGroup,'eyeL',[hs*0.16,hs*0.16,0.02],[-hs*0.25,hs*0.15,hs*0.5],'#1a1a1a');
-  makePart(headGroup,'eyeR',[hs*0.16,hs*0.16,0.02],[ hs*0.25,hs*0.15,hs*0.5],'#1a1a1a');
-  if(type==='chicken'){makePart(headGroup,'comb',[hs*0.3,hs*0.25,hs*0.5],[0,hs*0.6,0],'#d23b3b');}
+  makePart(headGroup,'eyeL',[hs*0.16,hs*0.16,0.02],[-hs*0.25,hs*0.15,hs*0.5],'#1a1a1a',parts);
+  makePart(headGroup,'eyeR',[hs*0.16,hs*0.16,0.02],[ hs*0.25,hs*0.15,hs*0.5],'#1a1a1a',parts);
+  if(type==='chicken'){makePart(headGroup,'comb',[hs*0.3,hs*0.25,hs*0.5],[0,hs*0.6,0],'#d23b3b',parts);}
   // Legs
   const legs=[];const lw=0.18*s,ld=0.18*s;const lx=bodyW/2-lw/2,lz=bodyD/2-ld*1.1;
   const legPos=[[-lx,lz],[lx,lz],[-lx,-lz],[lx,-lz]];
-  for(let i=0;i<4;i++){const pivot=new BABYLON.TransformNode('legPivot'+i,scene);pivot.parent=root;pivot.position.set(legPos[i][0],legY,legPos[i][1]);const leg=makePart(pivot,'leg'+i,[lw,legY,ld],[0,-legY/2,0],t.leg);legs.push(pivot);}
-  return {root,legs,head:headGroup,bodyH:legY};
+  for(let i=0;i<4;i++){const pivot=new BABYLON.TransformNode('legPivot'+i,scene);pivot.parent=root;pivot.position.set(legPos[i][0],legY,legPos[i][1]);const leg=makePart(pivot,'leg'+i,[lw,legY,ld],[0,-legY/2,0],t.leg,parts);legs.push(pivot);}
+  return {root,legs,head:headGroup,bodyH:legY,parts};
 }
 
 const mobs=[];
@@ -180,12 +185,30 @@ function updateOneMob(mob,dt){
   const amp=Math.min(0.6,0.25+groundSpeed*0.22);const swing=Math.sin(mob.walkPhase)*amp;
   mob.meshes.legs.forEach((leg,i)=>{const s=(i===0||i===3)?swing:-swing;leg.rotation.x=s;});
 
-  // Hit reaction: a brief squash + lift when recently damaged (per-mob, via
-  // the mob's own root transform so it never affects other mobs).
+  // Hit reaction: a brief squash + lift plus a Minecraft-style red flash when
+  // recently damaged (per-mob, so it never affects other mobs). The red tint is
+  // applied through each mesh's `renderOverlay`/`overlayColor`, which is a
+  // per-mesh property and therefore does NOT leak through the shared materials.
   if(mob.invuln>0)mob.invuln-=dt;
   if(mob.hurtFlash>0){mob.hurtFlash-=dt;const f=Math.max(0,mob.hurtFlash/0.3);
     mob.meshes.root.scaling.set(1+f*0.22,1-f*0.18,1+f*0.22);
-  }else if(mob.meshes.root.scaling.y!==1){mob.meshes.root.scaling.set(1,1,1);}
+    setMobHurtOverlay(mob,true,f);
+    mob._overlayOn=true;
+  }else{
+    if(mob.meshes.root.scaling.y!==1)mob.meshes.root.scaling.set(1,1,1);
+    if(mob._overlayOn){setMobHurtOverlay(mob,false,0);mob._overlayOn=false;}
+  }
+}
+
+// Toggle the red hurt overlay on every part of a mob. `f` (0..1) fades the
+// overlay alpha so the flash eases out alongside the squash animation.
+const _HURT_COLOR=new BABYLON.Color3(1,0.18,0.18);
+function setMobHurtOverlay(mob,on,f){
+  const parts=mob.meshes.parts;if(!parts)return;
+  for(const p of parts){
+    p.renderOverlay=on;
+    if(on){p.overlayColor=_HURT_COLOR;p.overlayAlpha=0.55*Math.max(0.35,f);}
+  }
 }
 
 // --- Combat: damaging / killing mobs ---------------------------------------
