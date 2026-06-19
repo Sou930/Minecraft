@@ -19,14 +19,17 @@ const MOB_TYPES={
   pig:   {name:'Pig',  emoji:'🐷', body:'#e89bb0', leg:'#d98aa0', head:'#e89bb0', snout:'#d97a92', bodyH:0.7, legH:0.45, headSize:0.55, speed:1.4, hp:10, ears:'#d98aa0', drops:[{id:230,min:1,max:3}]},
   sheep: {name:'Sheep',emoji:'🐑', body:'#eef0ee', leg:'#5a4a3c', head:'#d9cfc2', snout:null,      bodyH:0.8, legH:0.5,  headSize:0.5,  speed:1.2, hp:8, fluffy:true, wool:'#f3f1ec', ears:'#cabfae', drops:[{id:233,min:1,max:2},{id:42,min:1,max:1}]},
   cow:   {name:'Cow',  emoji:'🐮', body:'#4a3a2c', leg:'#3a2d22', head:'#4a3a2c', snout:'#c9b6a0', bodyH:0.85,legH:0.55, headSize:0.55, speed:1.1, hp:12, patch:'#efeae2', horns:'#e8e0cf', ears:'#3a2d22', udder:'#e7a6ad', drops:[{id:231,min:1,max:3},{id:234,min:0,max:2}]},
-  chicken:{name:'Chicken',emoji:'🐔',body:'#f2f2f2', leg:'#e0a23a', head:'#f2f2f2', snout:null,bodyH:0.45,legH:0.25, headSize:0.32, speed:1.6, hp:4, small:true, beak:'#e0a23a', wattle:'#d23b3b', wing:'#e2e2e2', drops:[{id:232,min:1,max:1},{id:235,min:0,max:2}]},
+  chicken:{name:'Chicken',emoji:'🐔',body:'#f2f2f2', leg:'#e0a23a', head:'#f2f2f2', snout:null,bodyH:0.55,legH:0.25, headSize:0.32, speed:1.6, hp:4, small:true, beak:'#e0a23a', wattle:'#d23b3b', wing:'#e2e2e2', bodyWidthMul:1.05, bodyDepthMul:0.62, drops:[{id:232,min:1,max:1},{id:235,min:0,max:2}]},
 };
 
 // Build mob mesh hierarchy
 function buildMobMesh(type){
   const t=MOB_TYPES[type];const root=new BABYLON.TransformNode('mob_'+type,scene);
   const s=t.small?0.8:1;
-  const bodyW=0.6*s,bodyD=1.0*s,bodyH=t.bodyH*s;
+  // Per-species body proportions. The chicken in particular needs a more
+  // compact, upright body (shorter front-to-back) so it doesn't read as an
+  // unnaturally long Z-axis box.
+  const bodyW=0.6*s*(t.bodyWidthMul||1),bodyD=1.0*s*(t.bodyDepthMul||1),bodyH=t.bodyH*s;
   const legY=t.legH*s;
   // Every box mesh that makes up this mob, so we can flash them red on hurt.
   const parts=[];
