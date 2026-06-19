@@ -29,9 +29,11 @@ function biomeAt(x,z){
   const t=c.temperature,m=c.moisture,e=c.continental,w=c.weirdness;
   // Oceans
   if(e<0.32) return BIOME.OCEAN;
-  // Mountains / volcano
+  // Mountains / volcano. The volcano footprint is widened (temp 0.60→0.55,
+  // moist 0.45→0.50, weirdness gate removed) so the molten cone covers a much
+  // larger swathe of the highlands — a genuinely giant volcanic region.
   if(e>0.72){
-    if(t>0.60&&m<0.45&&w>0.5) return BIOME.VOLCANO;
+    if(t>0.55&&m<0.50) return BIOME.VOLCANO;
     return BIOME.MOUNTAINS;
   }
   // Cold
