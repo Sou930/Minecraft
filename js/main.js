@@ -121,7 +121,36 @@ if(typeof showHome==='function')showHome();
 function startGame(){started=true;if(typeof SFX!=='undefined'){SFX.resume();SFX.startAmbient();}if(isMobile){paused=false;document.getElementById('start-overlay').style.display='none';}else{canvas.requestPointerLock();setTimeout(()=>{if(document.pointerLockElement!==canvas){paused=false;document.getElementById('start-overlay').style.display='none';}},300);}}
 {const sb=document.getElementById('btn-sound');if(sb){const sync=()=>{const m=typeof SFX!=='undefined'&&SFX.isMuted();sb.textContent=m?'🔇':'🔊';sb.classList.toggle('muted',m);};sb.addEventListener('click',(e)=>{e.stopPropagation();if(typeof SFX!=='undefined'){SFX.resume();SFX.setMuted(!SFX.isMuted());if(!SFX.isMuted())SFX.startAmbient();sync();}});sb.addEventListener('touchstart',(e)=>e.stopPropagation(),{passive:true});sync();}}
 document.getElementById('btn-start').addEventListener('click',(e)=>{e.stopPropagation();startGame();});document.getElementById('start-overlay').addEventListener('click',startGame);{const hb=document.getElementById('btn-home');if(hb)hb.addEventListener('click',(e)=>{e.stopPropagation();if(typeof WORLDS!=='undefined')WORLDS.clearActive();location.reload();});}
-document.getElementById('btn-reset-world').addEventListener('click',(e)=>{e.stopPropagation();if(confirm(typeof t==='function'?t('resetConfirm'):'Reset the world? All builds will be lost.')){if(typeof WORLDS!=='undefined'){WORLDS.removeItem('edits');WORLDS.removeItem('inventory');WORLDS.removeItem('crops');WORLDS.removeItem('ach_stats');WORLDS.removeItem('ach_done');}if(typeof ACH!=='undefined')ACH.reset();location.reload();}});engine.runRenderLoop(()=>{const dt=Math.min(0.05,engine.getDeltaTime()/1000);update(dt);if(typeof FLUID!=='undefined')FLUID.update(dt);if(typeof FARM!=='undefined'&&worldReady&&started){FARM.update(dt);FARM.updateFarmlandWetness(dt);}updateDayNight(dt);if(worldReady){if(typeof LIGHTING!=='undefined')LIGHTING.update(dt);updateAudioEnvironment(dt);}updateHUD(dt);scene.render();});
+document.getElementById('btn-reset-world').addEventListener('click',(e)=>{e.stopPropagation();if(confirm(typeof t==='function'?t('resetConfirm'):'Reset the world? All builds will be lost.')){if(typeof WORLDS!=='undefined'){WORLDS.removeItem('edits');WORLDS.removeItem('inventory');WORLDS.removeItem('crops');WORLDS.removeItem('ach_stats');WORLDS.removeItem('ach_done');}if(typeof ACH!=='undefined')ACH.reset();location.reload();}});engine.runRenderLoop(()=>{const dt=Math.min(0.05,engine.getDeltaTime()/1000);update(dt);if(typeof FLUID!=='undefined')FLUID.update(dt);if(typeof FARM!=='undefined'&&worldReady&&started){FARM.update(dt);FARM.updateFarmlandWetness(dt);}updateDayNight(dt);if(worldReady){if(typeof LIGHTING!=='undefined')LIGHTING.update(dt);updateAudioEnvironment(dt);updatePetals(dt);}updateHUD(dt);scene.render();});
+// --- Cherry blossom petals -------------------------------------------------
+// A drifting cloud of pink petals follows the camera but only emits while the
+// player stands inside a CHERRY grove, so the air fills with falling blossom.
+let petalSystem=null;
+function buildPetalSystem(){
+  if(petalSystem||typeof BABYLON==='undefined')return;
+  // small soft pink petal sprite drawn to a dynamic texture
+  const tex=new BABYLON.DynamicTexture('petalTex',{width:16,height:16},scene,false);
+  tex.hasAlpha=true;const c=tex.getContext();c.clearRect(0,0,16,16);
+  c.fillStyle='#f7b6d2';c.beginPath();c.ellipse(8,8,5,3,Math.PI/4,0,Math.PI*2);c.fill();
+  c.fillStyle='#ffd9e8';c.beginPath();c.ellipse(7,7,2.5,1.5,Math.PI/4,0,Math.PI*2);c.fill();tex.update();
+  const ps=new BABYLON.ParticleSystem('petals',600,scene);
+  ps.particleTexture=tex;ps.emitter=camera;
+  ps.minEmitBox=new BABYLON.Vector3(-22,14,-22);ps.maxEmitBox=new BABYLON.Vector3(22,20,22);
+  ps.color1=new BABYLON.Color4(1,0.78,0.88,0.95);ps.color2=new BABYLON.Color4(0.95,0.55,0.72,0.9);ps.colorDead=new BABYLON.Color4(1,0.8,0.9,0);
+  ps.minSize=0.18;ps.maxSize=0.34;ps.minLifeTime=4.0;ps.maxLifeTime=7.0;
+  ps.emitRate=0;ps.blendMode=BABYLON.ParticleSystem.BLENDMODE_STANDARD;
+  ps.gravity=new BABYLON.Vector3(0,-1.1,0);
+  ps.direction1=new BABYLON.Vector3(-1.2,-0.8,-1.2);ps.direction2=new BABYLON.Vector3(1.2,-0.4,1.2);
+  ps.minAngularSpeed=-2.0;ps.maxAngularSpeed=2.0;ps.minEmitPower=0.3;ps.maxEmitPower=1.0;ps.updateSpeed=0.02;
+  ps.start();petalSystem=ps;
+}
+function updatePetals(dt){
+  if(!petalSystem)buildPetalSystem();
+  if(!petalSystem)return;
+  const bx=Math.floor(player.pos.x),bz=Math.floor(player.pos.z);
+  const bio=(bx>=0&&bx<WORLD_W&&bz>=0&&bz<WORLD_D)?biomeMap[colIndex(bx,bz)]:biomeAt(bx,bz);
+  petalSystem.emitRate=(bio===BIOME.CHERRY)?180:0;
+}
 // Update ambient audio state
 function updateAudioEnvironment(dt){if(typeof SFX==='undefined')return;const px=Math.floor(player.pos.x),py=Math.floor(player.pos.y+1),pz=Math.floor(player.pos.z);const underground=!(typeof skyExposed==='function'&&skyExposed(px,py,pz));
 const nearWater=false;

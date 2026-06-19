@@ -237,6 +237,7 @@ else{ // surface block (y===h)
   if(beach)id=(biome===BIOME.SNOWY?B.SNOW:B.SAND);
   else if(biome===BIOME.SNOWY)id=B.SNOW;
   else if(biome===BIOME.OCEAN)id=B.SAND;   // ocean floor
+  else if(biome===BIOME.SAVANNA)id=B.DRY_GRASS;  // golden savanna grass
   else id=B.GRASS;
 }
 world[blockIndex(x,y,z)]=id;}
@@ -428,11 +429,124 @@ function placeOresAndGravel(){for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z
 if(h<=SEA_LEVEL+2&&valueNoise(x/9,z/9,57)>0.76){for(let y=Math.max(1,h-1);y<=h;y++)
 if(world[blockIndex(x,y,z)]===B.SAND||world[blockIndex(x,y,z)]===B.DIRT)
 world[blockIndex(x,y,z)]=B.GRAVEL;}}}}
+// Place a leaf block only into empty air (never overwrite logs/terrain).
+function setLeaf(x,y,z,id){if(x<0||x>=WORLD_W||z<0||z>=WORLD_D||y<1||y>=WORLD_H)return;if(world[blockIndex(x,y,z)]===B.AIR)world[blockIndex(x,y,z)]=id;}
+// ACACIA tree: a short bare trunk that forks near the top into a wide, flat
+// umbrella canopy — the signature silhouette of the savanna.
+function buildAcaciaTree(x,h,z){
+  const trunkH=4+Math.floor(hash2(x,z,41)*3);            // 4..6 bare trunk
+  world[blockIndex(x,h,z)]=B.DIRT;
+  for(let y=1;y<=trunkH;y++)world[blockIndex(x,h+y,z)]=B.ACACIA_LOG;
+  // lean the top a step to one side so the canopy sits off-centre like a real acacia
+  const dx=hash2(x,z,42)<0.5?-1:1,dz=hash2(x,z,43)<0.5?-1:1;
+  const tx=x+dx,tz=z+dz,ty=h+trunkH;
+  if(ty+1<WORLD_H){world[blockIndex(tx,ty+1,tz)]=B.ACACIA_LOG;}
+  const cy=ty+1;
+  // a flat 5x5 (rounded) plate of leaves, 1-2 blocks thick
+  for(let layer=0;layer<2;layer++){const r=layer===0?2:1;
+    for(let ddx=-r-1;ddx<=r+1;ddx++)for(let ddz=-r-1;ddz<=r+1;ddz++){
+      if(Math.abs(ddx)+Math.abs(ddz)>r+1)continue;
+      setLeaf(tx+ddx,cy+layer,tz+ddz,B.ACACIA_LEAVES);
+    }
+  }
+}
+// SPRUCE tree: tall, narrow conifer with tiered rings of needles that taper to
+// a pointed tip — the classic taiga look.
+function buildSpruceTree(x,h,z){
+  const trunkH=7+Math.floor(hash2(x,z,44)*5);            // 7..11 tall
+  world[blockIndex(x,h,z)]=B.DIRT;
+  for(let y=1;y<=trunkH;y++)world[blockIndex(x,h+y,z)]=B.SPRUCE_LOG;
+  // rings of needles every layer, radius pulsing wide->narrow up the trunk
+  let ring=0;
+  for(let y=trunkH-1;y>=2;y--){
+    // wider rings every other layer near the bottom, shrinking toward the top
+    const frac=(y-2)/(trunkH-2);                          // 1 at bottom .. 0 at top
+    const r=(ring%2===0)?(frac>0.6?2:(frac>0.25?2:1)):1;
+    ring++;
+    for(let dx=-r;dx<=r;dx++)for(let dz=-r;dz<=r;dz++){
+      if(dx===0&&dz===0)continue;
+      if(Math.abs(dx)+Math.abs(dz)>r)continue;
+      setLeaf(x+dx,h+y,z+dz,B.SPRUCE_LEAVES);
+    }
+  }
+  // pointed tip
+  setLeaf(x,h+trunkH+1,z,B.SPRUCE_LEAVES);
+  setLeaf(x,h+trunkH,z,B.SPRUCE_LEAVES);
+}
+// GIANT tree: a colossal 2x2 oak trunk soaring 20m+ with a vast spherical
+// canopy. Dwarfs everything around it and casts the forest floor into shade.
+function buildGiantTree(x,h,z){
+  const trunkH=20+Math.floor(hash2(x,z,45)*9);           // 20..28 blocks tall
+  // 2x2 trunk footprint
+  const cols=[[0,0],[1,0],[0,1],[1,1]];
+  for(const[ox,oz]of cols){if(x+ox<WORLD_W&&z+oz<WORLD_D){world[blockIndex(x+ox,h,z+oz)]=B.DIRT;for(let y=1;y<=trunkH;y++)world[blockIndex(x+ox,h+y,z+oz)]=B.LOG;}}
+  // big rounded canopy centred just above the trunk top, between the 4 columns
+  const ccx=x+0.5,ccz=z+0.5,ccy=h+trunkH+2;
+  const R=6+Math.floor(hash2(x,z,46)*3);                 // 6..8 canopy radius
+  for(let dy=-R+1;dy<=R;dy++)for(let dx=-R;dx<=R;dx++)for(let dz=-R;dz<=R;dz++){
+    const d=Math.sqrt((dx)*(dx)+(dy*1.15)*(dy*1.15)+(dz)*(dz));
+    if(d>R)continue;
+    if(d>R-1.2&&hash2(x+dx*13,z+dz*7,(dy+30))<0.45)continue; // ragged edge
+    setLeaf(Math.round(ccx+dx),Math.round(ccy+dy),Math.round(ccz+dz),B.LEAVES);
+  }
+  // a few branches reaching out from the trunk into the canopy
+  for(let b=0;b<5;b++){const by=h+trunkH-2-Math.floor(hash2(x+b,z,47)*6);const ang=hash2(x,z+b,48)*Math.PI*2;
+    let bx=x+0.5,bz=z+0.5;for(let s=1;s<=4;s++){bx+=Math.cos(ang);bz+=Math.sin(ang);
+      const ix=Math.round(bx),iz=Math.round(bz),iy=by+Math.floor(s/2);
+      if(ix>=0&&ix<WORLD_W&&iz>=0&&iz<WORLD_D&&iy>0&&iy<WORLD_H&&world[blockIndex(ix,iy,iz)]===B.AIR)world[blockIndex(ix,iy,iz)]=B.LOG;}}
+}
+// CHERRY tree: a softly-rounded oak-like tree wreathed in bright pink blossom
+// leaves, with a few hanging petal strands beneath the canopy.
+function buildCherryTree(x,h,z){
+  const trunkH=5+Math.floor(hash2(x,z,49)*3);            // 5..7
+  world[blockIndex(x,h,z)]=B.DIRT;
+  for(let y=1;y<=trunkH;y++)world[blockIndex(x,h+y,z)]=B.CHERRY_LOG;
+  const cy=h+trunkH;
+  const canopy=[[-1,3],[0,3],[1,2],[2,1]];
+  for(const[dyo,r]of canopy){const yy=cy+dyo;
+    for(let dx=-r;dx<=r;dx++)for(let dz=-r;dz<=r;dz++){
+      if(dx===0&&dz===0&&dyo<0)continue;
+      const dist=Math.sqrt(dx*dx+dz*dz);
+      if(dist>r+0.3)continue;
+      if(dist>r-0.6&&hash2(x+dx*5,z+dz*5,dyo*3+7)<0.4)continue;
+      setLeaf(x+dx,yy,z+dz,B.CHERRY_LEAVES);
+    }
+  }
+  // hanging blossom strands (petal cross-plants) drooping from the lower canopy
+  for(let i=0;i<4;i++){const ang=hash2(x,z+i,50)*Math.PI*2;const ddx=Math.round(Math.cos(ang)*2),ddz=Math.round(Math.sin(ang)*2);
+    const sx=x+ddx,sz=z+ddz;let sy=cy-2;
+    if(sx>=0&&sx<WORLD_W&&sz>=0&&sz<WORLD_D&&world[blockIndex(sx,sy,sz)]===B.AIR&&world[blockIndex(sx,sy+1,sz)]===B.CHERRY_LEAVES){world[blockIndex(sx,sy,sz)]=B.CHERRY_PETALS;}}
+}
 function placeVegetation(){placeReef();placeDeadTrees();for(let x=3;x<WORLD_W-3;x++){for(let z=3;z<WORLD_D-3;z++){const h=heightMap[colIndex(x,z)];if(h<=SEA_LEVEL+1||h+8>=WORLD_H)continue;const biome=biomeMap[colIndex(x,z)];const surf=world[blockIndex(x,h,z)];
 // Biomes with no (tree) vegetation: oceans, bare mountains, volcanoes, mesas.
 if(biome===BIOME.OCEAN||biome===BIOME.VOLCANO||biome===BIOME.MOUNTAINS||biome===BIOME.MESA)continue;
 if(biome===BIOME.DESERT){if(surf!==B.SAND||hash2(x+555,z+333,6)<=0.994)continue;const ch=1+Math.floor(hash2(x,z,7)*3);for(let y=1;y<=ch;y++)
 if(world[blockIndex(x,h+y,z)]===B.AIR)world[blockIndex(x,h+y,z)]=B.CACTUS;continue;}
+// --- New biome trees -------------------------------------------------------
+if(biome===BIOME.SAVANNA){
+  // sparse acacia groves on the golden grass
+  if(surf!==B.DRY_GRASS||hash2(x+999,z-777,5)<=0.991)continue;
+  buildAcaciaTree(x,h,z);continue;
+}
+if(biome===BIOME.TAIGA){
+  // moderately dense spruce forest
+  if(surf!==B.GRASS||hash2(x+999,z-777,5)<=0.95)continue;
+  if(h+13>=WORLD_H)continue;
+  buildSpruceTree(x,h,z);continue;
+}
+if(biome===BIOME.GIANT_FOREST){
+  // rare colossal trees; needs 2x2 of grass and plenty of headroom
+  if(surf!==B.GRASS||hash2(x+999,z-777,5)<=0.992)continue;
+  if(h+34>=WORLD_H)continue;
+  if(world[blockIndex(x+1,h,z)]!==B.GRASS||world[blockIndex(x,h,z+1)]!==B.GRASS||world[blockIndex(x+1,h,z+1)]!==B.GRASS)continue;
+  buildGiantTree(x,h,z);continue;
+}
+if(biome===BIOME.CHERRY){
+  // blossoming grove — fairly dense pink trees
+  if(surf!==B.GRASS||hash2(x+999,z-777,5)<=0.955)continue;
+  if(h+12>=WORLD_H)continue;
+  buildCherryTree(x,h,z);continue;
+}
 // Tree spawn probability per biome (lower threshold => denser forest).
 const treeP=biome===BIOME.JUNGLE?0.9:(biome===BIOME.FOREST?0.962:(biome===BIOME.SWAMP?0.985:(biome===BIOME.PLAINS?0.995:0.9965)));
 if(hash2(x+999,z-777,5)<=treeP)continue;
@@ -491,17 +605,20 @@ const FLOWERS=[B.FLOWER_DANDELION,B.FLOWER_POPPY,B.FLOWER_CORNFLOWER];
 function placeGroundCover(){for(let x=3;x<WORLD_W-3;x++){for(let z=3;z<WORLD_D-3;z++){
   const biome=biomeMap[colIndex(x,z)];
   // only lush, grassy land gets ground cover
-  if(biome!==BIOME.PLAINS&&biome!==BIOME.FOREST&&biome!==BIOME.JUNGLE&&biome!==BIOME.SWAMP&&biome!==BIOME.SNOWY)continue;
+  if(biome!==BIOME.PLAINS&&biome!==BIOME.FOREST&&biome!==BIOME.JUNGLE&&biome!==BIOME.SWAMP&&biome!==BIOME.SNOWY&&biome!==BIOME.SAVANNA&&biome!==BIOME.TAIGA&&biome!==BIOME.GIANT_FOREST&&biome!==BIOME.CHERRY)continue;
   const h=heightMap[colIndex(x,z)];if(h<SEA_LEVEL||h+2>=WORLD_H)continue;
-  const surf=world[blockIndex(x,h,z)];const ground=biome===BIOME.SNOWY?B.SNOW:B.GRASS;
+  const surf=world[blockIndex(x,h,z)];const ground=biome===BIOME.SNOWY?B.SNOW:(biome===BIOME.SAVANNA?B.DRY_GRASS:B.GRASS);
   if(surf!==ground)continue;                       // skip dirt/sand/paths under trees etc.
   if(world[blockIndex(x,h+1,z)]!==B.AIR)continue;   // don't bury trunks/leaves/water
   // Plains are flowery meadows; forests/jungles are grassy; snowy is sparse.
-  const density=biome===BIOME.PLAINS?0.30:(biome===BIOME.JUNGLE?0.40:(biome===BIOME.FOREST?0.22:(biome===BIOME.SWAMP?0.20:0.08)));
+  const density=biome===BIOME.PLAINS?0.30:(biome===BIOME.JUNGLE?0.40:(biome===BIOME.FOREST?0.22:(biome===BIOME.SWAMP?0.20:(biome===BIOME.SAVANNA?0.34:(biome===BIOME.TAIGA?0.16:(biome===BIOME.CHERRY?0.30:(biome===BIOME.GIANT_FOREST?0.18:0.08)))))));
   if(hash2(x+421,z-869,30)>density)continue;
-  // Roughly 1 in 7 patches is a flower, the rest are grass tufts.
+  // Roughly 1 in 7 patches is a flower, the rest are grass tufts. In cherry
+  // groves a good share of the cover is fallen pink petals carpeting the floor.
   let plant;
-  if(hash2(x-271,z+613,31)<(biome===BIOME.PLAINS?0.22:0.12)){
+  if(biome===BIOME.CHERRY&&hash2(x-91,z+57,33)<0.45){
+    plant=B.CHERRY_PETALS;
+  }else if(hash2(x-271,z+613,31)<(biome===BIOME.PLAINS?0.22:(biome===BIOME.SAVANNA?0.10:0.12))){
     plant=FLOWERS[Math.floor(hash2(x+57,z+91,32)*FLOWERS.length)%FLOWERS.length];
   }else{
     plant=B.TALL_GRASS;
