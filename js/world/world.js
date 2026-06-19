@@ -3,10 +3,13 @@ function getBlock(x,y,z){if(y<0)return B.BEDROCK;if(y>=WORLD_H)return B.AIR;if(x
 function isCrop(id){const d=BLOCKS[id];return!!(d&&d.crop);}
 function isCrossPlant(id){const d=BLOCKS[id];return!!(d&&d.crossPlant);}
 function isBamboo(id){const d=BLOCKS[id];return!!(d&&d.bamboo);}
-function isSolid(id){return id!==B.AIR&&id!==B.WATER&&id!==B.LAVA&&id!==B.SEAWEED&&!isCrossPlant(id)&&!isCrop(id)&&!isBamboo(id);}
+function isDoor(id){const d=BLOCKS[id];return!!(d&&d.door);}
+function isDoorOpen(id){const d=BLOCKS[id];return!!(d&&d.door&&d.doorOpen);}
+// Open doors are non-solid (walk-through); closed doors block movement like a wall.
+function isSolid(id){return id!==B.AIR&&id!==B.WATER&&id!==B.LAVA&&id!==B.SEAWEED&&!isCrossPlant(id)&&!isCrop(id)&&!isBamboo(id)&&!isDoorOpen(id);}
 // Crops, cross-shaped plants (grass/flowers) and thin bamboo stalks are
 // targetable even though non-solid (so they can be broken / passed through).
-function isTargetable(id){return isSolid(id)||isCrop(id)||isCrossPlant(id)||isBamboo(id);}
+function isTargetable(id){return isSolid(id)||isCrop(id)||isCrossPlant(id)||isBamboo(id)||isDoor(id);}
 // Skylight: returns 0 if block above is opaque (underground)
 function blocksSky(id){if(id===B.AIR||id===B.WATER||id===B.LAVA)return false;const d=BLOCKS[id];if(d&&(d.transparent||d.crop||d.crossPlant||d.bamboo))return false;return true;}
 function skyExposed(x,y,z){for(let yy=y+1;yy<WORLD_H;yy++){if(blocksSky(getBlock(x,yy,z)))return false;}return true;}
