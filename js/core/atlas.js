@@ -244,6 +244,43 @@ flowerTile(T.FLOWER_OXEYE,9316,'#f4f4f0','#ffffff','#f2c800');   // white oxeye 
  ctx.fillRect(ox+cx0-5,oy+9,5,2);ctx.fillRect(ox+cx0-7,oy+11,4,2);
  ctx.fillRect(ox+cx0+cw,oy+19,5,2);ctx.fillRect(ox+cx0+cw+3,oy+21,4,2);
 }
+// --- Wooden door (oak): warm planks matching T.PLANKS, drawn as two stacked
+// halves. The TOP half carries a small glazed window with a lattice; the
+// BOTTOM half has two recessed vertical panels. Both share an outer frame so
+// the two tiles read as one continuous door when stacked vertically.
+function doorBase(t,seed){const[ox,oy]=tileOrigin(t);const rnd=mulberry32(seed);
+ // warm oak plank body, same palette as PLANKS
+ ctx.fillStyle='#b08a4f';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);
+ for(let i=0;i<60;i++){ctx.fillStyle=['#a37e45','#bb945a','#9c7840'][Math.floor(rnd()*3)];ctx.fillRect(ox+Math.floor(rnd()*TILE_PX/2)*2,oy+Math.floor(rnd()*TILE_PX/2)*2,2,2);}
+ // faint vertical wood grain
+ ctx.fillStyle='#9c7840';for(let x=0;x<TILE_PX;x+=6)ctx.fillRect(ox+x,oy,1,TILE_PX);
+ // dark outer frame so stacked halves frame the whole door
+ ctx.fillStyle='#7d5d30';ctx.fillRect(ox,oy,2,TILE_PX);ctx.fillRect(ox+TILE_PX-2,oy,2,TILE_PX);
+ return[ox,oy];}
+// Top half: window with a lattice of glass panes set into the upper planks.
+{const[ox,oy]=doorBase(T.DOOR_TOP,2050);
+ ctx.fillStyle='#7d5d30';ctx.fillRect(ox,oy,TILE_PX,2); // top edge of the door
+ // recessed window opening near the top
+ const wx=ox+8,wy=oy+6,ww=16,wh=14;
+ ctx.fillStyle='#5e4622';ctx.fillRect(wx-2,wy-2,ww+4,wh+4); // dark window frame
+ ctx.fillStyle='#cfeffb';ctx.fillRect(wx,wy,ww,wh);          // glass
+ // glass highlight streaks (reuse the glass-tile look)
+ ctx.fillStyle='rgba(220,245,255,0.95)';for(let i=0;i<6;i++)ctx.fillRect(wx+2+i*2,wy+10-i*2,2,2);
+ // lattice muntins splitting the pane into a small grid
+ ctx.fillStyle='#5e4622';ctx.fillRect(wx+ww/2-1,wy,2,wh);ctx.fillRect(wx,wy+wh/2-1,ww,2);
+ // a couple of frame nails
+ ctx.fillStyle='#4e3a1c';ctx.fillRect(ox+6,oy+TILE_PX-6,2,2);ctx.fillRect(ox+24,oy+TILE_PX-6,2,2);}
+// Bottom half: two tall recessed vertical panels carved into the planks.
+{const[ox,oy]=doorBase(T.DOOR_BOTTOM,2051);
+ ctx.fillStyle='#7d5d30';ctx.fillRect(ox,oy+TILE_PX-2,TILE_PX,2); // bottom edge
+ function panel(px,py,pw,ph){
+  ctx.fillStyle='#7d5d30';ctx.fillRect(ox+px-1,oy+py-1,pw+2,ph+2);      // recessed border
+  ctx.fillStyle='#a37e45';ctx.fillRect(ox+px,oy+py,pw,ph);             // sunken face
+  ctx.fillStyle='#8a6a3c';ctx.fillRect(ox+px,oy+py,pw,1);ctx.fillRect(ox+px,oy+py,1,ph); // shadow edge
+  ctx.fillStyle='#bb945a';ctx.fillRect(ox+px+pw-1,oy+py+1,1,ph-1);ctx.fillRect(ox+px+1,oy+py+ph-1,pw-1,1);} // lit edge
+ panel(5,3,9,26);panel(18,3,9,26);
+ // door handle near the right edge
+ ctx.fillStyle='#4e3a1c';ctx.fillRect(ox+27,oy+12,2,4);ctx.fillStyle='#3a2a12';ctx.fillRect(ox+28,oy+13,1,2);}
 })();function tileUV(t){const col=t%ATLAS_TILES,row=Math.floor(t/ATLAS_TILES);const padU=0.5/ATLAS_W,padV=0.5/ATLAS_H;return{u1:col/ATLAS_TILES+padU,u2:(col+1)/ATLAS_TILES-padU,v1:1-(row+1)/ATLAS_ROWS+padV,v2:1-row/ATLAS_ROWS-padV,};}
 /* ---------------------------------------------------------------------------
  * Per-material tool textures (pickaxe / axe / shovel / hoe + stick).

@@ -79,6 +79,40 @@ function pushColumn(b,x,y,z,tile,shade,hw,top,noTop){const{u1,u2,v1,v2}=tileUV(t
   for(const f of faces){const base=b.pos.length/3;for(let i=0;i<4;i++){b.pos.push(x+f.q[i][0],y+f.q[i][1],z+f.q[i][2]);b.nrm.push(f.n[0],f.n[1],f.n[2]);b.uv.push(uvs[i][0],uvs[i][1]);b.col.push(shade,shade,shade,1);}b.idx.push(base,base+1,base+2,base,base+2,base+3);}}
 // Flat quad (rail)
 function pushFlat(b,x,y,z,tile,shade){const{u1,u2,v1,v2}=tileUV(tile);const yy=0.02;const q=[[0,yy,1],[1,yy,1],[1,yy,0],[0,yy,0]];const uvs=[[u1,v1],[u2,v1],[u2,v2],[u1,v2]];for(let side=0;side<2;side++){const base=b.pos.length/3;for(let i=0;i<4;i++){b.pos.push(x+q[i][0],y+q[i][1],z+q[i][2]);b.nrm.push(0,1,0);b.uv.push(uvs[i][0],uvs[i][1]);b.col.push(shade,shade,shade,1);}if(side===0)b.idx.push(base,base+1,base+2,base,base+2,base+3);else b.idx.push(base,base+2,base+1,base,base+3,base+2);}}
+// Wooden door: a thin (≈0.1) vertical slab spanning the full height of its
+// cell, placed against the wall selected by `facing` (0=N,1=E,2=S,3=W). When
+// `open` is true the slab is rotated 90° onto the adjacent wall so it tucks in
+// beside the doorway. The slab is double-sided (both winding orders pushed)
+// so it reads from inside and out. `tile` chooses the top/bottom texture.
+function pushDoor(b,x,y,z,tile,facing,open,shade){const{u1,u2,v1,v2}=tileUV(tile);const TH=0.1;
+  // Footprint rectangle in the cell's XZ plane: [ax,az]-[bx,bz]. The slab face
+  // normal points along the door's depth; the long axis carries the texture U.
+  let ax,az,bx,bz,nx,nz;
+  // Closed: slab lies flat against the wall the door faces. Open: slab swings
+  // to the perpendicular wall (hinge side), so swap to the rotated placement.
+  const f=open?((facing+1)&3):facing;
+  switch(f){
+    case 0: ax=0;az=0;    bx=1;bz=TH;   nx=0;nz=-1; break; // north wall (z-)
+    case 1: ax=1-TH;az=0; bx=1;bz=1;    nx=1;nz=0;  break; // east wall (x+)
+    case 2: ax=0;az=1-TH; bx=1;bz=1;    nx=0;nz=1;  break; // south wall (z+)
+    default:ax=0;az=0;    bx=TH;bz=1;   nx=-1;nz=0; break; // west wall (x-)
+  }
+  // Two parallel faces (front at the wall side, back offset by the thickness)
+  // plus thin edge faces so the slab has visible depth from any angle.
+  const faces=[];
+  if(nx!==0){const xf=nx>0?bx:ax,xb=nx>0?ax:bx; // faces span Z, depth along X
+    faces.push({n:[nx,0,0], q:[[xf,0,az],[xf,0,bz],[xf,1,bz],[xf,1,az]]});
+    faces.push({n:[-nx,0,0],q:[[xb,0,bz],[xb,0,az],[xb,1,az],[xb,1,bz]]});
+    faces.push({n:[0,0,-1],q:[[ax,0,az],[bx,0,az],[bx,1,az],[ax,1,az]]});
+    faces.push({n:[0,0,1], q:[[bx,0,bz],[ax,0,bz],[ax,1,bz],[bx,1,bz]]});
+  }else{const zf=nz>0?bz:az,zb=nz>0?az:bz; // faces span X, depth along Z
+    faces.push({n:[0,0,nz], q:[[bx,0,zf],[ax,0,zf],[ax,1,zf],[bx,1,zf]]});
+    faces.push({n:[0,0,-nz],q:[[ax,0,zb],[bx,0,zb],[bx,1,zb],[ax,1,zb]]});
+    faces.push({n:[-1,0,0],q:[[ax,0,bz],[ax,0,az],[ax,1,az],[ax,1,bz]]});
+    faces.push({n:[1,0,0], q:[[bx,0,az],[bx,0,bz],[bx,1,bz],[bx,1,az]]});
+  }
+  const uvs=[[u1,v2],[u2,v2],[u2,v1],[u1,v1]];
+  for(const fc of faces){const base=b.pos.length/3;for(let i=0;i<4;i++){b.pos.push(x+fc.q[i][0],y+fc.q[i][1],z+fc.q[i][2]);b.nrm.push(fc.n[0],fc.n[1],fc.n[2]);b.uv.push(uvs[i][0],uvs[i][1]);b.col.push(shade,shade,shade,1);}b.idx.push(base,base+1,base+2,base,base+2,base+3);}}
 // Cave darkness: min brightness for underground areas
 const CAVE_MIN=0.10;function skyMulAt(x,y,z,def){if(def&&def.emissive)return 1;const s=skyLightAt(x,y,z);return CAVE_MIN+(1-CAVE_MIN)*s;}
 // Combined sky + block light multiplier
@@ -105,6 +139,9 @@ if(def&&def.bamboo){const above=getBlock(x,y+1,z);pushColumn(buf,x,y,z,def.all,0
 if(def&&def.torch){const sh=(def.emissive?1:0.95*cellMul);pushColumn(buf,x,y,z,def.all,sh,0.12,0.62);continue;}
 if(def&&def.lanternBox){const sh=(def.emissive?1:0.95*cellMul);pushColumn(buf,x,y,z,def.all,sh,0.20,0.72);continue;}
 if(def&&def.cross){const sh=(def.emissive?1:0.94*cellMul);pushCross(buf,x,y,z,def.all,sh,0.04,1);continue;}
+// Wooden door: thin slab using the top/bottom texture chosen by doorHalf,
+// placed/rotated per doorFacing & doorOpen (geometry handled by pushDoor).
+if(def&&def.door){const tile=(def.doorHalf==='top')?T.DOOR_TOP:T.DOOR_BOTTOM;pushDoor(buf,x,y,z,tile,def.doorFacing,def.doorOpen,0.9*cellMul);continue;}
 if(def&&def.flat){pushFlat(buf,x,y,z,def.all,0.95*cellMul);continue;}
 const isFluidCell=(id===B.WATER||id===B.LAVA);const topH=isFluidCell&&typeof FLUID!=='undefined'?FLUID.surfaceHeight(x,y,z):1;
 for(const f of FACES){const nx=x+f.dir[0],ny=y+f.dir[1],nz=z+f.dir[2];const n=getBlock(nx,ny,nz);
