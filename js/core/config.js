@@ -34,9 +34,17 @@
 [B.FLOWER_OXEYE]:{name:"Oxeye Daisy",all:T.FLOWER_OXEYE,transparent:true,crossPlant:true,breakTime:0.2},
 };const ITEM_APPLE=100;const ITEM_SEEDS=200,ITEM_WHEAT=201,ITEM_CARROT=202,ITEM_POTATO=203,ITEM_BREAD=204,ITEM_MELON_SLICE=205,ITEM_PUMPKIN_PIE=206,ITEM_BAKED_POTATO=207,ITEM_HOE=210;
 // Mob drops (meat / materials) and the rideable boat item
-const ITEM_PORKCHOP=230,ITEM_BEEF=231,ITEM_CHICKEN=232,ITEM_MUTTON=233,ITEM_LEATHER=234,ITEM_FEATHER=235,ITEM_BOAT=240;const ITEMS={[ITEM_APPLE]:{name:'Apple',emoji:'🍎',food:4},[ITEM_SEEDS]:{name:'Seeds',emoji:'🌱',plant:B.WHEAT},[ITEM_WHEAT]:{name:'Wheat',emoji:'🌾'},[ITEM_CARROT]:{name:'Carrot',emoji:'🥕',food:3,plant:B.CARROT},[ITEM_POTATO]:{name:'Potato',emoji:'🥔',food:1,plant:B.POTATO},[ITEM_BREAD]:{name:'Bread',emoji:'🍞',food:5},[ITEM_MELON_SLICE]:{name:'Melon Slice',emoji:'🍉',food:2},[ITEM_PUMPKIN_PIE]:{name:'Pumpkin Pie',emoji:'🥧',food:8},[ITEM_BAKED_POTATO]:{name:'Baked Potato',emoji:'🍠',food:5},[ITEM_HOE]:{name:'Hoe',emoji:'🪓',tool:'hoe'},
+const ITEM_PORKCHOP=230,ITEM_BEEF=231,ITEM_CHICKEN=232,ITEM_MUTTON=233,ITEM_LEATHER=234,ITEM_FEATHER=235,ITEM_BOAT=240;
+// Fishing + minecart additions
+const ITEM_FISHING_ROD=241,ITEM_FISH=242,ITEM_COOKED_FISH=243,ITEM_PUFFERFISH=244,ITEM_MINECART=245;
+const ITEMS={[ITEM_APPLE]:{name:'Apple',emoji:'🍎',food:4},[ITEM_SEEDS]:{name:'Seeds',emoji:'🌱',plant:B.WHEAT},[ITEM_WHEAT]:{name:'Wheat',emoji:'🌾'},[ITEM_CARROT]:{name:'Carrot',emoji:'🥕',food:3,plant:B.CARROT},[ITEM_POTATO]:{name:'Potato',emoji:'🥔',food:1,plant:B.POTATO},[ITEM_BREAD]:{name:'Bread',emoji:'🍞',food:5},[ITEM_MELON_SLICE]:{name:'Melon Slice',emoji:'🍉',food:2},[ITEM_PUMPKIN_PIE]:{name:'Pumpkin Pie',emoji:'🥧',food:8},[ITEM_BAKED_POTATO]:{name:'Baked Potato',emoji:'🍠',food:5},[ITEM_HOE]:{name:'Hoe',emoji:'🪓',tool:'hoe'},
 [ITEM_PORKCHOP]:{name:'Porkchop',emoji:'🥩',food:6},[ITEM_BEEF]:{name:'Beef',emoji:'🥩',food:6},[ITEM_CHICKEN]:{name:'Chicken',emoji:'🍗',food:4},[ITEM_MUTTON]:{name:'Mutton',emoji:'🍖',food:5},[ITEM_LEATHER]:{name:'Leather',emoji:'🟫'},[ITEM_FEATHER]:{name:'Feather',emoji:'🪶'},
-[ITEM_BOAT]:{name:'Boat',emoji:'🛶',boat:true}};
+[ITEM_BOAT]:{name:'Boat',emoji:'🛶',boat:true},
+[ITEM_FISHING_ROD]:{name:'Fishing Rod',emoji:'🎣',fishingRod:true},
+[ITEM_FISH]:{name:'Raw Fish',emoji:'🐟',food:2},
+[ITEM_COOKED_FISH]:{name:'Cooked Fish',emoji:'🍤',food:5},
+[ITEM_PUFFERFISH]:{name:'Pufferfish',emoji:'🐡',food:1},
+[ITEM_MINECART]:{name:'Minecart',emoji:'🛒',minecart:true}};
 // Tool material tiers: wood→stone→iron→gold→diamond
 const TOOL_MATERIALS={
   wood:   {name:'Wood',     speed:2,    durability:60,   tier:1, color:'#9c6b3c'},
@@ -109,6 +117,12 @@ const RECIPES=[
 {cat:'tools',pattern:[[B.PLANKS,B.PLANKS],[null,B.PLANKS]],out:{id:ITEM_HOE,count:1}},
 // Boat: 5 planks in a U shape (ride on water/lakes)
 {cat:'tools',pattern:[[B.PLANKS,null,B.PLANKS],[B.PLANKS,B.PLANKS,B.PLANKS]],out:{id:ITEM_BOAT,count:1}},
+// Fishing rod: 3 sticks diagonally + 2 cobweb "string" down the side
+{cat:'tools',pattern:[[null,null,ITEM_STICK],[null,ITEM_STICK,B.COBWEB],[ITEM_STICK,null,B.COBWEB]],out:{id:ITEM_FISHING_ROD,count:1}},
+// Minecart: 5 iron in a U shape (ride along rails)
+{cat:'tools',pattern:[[B.IRON_ORE,null,B.IRON_ORE],[B.IRON_ORE,B.IRON_ORE,B.IRON_ORE]],out:{id:ITEM_MINECART,count:1}},
+// Rails: 6 iron in two columns + a stick in the middle → 8 rails
+{cat:'building',pattern:[[B.IRON_ORE,null,B.IRON_ORE],[B.IRON_ORE,ITEM_STICK,B.IRON_ORE],[B.IRON_ORE,null,B.IRON_ORE]],out:{id:B.RAIL,count:8}},
 // Stick
 {cat:'tools',pattern:[[B.PLANKS],[B.PLANKS]],out:{id:ITEM_STICK,count:4}},
 // Pickaxes
@@ -130,6 +144,8 @@ const RECIPES=[
 {cat:'tools',pattern:[[B.GOLD_ORE],[ITEM_STICK],[ITEM_STICK]],out:{id:ITEM_SHOVEL_GOLD,count:1}},
 {cat:'tools',pattern:[[B.DIAMOND_ORE],[ITEM_STICK],[ITEM_STICK]],out:{id:ITEM_SHOVEL_DIAMOND,count:1}},
 {cat:'food',pattern:[[ITEM_WHEAT,ITEM_WHEAT,ITEM_WHEAT]],out:{id:ITEM_BREAD,count:1}},
+// Cook raw fish over coal (campfire-style craft) → cooked fish
+{cat:'food',pattern:[[ITEM_FISH],[B.COAL_ORE]],out:{id:ITEM_COOKED_FISH,count:1}},
 {cat:'food',pattern:[[B.PUMPKIN]],out:{id:ITEM_SEEDS,count:4}},
 {cat:'food',pattern:[[B.PUMPKIN,ITEM_WHEAT],[ITEM_WHEAT,B.PUMPKIN]],out:{id:ITEM_PUMPKIN_PIE,count:1}},
 {cat:'food',pattern:[[ITEM_MELON_SLICE,ITEM_MELON_SLICE,ITEM_MELON_SLICE],[ITEM_MELON_SLICE,ITEM_MELON_SLICE,ITEM_MELON_SLICE],[ITEM_MELON_SLICE,ITEM_MELON_SLICE,ITEM_MELON_SLICE]],out:{id:B.MELON,count:1}},
@@ -171,6 +187,10 @@ const ACHIEVEMENTS=[
   {id:'biome_swamp',icon:'\ud83d\udc0a',name:'Swamp Thing',desc:'Reach the Swamp biome',stat:'biome_swamp',goal:1},
   {id:'biome_mesa',icon:'\ud83c\udfd4',name:'Painted Cliffs',desc:'Reach the Mesa biome',stat:'biome_mesa',goal:1},
   {id:'biome_volcano',icon:'\ud83c\udf0b',name:'Into the Fire',desc:'Reach the Volcano biome',stat:'biome_volcano',goal:1},
+  // --- New: fishing + minecart achievements ---
+  {id:'first_fish',icon:'\ud83c\udfa3',name:'\u91e3\u308a\u30c7\u30d3\u30e5\u30fc',desc:'Catch your first fish',stat:'fish',goal:1},
+  {id:'angler',icon:'\ud83d\udc1f',name:'Angler',desc:'Catch 20 fish',stat:'fish',goal:20},
+  {id:'minecart_ride',icon:'\ud83d\uded2',name:'\u30c8\u30ed\u30c3\u30b3\u4e57\u308a',desc:'Ride a minecart',stat:'minecart',goal:1},
   {id:'globetrotter',icon:'\ud83e\udded',name:'Globetrotter',desc:'Visit 5 different biomes',stat:'biomes_visited',goal:5},
   {id:'explorer_all',icon:'\ud83c\udf0d',name:'World Explorer',desc:'Visit all 10 biomes',stat:'biomes_visited',goal:10},
 ];
