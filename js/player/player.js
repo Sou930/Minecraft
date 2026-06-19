@@ -44,6 +44,8 @@ mining.progress+=dt;const ratio=Math.min(1,mining.progress/need);crackBox.positi
 updateMiningUI(ratio);if(mining.progress>=need){const minedId=currentTarget.id;const mx=currentTarget.x,my=currentTarget.y,mz=currentTarget.z;const minedDef=BLOCKS[minedId];if(typeof SFX!=='undefined')SFX.dig(minedId);
 if(typeof ACH!=='undefined'){ACH.track('mined');if(minedId===B.DIAMOND_ORE)ACH.flag('diamond');if(minedId===B.LOG||minedId===B.BIRCH_LOG)ACH.track('wood');if(minedId===B.OBSIDIAN)ACH.flag('obsidian');}
 if(minedDef&&minedDef.crop&&typeof FARM!=='undefined'){FARM.harvest(mx,my,mz,minedId);setBlock(mx,my,mz,B.AIR);if(typeof ACH!=='undefined')ACH.track('harvest');}
+// Door: break both halves (top+bottom) and drop a single Wooden Door item.
+else if(minedDef&&minedDef.door){const oy=minedDef.doorHalf==='top'?my-1:my;setBlock(mx,oy,mz,B.AIR);setBlock(mx,oy+1,mz,B.AIR);addToInventory(ITEM_DOOR,1);}
 else{if(typeof FARM!=='undefined')FARM.onBlockChanged(mx,my,mz,B.AIR);setBlock(mx,my,mz,B.AIR);
 const harvestOK=canHarvest(minedId);
 if(harvestOK){const drop=dropFor(minedId);if(drop!==null&&drop!==undefined)addToInventory(drop,1);
@@ -69,6 +71,9 @@ if(typeof tryEnterNearbyBoat==='function'&&tryEnterNearbyBoat()){clearInterval(a
 // Right-click an existing minecart on a rail to board it.
 if(typeof tryEnterNearbyMinecart==='function'&&tryEnterNearbyMinecart()){clearInterval(actionInterval);return;}
 if(currentTarget&&currentTarget.id===B.CRAFTING){clearInterval(actionInterval);toggleInventory(true,3);return;}
+// Right-click a door (either half) to toggle open/closed. Both halves are
+// rewritten together so they always share the same facing + open state.
+if(currentTarget&&typeof isDoor==='function'&&isDoor(currentTarget.id)){clearInterval(actionInterval);toggleDoor(currentTarget.x,currentTarget.y,currentTarget.z);return;}
 // Right-click a bed (red wool) at night to sleep through it, fast-forwarding
 // to the next morning. During the day, fall through so red wool can still be
 // stacked/built with normally. Holding nothing in hand also lets you sleep.
@@ -78,12 +83,34 @@ const slot=inventory[selectedSlot];if(!slot)return;const itemDef=ITEMS[slot.id];
 if(itemDef&&itemDef.boat){clearInterval(actionInterval);if(typeof tryPlaceBoat==='function'&&tryPlaceBoat())consumeFromSlot(selectedSlot,1);return;}
 // Minecart item: place a minecart on the targeted rail.
 if(itemDef&&itemDef.minecart){clearInterval(actionInterval);if(typeof tryPlaceMinecart==='function'&&tryPlaceMinecart())consumeFromSlot(selectedSlot,1);return;}
+// Wooden Door item: place a 2-tall door (bottom + top) facing the player.
+if(itemDef&&itemDef.door){clearInterval(actionInterval);if(tryPlaceDoor())consumeFromSlot(selectedSlot,1);return;}
 // Fishing rod: cast / reel in on water.
 if(itemDef&&itemDef.fishingRod){clearInterval(actionInterval);if(typeof useFishingRod==='function')useFishingRod();return;}
 if(itemDef&&itemDef.tool==='hoe'){tillSoil();return;}
 if(itemDef&&itemDef.plant!==undefined){if(plantSeed(slot.id,itemDef.plant))return;}
 if(itemDef){if(itemDef.food)eatFood(selectedSlot);return;}
 if(!currentTarget)return;const{px,py,pz}=currentTarget;if(px<0||px>=WORLD_W||py<0||py>=WORLD_H||pz<0||pz>=WORLD_D)return;const cur=getBlock(px,py,pz);if(isSolid(cur))return;const box=playerAABB(player.pos);if(px+1>box.minX&&px<box.maxX&&py+1>box.minY&&py<box.maxY&&pz+1>box.minZ&&pz<box.maxZ)return;setBlock(px,py,pz,slot.id);if(typeof SFX!=='undefined')SFX.place(slot.id);consumeFromSlot(selectedSlot,1);if(typeof ACH!=='undefined')ACH.track('placed');}
+// Door facing constants matching doorFacing in config (N=0,E=1,S=2,W=3).
+// Forward vector is (sin(yaw),cos(yaw)) in (x,z): +Z=South, +X=East.
+const DOOR_FACING_IDS=[
+  [B.DOOR_BOTTOM_N_CLOSED,B.DOOR_BOTTOM_N_OPEN,B.DOOR_TOP_N_CLOSED,B.DOOR_TOP_N_OPEN],
+  [B.DOOR_BOTTOM_E_CLOSED,B.DOOR_BOTTOM_E_OPEN,B.DOOR_TOP_E_CLOSED,B.DOOR_TOP_E_OPEN],
+  [B.DOOR_BOTTOM_S_CLOSED,B.DOOR_BOTTOM_S_OPEN,B.DOOR_TOP_S_CLOSED,B.DOOR_TOP_S_OPEN],
+  [B.DOOR_BOTTOM_W_CLOSED,B.DOOR_BOTTOM_W_OPEN,B.DOOR_TOP_W_CLOSED,B.DOOR_TOP_W_OPEN]];
+function playerFacingDir(){const sy=Math.sin(player.yaw),cy=Math.cos(player.yaw);if(Math.abs(sy)>Math.abs(cy))return sy>0?1:3;return cy>0?2:0;}
+function doorBlockId(facing,half,open){return DOOR_FACING_IDS[facing][(half==='top'?2:0)+(open?1:0)];}
+// Place a 2-tall door at the targeted cell, oriented to the player's facing.
+function tryPlaceDoor(){if(!currentTarget)return false;const{px,py,pz}=currentTarget;if(px<0||px>=WORLD_W||py<0||py>=WORLD_H-1||pz<0||pz>=WORLD_D)return false;
+const lower=getBlock(px,py,pz),upper=getBlock(px,py+1,pz);if(isSolid(lower)||isSolid(upper))return false;
+const box=playerAABB(player.pos);if(px+1>box.minX&&px<box.maxX&&py+2>box.minY&&py<box.maxY&&pz+1>box.minZ&&pz<box.maxZ)return false;
+const facing=playerFacingDir();setBlock(px,py,pz,doorBlockId(facing,'bottom',false));setBlock(px,py+1,pz,doorBlockId(facing,'top',false));
+if(typeof SFX!=='undefined')SFX.place(B.DOOR_BOTTOM_N_CLOSED);if(typeof ACH!=='undefined')ACH.track('placed');return true;}
+// Toggle a door (clicked half) open<->closed; rewrites both halves identically.
+function toggleDoor(x,y,z){const id=getBlock(x,y,z);const def=BLOCKS[id];if(!def||!def.door)return;
+const by=def.doorHalf==='top'?y-1:y;const ty=by+1;const facing=def.doorFacing;const open=!def.doorOpen;
+setBlock(x,by,z,doorBlockId(facing,'bottom',open));setBlock(x,ty,z,doorBlockId(facing,'top',open));
+if(typeof SFX!=='undefined')SFX.place(id);}
 // Till soil with hoe
 function tillSoil(){if(!currentTarget)return;const{x,y,z}=currentTarget;const id=getBlock(x,y,z);if(id!==B.GRASS&&id!==B.DIRT&&id!==B.PATH)return;if(getBlock(x,y+1,z)!==B.AIR)return;setBlock(x,y,z,B.FARMLAND);}
 // Plant seed on farmland
