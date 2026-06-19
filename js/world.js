@@ -107,13 +107,19 @@ function heightAtRaw(x,z){
     // MOUNTAINS / VOLCANO: strong uplift with ridged detail
     const up=(e-0.72)/0.28;                // 0..1
     const ridge=Math.abs(fbm2(x,z,83,4,1/30,0.5,2.0)*2-1);
-    h=base+up*up*54+ridge*18;
-    if(t>0.60&&m<0.45&&w>0.5){
-      // VOLCANO cone: tall, steeper, with a pronounced crater dip near the apex
-      // so the very top forms a bowl that we later flood with lava.
-      h=base+34+up*up*46;
-      const crater=Math.max(0,(up-0.82))/0.18;
-      h-=crater*crater*20;
+    // Towering peaks: a steeper uplift curve plus a stronger ridge contribution
+    // pushes summits well above the old ceiling so mountains genuinely soar.
+    h=base+up*up*78+ridge*26;
+    if(t>0.55&&m<0.50){
+      // VOLCANO cone: a MASSIVE, broad shield-and-cone that climbs far higher
+      // than the surrounding mountains, with a wide, pronounced crater bowl at
+      // the apex that we later flood with a large lava lake.
+      const cone=fbm2(x,z,95,4,1/45,0.5,2.0);     // broad flank undulation
+      h=base+46+up*up*72+cone*10;
+      // Wide crater: the dip begins lower on the cone (0.70) and plunges deep,
+      // carving a large summit caldera rather than a tiny pit.
+      const crater=Math.max(0,(up-0.70))/0.30;
+      h-=crater*crater*40;
     }else{
       // MOUNTAIN CANYONS: a ridged-noise "river" channel carves deep, steep
       // valleys through the high terrain. Where the channel mask is near its
@@ -171,15 +177,16 @@ function heightAt(x,z){return Math.floor(Math.max(2,Math.min(WORLD_H-6,heightAtR
 function craterLavaLevelAt(x,z){
   const c=climateAt(x,z);
   const e=c.continental,t=c.temperature,m=c.moisture,w=c.weirdness;
-  if(!(e>0.72&&t>0.60&&m<0.45&&w>0.5))return -1;
+  if(!(e>0.72&&t>0.55&&m<0.50))return -1;
   const base=SEA_LEVEL+2+fbm2(x,z,11,4,1/40,0.5,2.0)*26-10+fbm2(x,z,77,2,1/12,0.5,2.0)*8-4;
   const up=(e-0.72)/0.28;
-  const apex=base+34+up*up*46;             // height without the crater dip
-  const crater=Math.max(0,(up-0.82))/0.18; // 0..1 strength of the crater dip
-  if(crater<=0.18)return -1;               // only the very summit is a crater
-  // fill to just below the rim so a ring of rock surrounds the lava lake
-  const level=Math.floor(apex-3);
-  if(level<SEA_LEVEL+34)return -1;
+  const cone=fbm2(x,z,95,4,1/45,0.5,2.0);
+  const apex=base+46+up*up*72+cone*10;      // height without the crater dip
+  const crater=Math.max(0,(up-0.70))/0.30;  // 0..1 strength of the crater dip
+  if(crater<=0.30)return -1;                // only the broad summit is a crater
+  // fill to just below the rim so a ring of rock surrounds a large lava lake
+  const level=Math.floor(apex-4);
+  if(level<SEA_LEVEL+40)return -1;
   return Math.min(WORLD_H-6,level);
 }
 const heightMap=new Int16Array(WORLD_W*WORLD_D);const biomeMap=new Uint8Array(WORLD_W*WORLD_D);function colIndex(x,z){return z*WORLD_W+x;}
@@ -214,7 +221,9 @@ function generateClimateAndHeight(){
 function generateTerrainColumns(x0,x1){for(let x=x0;x<x1;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];const biome=biomeMap[colIndex(x,z)];const beach=h<=SEA_LEVEL+1;
 const highRock=h>=SEA_LEVEL+34;            // bare stone above this on mountains
 const soilDepth=3+Math.floor(valueNoise(x/6,z/6,301)*3);   // 3..5
-const snowLine=SEA_LEVEL+38+Math.floor(valueNoise(x/5,z/5,303)*6);
+// Snow caps the loftiest peaks. With the taller terrain the snow line sits
+// higher so only genuine summits stay white year-round.
+const snowLine=SEA_LEVEL+52+Math.floor(valueNoise(x/5,z/5,303)*8);
 for(let y=0;y<=h&&y<WORLD_H;y++){let id;
 if(y===0)id=B.BEDROCK;
 else if(y<=2&&hash3(x,y,z,305)<0.6)id=B.BEDROCK;
@@ -223,8 +232,12 @@ else if((biome===BIOME.DESERT||biome===BIOME.MESA)&&!beach){
   if(y>=h-1)id=B.SAND;else if(y>=h-(biome===BIOME.MESA?8:5))id=B.SANDSTONE;else id=B.STONE;
 }
 else if(biome===BIOME.VOLCANO&&!beach){
-  // volcanic cones are bare stone with obsidian near the very top
-  if(y>=h-1&&h>=SEA_LEVEL+30)id=B.OBSIDIAN;else id=B.STONE;
+  // Giant volcanic cones: smooth-basalt flanks, an obsidian-crusted upper
+  // cone, and a glassy obsidian rim around the high summit/crater.
+  if(y>=h-1&&h>=SEA_LEVEL+58)id=B.OBSIDIAN;
+  else if(y>=h-2&&h>=SEA_LEVEL+40)id=(valueNoise(x/5,z/5,311)>0.5?B.OBSIDIAN:B.SMOOTH_BASALT);
+  else if(y>=h-3)id=B.SMOOTH_BASALT;
+  else id=B.STONE;
 }
 else if((biome===BIOME.MOUNTAINS)&&highRock){
   if(y>=h){ if(h>=snowLine)id=B.SNOW; else if(valueNoise(x/4,z/4,307)>0.62)id=B.GRASS; else id=B.STONE; }
