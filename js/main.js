@@ -48,6 +48,9 @@ let worldReady=false;
 function setLoadProgress(frac,label){const fill=document.getElementById('loading-bar-fill');const pct=document.getElementById('loading-percent');const st=document.getElementById('loading-status');if(fill)fill.style.width=(frac*100).toFixed(0)+'%';if(pct)pct.textContent=(frac*100).toFixed(0)+'%';if(st&&label)st.textContent=label;}
 async function bootstrap(){
   if(typeof applyLanguageToUI==='function')applyLanguageToUI();
+  // Resolve the active world's seed / schema before generating terrain.
+  if(typeof loadActiveWorld==='function')loadActiveWorld();
+  if(typeof ACH!=='undefined'&&typeof ACH.load==='function')ACH.load();
   await generateWorldAsync(setLoadProgress);
   loadEdits();
   spawnPoint=findSpawn();player.pos.copyFrom(spawnPoint);
@@ -77,10 +80,17 @@ async function bootstrap(){
   const lo=document.getElementById('loading-overlay');if(lo){lo.classList.add('hidden');setTimeout(()=>lo.remove(),450);}
 }
 if(isMobile){document.getElementById('start-help-pc').style.display='none';document.getElementById('start-help-mobile').style.display='block';}
-bootstrap();
+// Boot flow: if a world is already active (e.g. user reloaded mid-game), jump
+// straight into it; otherwise show the home / world-select screen. The home
+// screen calls bootstrapWorld() once the user picks or creates a world.
+let booted=false;
+function bootstrapWorld(){if(booted)return;booted=true;document.body.classList.add('playing');const lo=document.getElementById('loading-overlay');if(lo){lo.classList.remove('hidden');lo.style.display='';}bootstrap();}
+if(typeof WORLDS!=='undefined'&&WORLDS.hasActive()){bootstrapWorld();}
+else{if(typeof showHome==='function')showHome();}
 function startGame(){started=true;if(typeof SFX!=='undefined'){SFX.resume();SFX.startAmbient();}if(isMobile){paused=false;document.getElementById('start-overlay').style.display='none';}else{canvas.requestPointerLock();setTimeout(()=>{if(document.pointerLockElement!==canvas){paused=false;document.getElementById('start-overlay').style.display='none';}},300);}}
 {const sb=document.getElementById('btn-sound');if(sb){const sync=()=>{const m=typeof SFX!=='undefined'&&SFX.isMuted();sb.textContent=m?'🔇':'🔊';sb.classList.toggle('muted',m);};sb.addEventListener('click',(e)=>{e.stopPropagation();if(typeof SFX!=='undefined'){SFX.resume();SFX.setMuted(!SFX.isMuted());if(!SFX.isMuted())SFX.startAmbient();sync();}});sb.addEventListener('touchstart',(e)=>e.stopPropagation(),{passive:true});sync();}}
-document.getElementById('btn-start').addEventListener('click',(e)=>{e.stopPropagation();startGame();});document.getElementById('start-overlay').addEventListener('click',startGame);document.getElementById('btn-reset-world').addEventListener('click',(e)=>{e.stopPropagation();if(confirm('Reset the world? All builds will be lost.')){localStorage.removeItem('bw_edits');localStorage.removeItem('bw_seed');localStorage.removeItem('bw_inventory');localStorage.removeItem('bw_crops');if(typeof ACH!=='undefined')ACH.reset();location.reload();}});engine.runRenderLoop(()=>{const dt=Math.min(0.05,engine.getDeltaTime()/1000);update(dt);if(typeof FLUID!=='undefined')FLUID.update(dt);if(typeof FARM!=='undefined'&&worldReady&&started){FARM.update(dt);FARM.updateFarmlandWetness(dt);}updateDayNight(dt);if(worldReady){if(typeof LIGHTING!=='undefined')LIGHTING.update(dt);updateAudioEnvironment(dt);}updateHUD(dt);scene.render();});
+document.getElementById('btn-start').addEventListener('click',(e)=>{e.stopPropagation();startGame();});document.getElementById('start-overlay').addEventListener('click',startGame);{const hb=document.getElementById('btn-home');if(hb)hb.addEventListener('click',(e)=>{e.stopPropagation();if(typeof WORLDS!=='undefined')WORLDS.clearActive();location.reload();});}
+document.getElementById('btn-reset-world').addEventListener('click',(e)=>{e.stopPropagation();if(confirm(typeof t==='function'?t('resetConfirm'):'Reset the world? All builds will be lost.')){if(typeof WORLDS!=='undefined'){WORLDS.removeItem('edits');WORLDS.removeItem('inventory');WORLDS.removeItem('crops');WORLDS.removeItem('ach_stats');WORLDS.removeItem('ach_done');}if(typeof ACH!=='undefined')ACH.reset();location.reload();}});engine.runRenderLoop(()=>{const dt=Math.min(0.05,engine.getDeltaTime()/1000);update(dt);if(typeof FLUID!=='undefined')FLUID.update(dt);if(typeof FARM!=='undefined'&&worldReady&&started){FARM.update(dt);FARM.updateFarmlandWetness(dt);}updateDayNight(dt);if(worldReady){if(typeof LIGHTING!=='undefined')LIGHTING.update(dt);updateAudioEnvironment(dt);}updateHUD(dt);scene.render();});
 // Update ambient audio state
 function updateAudioEnvironment(dt){if(typeof SFX==='undefined')return;const px=Math.floor(player.pos.x),py=Math.floor(player.pos.y+1),pz=Math.floor(player.pos.z);const underground=!(typeof skyExposed==='function'&&skyExposed(px,py,pz));
 const nearWater=false;

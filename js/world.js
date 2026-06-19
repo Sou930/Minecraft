@@ -557,7 +557,7 @@ function generateWorldAsync(onProgress){
     await nextFrame();
   })();
 }
-let worldEdits={};function loadEdits(){try{worldEdits=JSON.parse(localStorage.getItem('bw_edits')||"{}");}catch(e){worldEdits={};}
+let worldEdits={};function loadEdits(){try{worldEdits=JSON.parse(WORLDS.getItem('edits')||"{}");}catch(e){worldEdits={};}
 for(const key in worldEdits){const[x,y,z]=key.split(',').map(Number);if(x>=0&&x<WORLD_W&&y>=0&&y<WORLD_H&&z>=0&&z<WORLD_D)
 world[blockIndex(x,y,z)]=worldEdits[key];}}
-let saveTimer=null;function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>{try{localStorage.setItem('bw_edits',JSON.stringify(worldEdits));}catch(e){}},800);}
+let saveTimer=null;function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>{try{WORLDS.setItem('edits',JSON.stringify(worldEdits));}catch(e){}},800);}

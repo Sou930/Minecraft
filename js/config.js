@@ -130,10 +130,20 @@ const ACHIEVEMENTS=[
 const isMobile=('ontouchstart'in window)&&/Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac|iPad/i.test(navigator.userAgent));if(isMobile)document.body.classList.add('is-mobile');
 // World schema version — bump when dimensions change to invalidate saved data.
 const WORLD_VERSION="10-768x96-grass-flowers";
-if(localStorage.getItem('bw_world_version')!==WORLD_VERSION){
-  localStorage.removeItem('bw_edits');
-  localStorage.removeItem('bw_seed');
-  localStorage.removeItem('bw_crops');
-  localStorage.setItem('bw_world_version',WORLD_VERSION);
+// SEED is resolved per active world (see worlds.js). If no world is active yet
+// (home screen showing), fall back to a temporary random seed; it is replaced
+// once a world is actually loaded via loadActiveWorld().
+let SEED=(Math.random()*2147483646+1)|0;
+function loadActiveWorld(){
+  if(typeof WORLDS==='undefined'||!WORLDS.hasActive())return false;
+  const w=WORLDS.active();
+  if(w&&Number.isFinite(w.seed))SEED=w.seed|0;
+  // Per-world schema invalidation: if a saved world predates the current
+  // WORLD_VERSION, drop its terrain/crops so it regenerates cleanly.
+  if(WORLDS.getItem('world_version')!==WORLD_VERSION){
+    WORLDS.removeItem('edits');
+    WORLDS.removeItem('crops');
+    WORLDS.setItem('world_version',WORLD_VERSION);
+  }
+  return true;
 }
-let SEED=parseInt(localStorage.getItem('bw_seed')||"0",10);if(!SEED){SEED=(Math.random()*2147483646+1)|0;localStorage.setItem('bw_seed',String(SEED));}

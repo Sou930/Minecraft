@@ -25,6 +25,19 @@ const I18N = {
     inventory:'Inventory', recipes:'Recipes', achievements:'Achievements',
     play:'Play', resume:'Resume', paused:'Paused',
     resetWorld:'Reset World (clears terrain & builds)',
+    resetConfirm:'Reset the world? All builds will be lost.',
+    homeSubtitle:'Minecraft-style 3D Survival',
+    worlds:'Worlds', newWorld:'＋ New World',
+    noWorlds:'No worlds yet — create one to start playing!',
+    createWorld:'Create New World', worldName:'World Name',
+    seedOptional:'Seed (optional)',
+    seedHint:'Same seed → same terrain. Leave empty for a random world.',
+    seedLabel:'Seed', lastPlayed:'Last played',
+    cancel:'Cancel', createPlay:'Create & Play',
+    rename:'Rename', delete:'Delete',
+    renamePrompt:'New world name:', defaultWorldName:'My World',
+    deleteConfirm:'Delete this world? This cannot be undone.',
+    home:'Home', screenshotMode:'Screenshot mode (F2)', exit:'Exit',
   },
   ja: {
     langName:'日本語',
@@ -40,6 +53,19 @@ const I18N = {
     inventory:'インベントリ', recipes:'レシピ', achievements:'実績',
     play:'プレイ', resume:'再開', paused:'一時停止',
     resetWorld:'ワールドをリセット（地形と建築を消去）',
+    resetConfirm:'ワールドをリセットしますか？建築物はすべて失われます。',
+    homeSubtitle:'マインクラフト風 3Dサバイバル',
+    worlds:'ワールド', newWorld:'＋ 新規ワールド',
+    noWorlds:'ワールドがありません — 作成して始めましょう！',
+    createWorld:'新しいワールドを作成', worldName:'ワールド名',
+    seedOptional:'シード値（任意）',
+    seedHint:'同じシード値なら同じ地形に。空欄でランダム生成。',
+    seedLabel:'シード', lastPlayed:'最終プレイ',
+    cancel:'キャンセル', createPlay:'作成してプレイ',
+    rename:'名前変更', delete:'削除',
+    renamePrompt:'新しいワールド名：', defaultWorldName:'マイワールド',
+    deleteConfirm:'このワールドを削除しますか？元に戻せません。',
+    home:'ホーム', screenshotMode:'スクリーンショットモード (F2)', exit:'終了',
   },
 };
 const LANG_ORDER=['en','ja'];
@@ -89,6 +115,13 @@ function applyLanguageToUI(){
   setTitle('btn-recipes','recipes');
   // Reset-world button label
   const rw=document.getElementById('btn-reset-world');if(rw)rw.textContent='🗑 '+t('resetWorld');
+  // Home button label
+  const hb=document.getElementById('btn-home');if(hb)hb.textContent='🏠 '+t('home');
+  // Screenshot button tooltips
+  setTitle('btn-screenshot','screenshotMode');
+  const ssl=document.getElementById('ss-exit-label');if(ssl)ssl.textContent=t('exit');
+  // Refresh home-screen labels if present
+  if(typeof applyHomeLang==='function')applyHomeLang();
   // Settings hint pill
   const hint=document.getElementById('settings-hint');if(hint)hint.textContent='⚙ '+t('openHint');
   // Re-render the option chips so their localized names update
