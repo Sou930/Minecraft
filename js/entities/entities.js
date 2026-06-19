@@ -11,12 +11,15 @@ function mobMat(hex){if(_mobMats[hex])return _mobMats[hex];const m=new BABYLON.S
 // material cache.
 function makePart(parent,name,size,pos,hex,partList){const box=BABYLON.MeshBuilder.CreateBox(name,{width:size[0],height:size[1],depth:size[2]},scene);box.material=mobMat(hex);box.isPickable=false;box.parent=parent;box.position.set(pos[0],pos[1],pos[2]);if(partList)partList.push(box);return box;}
 
-// Mob type definitions
+// Mob type definitions. Colours/proportions are tuned to echo the classic
+// Minecraft animal silhouettes: a chunky horizontal body box, a cube head set
+// at the front, four stubby legs and per-species details (snout, ears, horns,
+// beak, wattle, wings, tail, wool).
 const MOB_TYPES={
-  pig:   {name:'Pig',  emoji:'🐷', body:'#e89bb0', leg:'#d98aa0', head:'#e89bb0', snout:'#d97a92', bodyH:0.7, legH:0.45, headSize:0.55, speed:1.4, hp:10, drops:[{id:230,min:1,max:3}]},
-  sheep: {name:'Sheep',emoji:'🐑', body:'#eef0ee', leg:'#6b6f72', head:'#e6e2da', snout:null,      bodyH:0.8, legH:0.5,  headSize:0.5,  speed:1.2, hp:8, fluffy:true, drops:[{id:233,min:1,max:2},{id:42,min:1,max:1}]},
-  cow:   {name:'Cow',  emoji:'🐮', body:'#5a4636', leg:'#3f3228', head:'#5a4636', snout:'#d7c5b0', bodyH:0.85,legH:0.55, headSize:0.55, speed:1.1, hp:12, patch:'#efeae2', drops:[{id:231,min:1,max:3},{id:234,min:0,max:2}]},
-  chicken:{name:'Chicken',emoji:'🐔',body:'#f2f2f2', leg:'#e0a23a', head:'#f2f2f2', snout:'#e0a23a',bodyH:0.45,legH:0.25, headSize:0.32, speed:1.6, hp:4, small:true, drops:[{id:232,min:1,max:1},{id:235,min:0,max:2}]},
+  pig:   {name:'Pig',  emoji:'🐷', body:'#e89bb0', leg:'#d98aa0', head:'#e89bb0', snout:'#d97a92', bodyH:0.7, legH:0.45, headSize:0.55, speed:1.4, hp:10, ears:'#d98aa0', drops:[{id:230,min:1,max:3}]},
+  sheep: {name:'Sheep',emoji:'🐑', body:'#eef0ee', leg:'#5a4a3c', head:'#d9cfc2', snout:null,      bodyH:0.8, legH:0.5,  headSize:0.5,  speed:1.2, hp:8, fluffy:true, wool:'#f3f1ec', ears:'#cabfae', drops:[{id:233,min:1,max:2},{id:42,min:1,max:1}]},
+  cow:   {name:'Cow',  emoji:'🐮', body:'#4a3a2c', leg:'#3a2d22', head:'#4a3a2c', snout:'#c9b6a0', bodyH:0.85,legH:0.55, headSize:0.55, speed:1.1, hp:12, patch:'#efeae2', horns:'#e8e0cf', ears:'#3a2d22', udder:'#e7a6ad', drops:[{id:231,min:1,max:3},{id:234,min:0,max:2}]},
+  chicken:{name:'Chicken',emoji:'🐔',body:'#f2f2f2', leg:'#e0a23a', head:'#f2f2f2', snout:null,bodyH:0.45,legH:0.25, headSize:0.32, speed:1.6, hp:4, small:true, beak:'#e0a23a', wattle:'#d23b3b', wing:'#e2e2e2', drops:[{id:232,min:1,max:1},{id:235,min:0,max:2}]},
 };
 
 // Build mob mesh hierarchy
@@ -27,24 +30,65 @@ function buildMobMesh(type){
   const legY=t.legH*s;
   // Every box mesh that makes up this mob, so we can flash them red on hurt.
   const parts=[];
-  // Body
+  const wings=[];
+  // --- Body --------------------------------------------------------------
   const body=makePart(root,'body',[bodyW,bodyH,bodyD],[0,legY+bodyH/2,0],t.body,parts);
-  if(t.patch){const p=makePart(root,'patch',[bodyW+0.02,bodyH*0.5,bodyD*0.45],[0,legY+bodyH*0.55,0.05],t.patch,parts);}
-  if(t.fluffy){body.scaling.x=1.25;body.scaling.y=1.15;}
-  // Head
+  if(t.patch){makePart(root,'patch',[bodyW+0.02,bodyH*0.5,bodyD*0.45],[0,legY+bodyH*0.55,0.05],t.patch,parts);}
+  // Sheep wear an oversized blocky wool coat (separate slightly larger box) so
+  // the body reads as the iconic fluffy Minecraft sheep instead of a smooth one.
+  if(t.fluffy&&t.wool){
+    const wool=makePart(root,'wool',[bodyW+0.18,bodyH+0.14,bodyD+0.1],[0,legY+bodyH/2+0.02,-0.04],t.wool,parts);
+    wool.material&&(wool.material=wool.material);
+  }
+  // Cow udder underneath the belly.
+  if(t.udder){makePart(root,'udder',[bodyW*0.5,0.12*s,0.2*s],[0,legY+0.02,-bodyD*0.18],t.udder,parts);}
+  // --- Head --------------------------------------------------------------
   const hs=t.headSize*s;
   const headGroup=new BABYLON.TransformNode('headGroup',scene);headGroup.parent=root;headGroup.position.set(0,legY+bodyH*0.75,bodyD/2+hs*0.35);
-  const head=makePart(headGroup,'head',[hs,hs,hs],[0,0,0],t.head,parts);
-  if(t.snout)makePart(headGroup,'snout',[hs*0.5,hs*0.45,hs*0.4],[0,-hs*0.1,hs*0.55],t.snout,parts);
-  // Eyes
+  makePart(headGroup,'head',[hs,hs,hs],[0,0,0],t.head,parts);
+  // Snout: pig gets a flat forward-facing snout block with two nostrils,
+  // cow/others a muzzle box.
+  if(t.snout){
+    const snout=makePart(headGroup,'snout',[hs*0.55,hs*0.45,hs*0.32],[0,-hs*0.12,hs*0.55],t.snout,parts);
+    if(type==='pig'){
+      makePart(headGroup,'nostrilL',[hs*0.1,hs*0.12,0.02],[-hs*0.12,-hs*0.12,hs*0.72],'#a85f73',parts);
+      makePart(headGroup,'nostrilR',[hs*0.1,hs*0.12,0.02],[ hs*0.12,-hs*0.12,hs*0.72],'#a85f73',parts);
+    }
+  }
+  // Ears (pig/cow/sheep): small boxes on top sides of the head.
+  if(t.ears){
+    makePart(headGroup,'earL',[hs*0.22,hs*0.18,hs*0.1],[-hs*0.42,hs*0.42,0],t.ears,parts);
+    makePart(headGroup,'earR',[hs*0.22,hs*0.18,hs*0.1],[ hs*0.42,hs*0.42,0],t.ears,parts);
+  }
+  // Cow horns.
+  if(t.horns){
+    makePart(headGroup,'hornL',[hs*0.16,hs*0.28,hs*0.16],[-hs*0.3,hs*0.5,0],t.horns,parts);
+    makePart(headGroup,'hornR',[hs*0.16,hs*0.28,hs*0.16],[ hs*0.3,hs*0.5,0],t.horns,parts);
+  }
+  // Eyes.
   makePart(headGroup,'eyeL',[hs*0.16,hs*0.16,0.02],[-hs*0.25,hs*0.15,hs*0.5],'#1a1a1a',parts);
   makePart(headGroup,'eyeR',[hs*0.16,hs*0.16,0.02],[ hs*0.25,hs*0.15,hs*0.5],'#1a1a1a',parts);
-  if(type==='chicken'){makePart(headGroup,'comb',[hs*0.3,hs*0.25,hs*0.5],[0,hs*0.6,0],'#d23b3b',parts);}
-  // Legs
+  // Chicken beak + wattle + comb.
+  if(type==='chicken'){
+    if(t.beak)makePart(headGroup,'beak',[hs*0.4,hs*0.22,hs*0.3],[0,-hs*0.05,hs*0.6],t.beak,parts);
+    if(t.wattle)makePart(headGroup,'wattle',[hs*0.18,hs*0.22,hs*0.12],[0,-hs*0.32,hs*0.5],t.wattle,parts);
+    makePart(headGroup,'comb',[hs*0.18,hs*0.28,hs*0.5],[0,hs*0.6,0],'#d23b3b',parts);
+  }
+  // --- Wings (chicken): thin side flaps that flutter while moving. --------
+  if(type==='chicken'&&t.wing){
+    const wy=legY+bodyH*0.55;const wd=bodyD*0.7;
+    const wL=new BABYLON.TransformNode('wingLp',scene);wL.parent=root;wL.position.set(-bodyW/2,wy,0);
+    makePart(wL,'wingL',[0.06,bodyH*0.7,wd],[-0.02,0,0],t.wing,parts);wings.push(wL);
+    const wR=new BABYLON.TransformNode('wingRp',scene);wR.parent=root;wR.position.set(bodyW/2,wy,0);
+    makePart(wR,'wingR',[0.06,bodyH*0.7,wd],[0.02,0,0],t.wing,parts);wings.push(wR);
+    // little tail feathers
+    makePart(root,'tail',[bodyW*0.7,bodyH*0.7,0.1],[0,legY+bodyH*0.7,-bodyD/2-0.04],t.wing,parts);
+  }
+  // --- Legs --------------------------------------------------------------
   const legs=[];const lw=0.18*s,ld=0.18*s;const lx=bodyW/2-lw/2,lz=bodyD/2-ld*1.1;
   const legPos=[[-lx,lz],[lx,lz],[-lx,-lz],[lx,-lz]];
-  for(let i=0;i<4;i++){const pivot=new BABYLON.TransformNode('legPivot'+i,scene);pivot.parent=root;pivot.position.set(legPos[i][0],legY,legPos[i][1]);const leg=makePart(pivot,'leg'+i,[lw,legY,ld],[0,-legY/2,0],t.leg,parts);legs.push(pivot);}
-  return {root,legs,head:headGroup,bodyH:legY,parts};
+  for(let i=0;i<4;i++){const pivot=new BABYLON.TransformNode('legPivot'+i,scene);pivot.parent=root;pivot.position.set(legPos[i][0],legY,legPos[i][1]);makePart(pivot,'leg'+i,[lw,legY,ld],[0,-legY/2,0],t.leg,parts);legs.push(pivot);}
+  return {root,legs,head:headGroup,bodyH:legY,parts,wings};
 }
 
 const mobs=[];
@@ -184,6 +228,13 @@ function updateOneMob(mob,dt){
   if(moving){mob.walkPhase+=dt*(5+groundSpeed*3.2);}else{mob.walkPhase*=0.82;}
   const amp=Math.min(0.6,0.25+groundSpeed*0.22);const swing=Math.sin(mob.walkPhase)*amp;
   mob.meshes.legs.forEach((leg,i)=>{const s=(i===0||i===3)?swing:-swing;leg.rotation.x=s;});
+  // Chicken wings flutter up/down: fast when moving (or airborne), gentle idle.
+  if(mob.meshes.wings&&mob.meshes.wings.length){
+    const airborne=!mob.onGround;
+    const flap=airborne?Math.sin(mob.walkPhase*4)*0.9+0.5:(moving?Math.abs(Math.sin(mob.walkPhase*2))*0.5:0.05+Math.sin(mob.walkPhase*1.5)*0.05);
+    mob.meshes.wings[0].rotation.z=flap;   // left wing swings out (+z)
+    mob.meshes.wings[1].rotation.z=-flap;  // right wing mirrored
+  }
 
   // Hit reaction: a brief squash + lift plus a Minecraft-style red flash when
   // recently damaged (per-mob, so it never affects other mobs). The red tint is
