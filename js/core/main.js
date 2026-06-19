@@ -121,65 +121,8 @@ if(typeof showHome==='function')showHome();
 function startGame(){started=true;if(typeof SFX!=='undefined'){SFX.resume();SFX.startAmbient();}if(isMobile){paused=false;document.getElementById('start-overlay').style.display='none';}else{canvas.requestPointerLock();setTimeout(()=>{if(document.pointerLockElement!==canvas){paused=false;document.getElementById('start-overlay').style.display='none';}},300);}}
 {const sb=document.getElementById('btn-sound');if(sb){const sync=()=>{const m=typeof SFX!=='undefined'&&SFX.isMuted();sb.textContent=m?'🔇':'🔊';sb.classList.toggle('muted',m);};sb.addEventListener('click',(e)=>{e.stopPropagation();if(typeof SFX!=='undefined'){SFX.resume();SFX.setMuted(!SFX.isMuted());if(!SFX.isMuted())SFX.startAmbient();sync();}});sb.addEventListener('touchstart',(e)=>e.stopPropagation(),{passive:true});sync();}}
 document.getElementById('btn-start').addEventListener('click',(e)=>{e.stopPropagation();startGame();});document.getElementById('start-overlay').addEventListener('click',startGame);{const hb=document.getElementById('btn-home');if(hb)hb.addEventListener('click',(e)=>{e.stopPropagation();if(typeof WORLDS!=='undefined')WORLDS.clearActive();location.reload();});}
-document.getElementById('btn-reset-world').addEventListener('click',(e)=>{e.stopPropagation();if(confirm(typeof t==='function'?t('resetConfirm'):'Reset the world? All builds will be lost.')){if(typeof WORLDS!=='undefined'){WORLDS.removeItem('edits');WORLDS.removeItem('inventory');WORLDS.removeItem('crops');WORLDS.removeItem('ach_stats');WORLDS.removeItem('ach_done');}if(typeof ACH!=='undefined')ACH.reset();location.reload();}});engine.runRenderLoop(()=>{const dt=Math.min(0.05,engine.getDeltaTime()/1000);update(dt);if(typeof FLUID!=='undefined')FLUID.update(dt);if(typeof FARM!=='undefined'&&worldReady&&started){FARM.update(dt);FARM.updateFarmlandWetness(dt);}updateDayNight(dt);if(worldReady){if(typeof LIGHTING!=='undefined')LIGHTING.update(dt);updateAudioEnvironment(dt);updatePetals(dt);if(typeof PERF!=='undefined')PERF.update(dt);}updateHUD(dt);scene.render();});
-// --- Cherry blossom petals -------------------------------------------------
-// A drifting cloud of pink petals follows the camera but only emits while the
-// player stands inside a CHERRY grove, so the air fills with falling blossom.
-let petalSystem=null;
-function buildPetalSystem(){
-  if(petalSystem||typeof BABYLON==='undefined')return;
-  // small soft pink petal sprite drawn to a dynamic texture
-  const tex=new BABYLON.DynamicTexture('petalTex',{width:16,height:16},scene,false);
-  tex.hasAlpha=true;const c=tex.getContext();c.clearRect(0,0,16,16);
-  c.fillStyle='#f7b6d2';c.beginPath();c.ellipse(8,8,5,3,Math.PI/4,0,Math.PI*2);c.fill();
-  c.fillStyle='#ffd9e8';c.beginPath();c.ellipse(7,7,2.5,1.5,Math.PI/4,0,Math.PI*2);c.fill();tex.update();
-  const ps=new BABYLON.ParticleSystem('petals',360,scene);
-  ps.particleTexture=tex;ps.emitter=camera;
-  ps.minEmitBox=new BABYLON.Vector3(-22,14,-22);ps.maxEmitBox=new BABYLON.Vector3(22,20,22);
-  ps.color1=new BABYLON.Color4(1,0.78,0.88,0.95);ps.color2=new BABYLON.Color4(0.95,0.55,0.72,0.9);ps.colorDead=new BABYLON.Color4(1,0.8,0.9,0);
-  ps.minSize=0.18;ps.maxSize=0.34;ps.minLifeTime=4.0;ps.maxLifeTime=7.0;
-  ps.emitRate=0;ps.blendMode=BABYLON.ParticleSystem.BLENDMODE_STANDARD;
-  ps.gravity=new BABYLON.Vector3(0,-1.1,0);
-  ps.direction1=new BABYLON.Vector3(-1.2,-0.8,-1.2);ps.direction2=new BABYLON.Vector3(1.2,-0.4,1.2);
-  ps.minAngularSpeed=-2.0;ps.maxAngularSpeed=2.0;ps.minEmitPower=0.3;ps.maxEmitPower=1.0;ps.updateSpeed=0.02;
-  ps.start();petalSystem=ps;
-}
-// --- Autumn falling leaves -------------------------------------------------
-// A drifting cloud of red/orange/yellow leaves that only emits while the player
-// stands inside the AUTUMN forest, so the air fills with tumbling foliage.
-let leafSystem=null;
-function buildLeafSystem(){
-  if(leafSystem||typeof BABYLON==='undefined')return;
-  // a small maple-leaf-ish sprite drawn to a dynamic texture
-  const tex=new BABYLON.DynamicTexture('leafTex',{width:16,height:16},scene,false);
-  tex.hasAlpha=true;const c=tex.getContext();c.clearRect(0,0,16,16);
-  c.fillStyle='#d24433';c.beginPath();c.moveTo(8,2);c.lineTo(13,8);c.lineTo(10,9);c.lineTo(12,14);c.lineTo(8,11);c.lineTo(4,14);c.lineTo(6,9);c.lineTo(3,8);c.closePath();c.fill();
-  c.fillStyle='#e8643f';c.fillRect(7,6,2,5);tex.update();
-  const ps=new BABYLON.ParticleSystem('leaves',360,scene);
-  ps.particleTexture=tex;ps.emitter=camera;
-  ps.minEmitBox=new BABYLON.Vector3(-22,14,-22);ps.maxEmitBox=new BABYLON.Vector3(22,20,22);
-  // tint between warm autumn colours
-  ps.color1=new BABYLON.Color4(0.85,0.27,0.18,0.95);ps.color2=new BABYLON.Color4(0.95,0.66,0.22,0.95);ps.colorDead=new BABYLON.Color4(0.8,0.5,0.2,0);
-  ps.minSize=0.20;ps.maxSize=0.40;ps.minLifeTime=4.5;ps.maxLifeTime=8.0;
-  ps.emitRate=0;ps.blendMode=BABYLON.ParticleSystem.BLENDMODE_STANDARD;
-  ps.gravity=new BABYLON.Vector3(0,-1.0,0);
-  ps.direction1=new BABYLON.Vector3(-1.4,-0.7,-1.4);ps.direction2=new BABYLON.Vector3(1.4,-0.3,1.4);
-  ps.minAngularSpeed=-2.4;ps.maxAngularSpeed=2.4;ps.minEmitPower=0.3;ps.maxEmitPower=1.1;ps.updateSpeed=0.02;
-  ps.start();leafSystem=ps;
-}
-let _petalTimer=0;
-function updatePetals(dt){
-  // Biome only changes as the player walks, so re-evaluate the emit rate a few
-  // times a second instead of every frame (the lookup + branch is cheap but
-  // pointless to repeat 60×/s). The particle systems keep animating regardless.
-  _petalTimer+=dt;if(_petalTimer<0.2)return;_petalTimer=0;
-  if(!petalSystem)buildPetalSystem();
-  if(!leafSystem)buildLeafSystem();
-  const bx=Math.floor(player.pos.x),bz=Math.floor(player.pos.z);
-  const bio=(bx>=0&&bx<WORLD_W&&bz>=0&&bz<WORLD_D)?biomeMap[colIndex(bx,bz)]:biomeAt(bx,bz);
-  if(petalSystem)petalSystem.emitRate=(bio===BIOME.CHERRY)?120:0;
-  if(leafSystem)leafSystem.emitRate=(bio===BIOME.AUTUMN)?110:0;
-}
+document.getElementById('btn-reset-world').addEventListener('click',(e)=>{e.stopPropagation();if(confirm(typeof t==='function'?t('resetConfirm'):'Reset the world? All builds will be lost.')){if(typeof WORLDS!=='undefined'){WORLDS.removeItem('edits');WORLDS.removeItem('inventory');WORLDS.removeItem('crops');WORLDS.removeItem('ach_stats');WORLDS.removeItem('ach_done');}if(typeof ACH!=='undefined')ACH.reset();location.reload();}});engine.runRenderLoop(()=>{const dt=Math.min(0.05,engine.getDeltaTime()/1000);update(dt);if(typeof FLUID!=='undefined')FLUID.update(dt);if(typeof FARM!=='undefined'&&worldReady&&started){FARM.update(dt);FARM.updateFarmlandWetness(dt);}updateDayNight(dt);if(worldReady){if(typeof LIGHTING!=='undefined')LIGHTING.update(dt);updateAudioEnvironment(dt);if(typeof updatePetals==='function')updatePetals(dt);if(typeof PERF!=='undefined')PERF.update(dt);}updateHUD(dt);scene.render();});
+// Cherry-blossom petals & falling leaves now live in js/effects/particles.js
 // Update ambient audio state
 function updateAudioEnvironment(dt){if(typeof SFX==='undefined')return;const px=Math.floor(player.pos.x),py=Math.floor(player.pos.y+1),pz=Math.floor(player.pos.z);const underground=!(typeof skyExposed==='function'&&skyExposed(px,py,pz));
 const nearWater=false;

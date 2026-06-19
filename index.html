@@ -66,26 +66,38 @@ Place a crafting table and right-click to open 3×3 crafting
   <button id="btn-screenshot" class="screenshot-btn" aria-label="Screenshot mode" title="Screenshot mode (P)">📷</button>
   <button id="btn-screenshot-exit" aria-label="Exit screenshot mode" title="Exit (P / Esc)">✕ <span id="ss-exit-label">Exit</span></button>
   <script src="https://cdn.jsdelivr.net/npm/babylonjs@7/babylon.min.js"></script>
-  <script src="js/worlds.js"></script>
-  <script src="js/config.js"></script>
-  <script src="js/noise.js"></script>
-  <script src="js/atlas.js"></script>
-  <script src="js/world.js"></script>
-  <script src="js/structures.js"></script>
-  <script src="js/farm.js"></script>
-  <script src="js/audio.js"></script>
-  <script src="js/render.js"></script>
-  <script src="js/perf.js"></script>
-  <script src="js/lighting.js"></script>
-  <script src="js/fluid.js"></script>
-  <script src="js/player.js"></script>
-  <script src="js/inventory.js"></script>
-  <script src="js/achievements.js"></script>
-  <script src="js/settings.js"></script>
-  <script src="js/entities.js"></script>
-  <script src="js/boat.js"></script>
-  <script src="js/home.js"></script>
-  <script src="js/screenshot.js"></script>
-  <script src="js/main.js"></script>
+  <!-- UI / world metadata -->
+  <script src="js/ui/worlds.js"></script>
+  <!-- Core engine constants & helpers -->
+  <script src="js/core/config.js"></script>
+  <script src="js/core/noise.js"></script>
+  <script src="js/core/atlas.js"></script>
+  <!-- World generation & terrain systems -->
+  <script src="js/world/world.js"></script>
+  <script src="js/world/structures.js"></script>
+  <script src="js/world/farm.js"></script>
+  <!-- Audio system -->
+  <script src="js/systems/audio.js"></script>
+  <!-- Rendering -->
+  <script src="js/core/render.js"></script>
+  <script src="js/systems/perf.js"></script>
+  <script src="js/world/lighting.js"></script>
+  <script src="js/world/fluid.js"></script>
+  <!-- Player -->
+  <script src="js/player/player.js"></script>
+  <!-- UI panels -->
+  <script src="js/ui/inventory.js"></script>
+  <script src="js/ui/achievements.js"></script>
+  <script src="js/ui/settings.js"></script>
+  <!-- Entities -->
+  <script src="js/entities/entities.js"></script>
+  <script src="js/entities/boat.js"></script>
+  <!-- Visual effects -->
+  <script src="js/effects/particles.js"></script>
+  <!-- UI screens -->
+  <script src="js/ui/home.js"></script>
+  <script src="js/ui/screenshot.js"></script>
+  <!-- Main loop -->
+  <script src="js/core/main.js"></script>
 </body>
 </html>
