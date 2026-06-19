@@ -36,9 +36,10 @@ function biomeAt(x,z){
   }
   // Cold
   if(t<0.32) return BIOME.SNOWY;
-  // Hot & dry
-  if(t>0.60&&m<0.40){
-    if(w>0.55) return BIOME.MESA;
+  // Hot & dry — desert. Thresholds widened (temp 0.60→0.50, moist 0.40→0.52)
+  // to roughly double the desert's footprint across the world.
+  if(t>0.50&&m<0.52){
+    if(w>0.62) return BIOME.MESA;
     return BIOME.DESERT;
   }
   // Jungle

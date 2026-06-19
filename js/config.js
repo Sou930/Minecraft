@@ -11,7 +11,11 @@
 [B.POTATO]:{name:"Potato",all:T.POTATO0,transparent:true,cross:true,crop:true,breakTime:0.2,stages:[T.POTATO0,T.POTATO0,T.POTATO1,T.POTATO2],maxStage:3,seed:203,harvest:{id:203,min:1,max:3},seedDrop:{id:203,min:0,max:0}},
 [B.PUMPKIN]:{name:"Pumpkin",top:T.PUMPKIN_TOP,side:T.PUMPKIN_SIDE,front:T.PUMPKIN_FACE,bottom:T.PUMPKIN_TOP,breakTime:1.0},
 [B.MELON]:{name:"Melon",top:T.MELON_TOP,side:T.MELON_SIDE,bottom:T.MELON_TOP,breakTime:1.0,harvestItem:{id:205,min:3,max:7}},
-};const ITEM_APPLE=100;const ITEM_SEEDS=200,ITEM_WHEAT=201,ITEM_CARROT=202,ITEM_POTATO=203,ITEM_BREAD=204,ITEM_MELON_SLICE=205,ITEM_PUMPKIN_PIE=206,ITEM_BAKED_POTATO=207,ITEM_HOE=210;const ITEMS={[ITEM_APPLE]:{name:'Apple',emoji:'🍎',food:4},[ITEM_SEEDS]:{name:'Seeds',emoji:'🌱',plant:B.WHEAT},[ITEM_WHEAT]:{name:'Wheat',emoji:'🌾'},[ITEM_CARROT]:{name:'Carrot',emoji:'🥕',food:3,plant:B.CARROT},[ITEM_POTATO]:{name:'Potato',emoji:'🥔',food:1,plant:B.POTATO},[ITEM_BREAD]:{name:'Bread',emoji:'🍞',food:5},[ITEM_MELON_SLICE]:{name:'Melon Slice',emoji:'🍉',food:2},[ITEM_PUMPKIN_PIE]:{name:'Pumpkin Pie',emoji:'🥧',food:8},[ITEM_BAKED_POTATO]:{name:'Baked Potato',emoji:'🍠',food:5},[ITEM_HOE]:{name:'Hoe',emoji:'🪓',tool:'hoe'}};
+};const ITEM_APPLE=100;const ITEM_SEEDS=200,ITEM_WHEAT=201,ITEM_CARROT=202,ITEM_POTATO=203,ITEM_BREAD=204,ITEM_MELON_SLICE=205,ITEM_PUMPKIN_PIE=206,ITEM_BAKED_POTATO=207,ITEM_HOE=210;
+// Mob drops (meat / materials) and the rideable boat item
+const ITEM_PORKCHOP=230,ITEM_BEEF=231,ITEM_CHICKEN=232,ITEM_MUTTON=233,ITEM_LEATHER=234,ITEM_FEATHER=235,ITEM_BOAT=240;const ITEMS={[ITEM_APPLE]:{name:'Apple',emoji:'🍎',food:4},[ITEM_SEEDS]:{name:'Seeds',emoji:'🌱',plant:B.WHEAT},[ITEM_WHEAT]:{name:'Wheat',emoji:'🌾'},[ITEM_CARROT]:{name:'Carrot',emoji:'🥕',food:3,plant:B.CARROT},[ITEM_POTATO]:{name:'Potato',emoji:'🥔',food:1,plant:B.POTATO},[ITEM_BREAD]:{name:'Bread',emoji:'🍞',food:5},[ITEM_MELON_SLICE]:{name:'Melon Slice',emoji:'🍉',food:2},[ITEM_PUMPKIN_PIE]:{name:'Pumpkin Pie',emoji:'🥧',food:8},[ITEM_BAKED_POTATO]:{name:'Baked Potato',emoji:'🍠',food:5},[ITEM_HOE]:{name:'Hoe',emoji:'🪓',tool:'hoe'},
+[ITEM_PORKCHOP]:{name:'Porkchop',emoji:'🥩',food:6},[ITEM_BEEF]:{name:'Beef',emoji:'🥩',food:6},[ITEM_CHICKEN]:{name:'Chicken',emoji:'🍗',food:4},[ITEM_MUTTON]:{name:'Mutton',emoji:'🍖',food:5},[ITEM_LEATHER]:{name:'Leather',emoji:'🟫'},[ITEM_FEATHER]:{name:'Feather',emoji:'🪶'},
+[ITEM_BOAT]:{name:'Boat',emoji:'🛶',boat:true}};
 // Tool material tiers: wood→stone→iron→gold→diamond
 const TOOL_MATERIALS={
   wood:   {name:'Wood',     speed:2,    durability:60,   tier:1, color:'#9c6b3c'},
@@ -82,6 +86,8 @@ const RECIPES=[
 {cat:'deco',pattern:[[B.AMETHYST_CLUSTER,B.AMETHYST_CLUSTER],[B.AMETHYST_CLUSTER,B.AMETHYST_CLUSTER]],out:{id:B.AMETHYST_BLOCK,count:1}},
 {cat:'building',pattern:[[B.MOSS,B.MOSS],[B.MOSS,B.MOSS]],out:{id:B.GRASS,count:4}},
 {cat:'tools',pattern:[[B.PLANKS,B.PLANKS],[null,B.PLANKS]],out:{id:ITEM_HOE,count:1}},
+// Boat: 5 planks in a U shape (ride on water/lakes)
+{cat:'tools',pattern:[[B.PLANKS,null,B.PLANKS],[B.PLANKS,B.PLANKS,B.PLANKS]],out:{id:ITEM_BOAT,count:1}},
 // Stick
 {cat:'tools',pattern:[[B.PLANKS],[B.PLANKS]],out:{id:ITEM_STICK,count:4}},
 // Pickaxes
@@ -121,6 +127,8 @@ const ACHIEVEMENTS=[
   {id:'farmer',icon:'\ud83c\udf3e',name:'Budding Farmer',desc:'Harvest 1 crop',stat:'harvest',goal:1},
   {id:'farmer_30',icon:'\ud83d\ude9c',name:'Bountiful Harvest',desc:'Harvest 30 crops',stat:'harvest',goal:30},
   {id:'gourmet',icon:'\ud83c\udf7d',name:'Gourmet',desc:'Eat 10 times',stat:'eaten',goal:10},
+  {id:'hunter',icon:'\ud83c\udf56',name:'Hunter',desc:'Defeat your first animal',stat:'hunt',goal:1},
+  {id:'hunter_10',icon:'\ud83d\udcaa',name:'Big Game Hunter',desc:'Defeat 10 animals',stat:'hunt',goal:10},
   {id:'diamond',icon:'\ud83d\udc8e',name:'Diamonds!',desc:'Mine diamond ore',stat:'diamond',goal:1},
   {id:'obsidian',icon:'\ud83d\udfea',name:'Obsidian Getter',desc:'Obtain obsidian',stat:'obsidian',goal:1},
   {id:'swimmer',icon:'\ud83c\udfca',name:'Swimmer',desc:'Submerge in water',stat:'swim',goal:1},
@@ -129,7 +137,7 @@ const ACHIEVEMENTS=[
 ];
 const isMobile=('ontouchstart'in window)&&/Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac|iPad/i.test(navigator.userAgent));if(isMobile)document.body.classList.add('is-mobile');
 // World schema version — bump when dimensions change to invalidate saved data.
-const WORLD_VERSION="10-768x96-grass-flowers";
+const WORLD_VERSION="11-768x96-bigdesert-boats";
 // SEED is resolved per active world (see worlds.js). If no world is active yet
 // (home screen showing), fall back to a temporary random seed; it is replaced
 // once a world is actually loaded via loadActiveWorld().
