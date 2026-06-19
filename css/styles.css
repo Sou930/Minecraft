@@ -117,3 +117,64 @@ body.is-mobile #btn-settings{width:36px;height:32px}
 .recipe-icon .tool-tex{width:22px;height:22px}
 .recipe-mat-icon .tool-tex{width:14px;height:14px}
 #held-item .tool-tex{width:32px;height:32px}
+
+/* ======================= Home / World-select screen ====================== */
+#home-overlay{position:fixed;inset:0;z-index:210;display:none;flex-direction:column;align-items:center;justify-content:center;color:#fff;text-align:center;padding:20px;overflow:hidden}
+#home-overlay.show{display:flex}
+#home-bg{position:absolute;inset:0;background:linear-gradient(160deg,#0a192f 0%,#102a43 55%,#1b4332 100%);z-index:-2}
+#home-bg::after{content:"";position:absolute;inset:0;background:
+  radial-gradient(circle at 18% 22%,rgba(124,179,66,.18),transparent 40%),
+  radial-gradient(circle at 82% 78%,rgba(66,165,245,.16),transparent 45%);z-index:-1}
+#home-content{width:100%;max-width:560px;display:flex;flex-direction:column;align-items:center;gap:14px}
+#home-title{font-size:clamp(30px,7vw,58px);letter-spacing:3px;text-shadow:3px 3px 0 #2e7d32,6px 6px 0 rgba(0,0,0,.4)}
+#home-subtitle{font-size:15px;opacity:.85;margin-top:-6px;margin-bottom:6px}
+#home-worlds-wrap{width:100%;background:rgba(0,0,0,.34);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:16px;backdrop-filter:blur(3px);box-shadow:0 12px 40px rgba(0,0,0,.45)}
+#home-worlds-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+#home-worlds-title{font-size:18px;font-weight:700}
+.home-primary{background:#43a047;color:#fff;border:none;border-radius:9px;padding:9px 18px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 3px 0 #2e7d32;-webkit-tap-highlight-color:transparent}
+.home-primary:active{transform:translateY(2px);box-shadow:0 1px 0 #2e7d32}
+.home-secondary{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:9px;padding:9px 18px;font-size:14px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+#world-list{list-style:none;display:flex;flex-direction:column;gap:9px;max-height:46vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.world-card{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:11px 13px;cursor:pointer;text-align:left;transition:background .15s,border-color .15s}
+.world-card:hover{background:rgba(255,255,255,.14);border-color:rgba(124,179,66,.6)}
+.world-thumb{width:46px;height:46px;flex:none;border-radius:8px;background:linear-gradient(160deg,#7cb342 0%,#7cb342 45%,#8d6e63 45%,#8d6e63 100%);box-shadow:inset 0 0 0 2px rgba(0,0,0,.25)}
+.world-meta{flex:1;min-width:0}
+.world-name{font-size:15px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.world-sub{font-size:11px;opacity:.7;margin-top:2px;font-variant-numeric:tabular-nums}
+.world-actions{display:flex;gap:6px;flex:none}
+.world-actions button{width:32px;height:32px;border-radius:7px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.25);color:#fff;font-size:14px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.world-actions button:hover{background:rgba(255,255,255,.18)}
+.world-actions .wc-del:hover{background:rgba(200,40,40,.5)}
+#home-empty{opacity:.7;font-size:13px;padding:18px 4px}
+/* World dialog */
+#world-dialog{position:absolute;inset:0;z-index:220;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);padding:18px}
+#world-dialog.show{display:flex}
+#world-dialog-panel{width:100%;max-width:380px;background:#11243c;border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:20px;text-align:left;box-shadow:0 16px 50px rgba(0,0,0,.6)}
+#world-dialog-panel h2{font-size:18px;margin-bottom:14px}
+.wd-label{display:block;font-size:12px;opacity:.8;margin:10px 0 4px}
+#world-dialog-panel input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;font-size:14px;font-family:inherit}
+#world-dialog-panel input:focus{outline:none;border-color:#7cb342}
+.wd-hint{font-size:11px;opacity:.6;margin-top:6px}
+#world-dialog-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+
+/* ======================= Screenshot mode ====================== */
+.screenshot-btn{position:fixed;top:calc(12px + var(--vv-top));right:130px;z-index:24;width:34px;height:34px;border-radius:8px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:16px;cursor:pointer;display:none;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
+.screenshot-btn:hover{background:rgba(255,255,255,.18)}
+body.playing .screenshot-btn{display:flex}
+/* In screenshot mode: hide ALL game UI, keep only the canvas (and exit button) */
+body.screenshot-mode #top-right-ui,
+body.screenshot-mode #crosshair,
+body.screenshot-mode #mine-progress,
+body.screenshot-mode #tool-break-msg,
+body.screenshot-mode #vitals,
+body.screenshot-mode #hotbar,
+body.screenshot-mode #btn-inventory,
+body.screenshot-mode #held-item,
+body.screenshot-mode #joystick-zone,
+body.screenshot-mode .touch-btn,
+body.screenshot-mode #pose-display,
+body.screenshot-mode .screenshot-btn,
+body.screenshot-mode #water-tint{display:none !important}
+#btn-screenshot-exit{position:fixed;top:calc(12px + var(--vv-top));right:14px;z-index:120;display:none;align-items:center;gap:5px;padding:7px 13px;border-radius:8px;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.35);color:#fff;font-size:13px;cursor:pointer;opacity:.55;transition:opacity .2s;-webkit-tap-highlight-color:transparent}
+#btn-screenshot-exit:hover{opacity:1}
+body.screenshot-mode #btn-screenshot-exit{display:flex}

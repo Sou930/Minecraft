@@ -1,16 +1,16 @@
 "use strict";
 // Farm system: plant crops, grow over time, harvest when mature
 const FARM=(function(){
-  const STORE_KEY='bw_crops';
+  const STORE_KEY='crops';
   // key: "x,y,z" -> {stage, t}
   const crops=new Map();
   function key(x,y,z){return x+','+y+','+z;}
 
   let saveTimer=null;
   function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>{
-    try{const o={};for(const[k,v]of crops)o[k]=v.stage;localStorage.setItem(STORE_KEY,JSON.stringify(o));}catch(e){}
+    try{const o={};for(const[k,v]of crops)o[k]=v.stage;WORLDS.setItem(STORE_KEY,JSON.stringify(o));}catch(e){}
   },500);}
-  function load(){try{const d=JSON.parse(localStorage.getItem(STORE_KEY)||'null');if(d&&typeof d==='object'){for(const k in d){crops.set(k,{stage:d[k]|0,t:0});}}}catch(e){}}
+  function load(){try{const d=JSON.parse(WORLDS.getItem(STORE_KEY)||'null');if(d&&typeof d==='object'){for(const k in d){crops.set(k,{stage:d[k]|0,t:0});}}}catch(e){}}
 
   // Check if water is within radius 4
   function nearWater(x,y,z){

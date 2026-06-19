@@ -1,8 +1,8 @@
 const INV_SIZE=36;let inventory=new Array(INV_SIZE).fill(null);let craftSize=2;let craftGrid=new Array(craftSize*craftSize).fill(null);let heldStack=null;let inventoryOpen=false;
 function makeStack(id,count){const st={id,count:isTool(id)?1:count};if(isTool(id)){const def=toolDef(id);st.dur=def?def.maxDur:1;}return st;}
-function loadInventory(){try{const d=JSON.parse(localStorage.getItem('bw_inventory')||'null');if(Array.isArray(d)&&d.length===INV_SIZE)
+function loadInventory(){try{const d=JSON.parse(WORLDS.getItem('inventory')||'null');if(Array.isArray(d)&&d.length===INV_SIZE)
 inventory=d.map(s=>{if(!s||typeof s.id!=='number'||s.count<=0)return null;if(isTool(s.id)){const def=toolDef(s.id);const dur=(typeof s.dur==='number'&&s.dur>0)?Math.min(s.dur,def.maxDur):def.maxDur;return{id:s.id,count:1,dur};}return{id:s.id,count:Math.min(STACK_MAX,s.count)};});}catch(e){}}
-let invSaveTimer=null;function scheduleInvSave(){clearTimeout(invSaveTimer);invSaveTimer=setTimeout(()=>{try{localStorage.setItem('bw_inventory',JSON.stringify(inventory));}catch(e){}},400);}
+let invSaveTimer=null;function scheduleInvSave(){clearTimeout(invSaveTimer);invSaveTimer=setTimeout(()=>{try{WORLDS.setItem('inventory',JSON.stringify(inventory));}catch(e){}},400);}
 function itemName(id){return ITEMS[id]?ITEMS[id].name:(BLOCKS[id]?BLOCKS[id].name:'?');}
 function addToInventory(id,count){let left=count;
 // Tools do not stack

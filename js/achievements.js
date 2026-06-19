@@ -1,7 +1,7 @@
 // Achievement system: track actions, unlock on goal, show toast
 const ACH = (function () {
-  const STATS_KEY = 'bw_ach_stats';
-  const DONE_KEY = 'bw_ach_done';
+  const STATS_KEY = 'ach_stats';
+  const DONE_KEY = 'ach_done';
   const DEFAULT_STATS = {
     mined: 0, placed: 0, crafted: 0, workbench: 0, wood: 0,
     harvest: 0, eaten: 0, diamond: 0, obsidian: 0, swim: 0, fly: 0, night: 0,
@@ -12,11 +12,11 @@ const ACH = (function () {
 
   function load() {
     try {
-      const s = JSON.parse(localStorage.getItem(STATS_KEY) || 'null');
+      const s = JSON.parse(WORLDS.getItem(STATS_KEY) || 'null');
       if (s && typeof s === 'object') stats = Object.assign({}, DEFAULT_STATS, s);
     } catch (e) {}
     try {
-      const d = JSON.parse(localStorage.getItem(DONE_KEY) || 'null');
+      const d = JSON.parse(WORLDS.getItem(DONE_KEY) || 'null');
       if (d && typeof d === 'object') done = d;
     } catch (e) {}
   }
@@ -24,8 +24,8 @@ const ACH = (function () {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
       try {
-        localStorage.setItem(STATS_KEY, JSON.stringify(stats));
-        localStorage.setItem(DONE_KEY, JSON.stringify(done));
+        WORLDS.setItem(STATS_KEY, JSON.stringify(stats));
+        WORLDS.setItem(DONE_KEY, JSON.stringify(done));
       } catch (e) {}
     }, 350);
   }
@@ -82,9 +82,10 @@ const ACH = (function () {
     scheduleSave();
   }
 
-  load();
+  // NOTE: load() is deferred to bootstrap (after a world becomes active) so
+  // achievements are per-world. See main.js loadActiveWorld()/bootstrap.
   return {
-    track, flag, check, reset,
+    track, flag, check, reset, load,
     unlockedCount,
     total: () => ACHIEVEMENTS.length,
     progressFor, isDone,
