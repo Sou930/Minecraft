@@ -144,12 +144,36 @@ function buildPetalSystem(){
   ps.minAngularSpeed=-2.0;ps.maxAngularSpeed=2.0;ps.minEmitPower=0.3;ps.maxEmitPower=1.0;ps.updateSpeed=0.02;
   ps.start();petalSystem=ps;
 }
+// --- Autumn falling leaves -------------------------------------------------
+// A drifting cloud of red/orange/yellow leaves that only emits while the player
+// stands inside the AUTUMN forest, so the air fills with tumbling foliage.
+let leafSystem=null;
+function buildLeafSystem(){
+  if(leafSystem||typeof BABYLON==='undefined')return;
+  // a small maple-leaf-ish sprite drawn to a dynamic texture
+  const tex=new BABYLON.DynamicTexture('leafTex',{width:16,height:16},scene,false);
+  tex.hasAlpha=true;const c=tex.getContext();c.clearRect(0,0,16,16);
+  c.fillStyle='#d24433';c.beginPath();c.moveTo(8,2);c.lineTo(13,8);c.lineTo(10,9);c.lineTo(12,14);c.lineTo(8,11);c.lineTo(4,14);c.lineTo(6,9);c.lineTo(3,8);c.closePath();c.fill();
+  c.fillStyle='#e8643f';c.fillRect(7,6,2,5);tex.update();
+  const ps=new BABYLON.ParticleSystem('leaves',600,scene);
+  ps.particleTexture=tex;ps.emitter=camera;
+  ps.minEmitBox=new BABYLON.Vector3(-22,14,-22);ps.maxEmitBox=new BABYLON.Vector3(22,20,22);
+  // tint between warm autumn colours
+  ps.color1=new BABYLON.Color4(0.85,0.27,0.18,0.95);ps.color2=new BABYLON.Color4(0.95,0.66,0.22,0.95);ps.colorDead=new BABYLON.Color4(0.8,0.5,0.2,0);
+  ps.minSize=0.20;ps.maxSize=0.40;ps.minLifeTime=4.5;ps.maxLifeTime=8.0;
+  ps.emitRate=0;ps.blendMode=BABYLON.ParticleSystem.BLENDMODE_STANDARD;
+  ps.gravity=new BABYLON.Vector3(0,-1.0,0);
+  ps.direction1=new BABYLON.Vector3(-1.4,-0.7,-1.4);ps.direction2=new BABYLON.Vector3(1.4,-0.3,1.4);
+  ps.minAngularSpeed=-2.4;ps.maxAngularSpeed=2.4;ps.minEmitPower=0.3;ps.maxEmitPower=1.1;ps.updateSpeed=0.02;
+  ps.start();leafSystem=ps;
+}
 function updatePetals(dt){
   if(!petalSystem)buildPetalSystem();
-  if(!petalSystem)return;
+  if(!leafSystem)buildLeafSystem();
   const bx=Math.floor(player.pos.x),bz=Math.floor(player.pos.z);
   const bio=(bx>=0&&bx<WORLD_W&&bz>=0&&bz<WORLD_D)?biomeMap[colIndex(bx,bz)]:biomeAt(bx,bz);
-  petalSystem.emitRate=(bio===BIOME.CHERRY)?180:0;
+  if(petalSystem)petalSystem.emitRate=(bio===BIOME.CHERRY)?180:0;
+  if(leafSystem)leafSystem.emitRate=(bio===BIOME.AUTUMN)?160:0;
 }
 // Update ambient audio state
 function updateAudioEnvironment(dt){if(typeof SFX==='undefined')return;const px=Math.floor(player.pos.x),py=Math.floor(player.pos.y+1),pz=Math.floor(player.pos.z);const underground=!(typeof skyExposed==='function'&&skyExposed(px,py,pz));

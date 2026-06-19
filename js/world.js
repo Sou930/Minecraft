@@ -138,8 +138,21 @@ function heightAtRaw(x,z){
     const plat=base+18+fbm2(x,z,89,2,1/55,0.5,2.0)*16;
     h=Math.round(plat/4)*4;
   }else if((m>0.60&&e<0.46)){
-    // SWAMP: very flat, just around / slightly below sea level
+    // SWAMP / MANGROVE: very flat, just around / slightly below sea level so
+    // shallow water threads between the soggy hummocks.
     h=SEA_LEVEL-1+fbm2(x,z,91,2,1/30,0.5,2.0)*3;
+  }
+  // OASIS basin: inside the rare desert oasis pockets, scoop a shallow circular
+  // bowl that dips to just below sea level so it fills with a small pool of
+  // water, ringed by palms. Detected with the same noise field as biomeAt.
+  if(t>0.50&&m<0.52&&w<=0.62){
+    const oa=fbm2(x,z,211,3,1/70,0.5,2.0);
+    if(oa>0.70){
+      const dip=Math.min(1,(oa-0.70)/0.18);          // 0..1 toward oasis centre
+      const bed=SEA_LEVEL-2-dip*2;                     // shallow central pool
+      const tt=smoothstep(dip);
+      h=h*(1-tt)+bed*tt;
+    }
   }
   // RIVERS: carve winding channels down toward (and just below) sea level so
   // water threads through plains, forests and hills. Skip oceans (already
@@ -260,7 +273,7 @@ const snowLine=SEA_LEVEL+52+Math.floor(valueNoise(x/5,z/5,303)*8);
 for(let y=0;y<=h&&y<WORLD_H;y++){let id;
 if(y===0)id=B.BEDROCK;
 else if(y<=2&&hash3(x,y,z,305)<0.6)id=B.BEDROCK;
-else if((biome===BIOME.DESERT||biome===BIOME.MESA)&&!beach){
+else if((biome===BIOME.DESERT||biome===BIOME.MESA||biome===BIOME.OASIS)&&!beach){
   // sandy column with sandstone banding (mesa adds wider banding)
   if(y>=h-1)id=B.SAND;else if(y>=h-(biome===BIOME.MESA?8:5))id=B.SANDSTONE;else id=B.STONE;
 }
@@ -284,6 +297,7 @@ else{ // surface block (y===h)
   else if(biome===BIOME.SNOWY)id=B.SNOW;
   else if(biome===BIOME.OCEAN)id=B.SAND;   // ocean floor
   else if(biome===BIOME.SAVANNA)id=B.DRY_GRASS;  // golden savanna grass
+  else if(biome===BIOME.OASIS)id=B.SAND;   // desert oasis pool/banks are sandy
   else id=B.GRASS;
 }
 world[blockIndex(x,y,z)]=id;}
@@ -563,7 +577,91 @@ function buildCherryTree(x,h,z){
     const sx=x+ddx,sz=z+ddz;let sy=cy-2;
     if(sx>=0&&sx<WORLD_W&&sz>=0&&sz<WORLD_D&&world[blockIndex(sx,sy,sz)]===B.AIR&&world[blockIndex(sx,sy+1,sz)]===B.CHERRY_LEAVES){world[blockIndex(sx,sy,sz)]=B.CHERRY_PETALS;}}
 }
-function placeVegetation(){placeReef();placeDeadTrees();for(let x=3;x<WORLD_W-3;x++){for(let z=3;z<WORLD_D-3;z++){const h=heightMap[colIndex(x,z)];if(h<=SEA_LEVEL+1||h+8>=WORLD_H)continue;const biome=biomeMap[colIndex(x,z)];const surf=world[blockIndex(x,h,z)];
+// MANGROVE tree: a tree that rises out of shallow water on a tangle of prop
+// roots. A small spread of MANGROVE_ROOTS blocks is raised from the submerged
+// floor up to ~1 block above the waterline so you can hop across the swamp on
+// them; the trunk climbs above that into a rounded green canopy.
+function buildMangroveTree(x,h,z){
+  // root pad: the column itself plus a few neighbours raised to a walkable level
+  const rootTop=SEA_LEVEL+1;                              // walk surface, 1 above water
+  const roots=[[0,0],[1,0],[-1,0],[0,1],[0,-1]];
+  for(const[ox,oz]of roots){const rx=x+ox,rz=z+oz;if(rx<0||rx>=WORLD_W||rz<0||rz>=WORLD_D)continue;
+    const rh=heightMap[colIndex(rx,rz)];
+    // skip far-flung roots sometimes so the tangle looks organic
+    if((ox!==0||oz!==0)&&hash2(rx*3,rz*3,55)<0.35)continue;
+    for(let y=rh+1;y<=rootTop;y++){if(y<1||y>=WORLD_H)continue;const cur=world[blockIndex(rx,y,rz)];if(cur===B.WATER||cur===B.AIR)world[blockIndex(rx,y,rz)]=B.MANGROVE_ROOTS;}
+  }
+  // trunk grows up from the root pad
+  const base=rootTop+1;const trunkH=4+Math.floor(hash2(x,z,56)*3); // 4..6
+  for(let y=0;y<trunkH;y++){const yy=base+y;if(yy>=WORLD_H)break;world[blockIndex(x,yy,z)]=B.MANGROVE_LOG;}
+  // rounded leafy canopy on top
+  const cy=base+trunkH;
+  const canopy=[[-1,2],[0,2],[1,1]];
+  for(const[dyo,r]of canopy){const yy=cy+dyo;
+    for(let dx=-r;dx<=r;dx++)for(let dz=-r;dz<=r;dz++){
+      if(Math.abs(dx)+Math.abs(dz)>r+0)continue;
+      setLeaf(x+dx,yy,z+dz,B.MANGROVE_LEAVES);
+    }
+  }
+  setLeaf(x,cy+2,z,B.MANGROVE_LEAVES);
+}
+// PALM tree (oasis): a slender, slightly leaning trunk topped by a radiating
+// crown of frond leaves — the classic desert-oasis silhouette.
+function buildPalmTree(x,h,z){
+  const trunkH=5+Math.floor(hash2(x,z,57)*3);             // 5..7
+  world[blockIndex(x,h,z)]=B.SAND;
+  // lean the trunk gently to one side as it climbs
+  const dir=hash2(x,z,58)<0.5?-1:1;let tx=x;
+  for(let y=1;y<=trunkH;y++){if(y>trunkH-2&&y%1===0)tx+=0;const cx=x+Math.round((y/trunkH)*dir);const yy=h+y;if(yy>=WORLD_H)break;world[blockIndex(cx,yy,z)]=B.PALM_LOG;tx=cx;}
+  const topX=x+Math.round(dir),topY=h+trunkH;
+  // radiating fronds: 4 arms reaching out & drooping down
+  setLeaf(topX,topY+1,z,B.PALM_LEAVES);
+  const arms=[[1,0],[-1,0],[0,1],[0,-1]];
+  for(const[ax,az]of arms){
+    setLeaf(topX+ax,topY+1,z+az,B.PALM_LEAVES);
+    setLeaf(topX+ax*2,topY,z+az*2,B.PALM_LEAVES);
+    setLeaf(topX+ax*2,topY-1,z+az*2,B.PALM_LEAVES);
+  }
+}
+// MAPLE tree (autumn forest): an oak-shaped tree wearing fiery autumn foliage.
+// Each tree picks one of red/orange/yellow leaves so a grove reads as a warm
+// patchwork of autumn colour.
+function buildMapleTree(x,h,z){
+  const leafChoices=[B.MAPLE_LEAVES_RED,B.MAPLE_LEAVES_ORANGE,B.MAPLE_LEAVES_YELLOW];
+  const leafId=leafChoices[Math.floor(hash2(x,z,59)*3)%3];
+  const trunkH=4+Math.floor(hash2(x,z,60)*3);             // 4..6
+  world[blockIndex(x,h,z)]=B.DIRT;
+  for(let y=1;y<=trunkH;y++)world[blockIndex(x,h+y,z)]=B.MAPLE_LOG;
+  const cy=h+trunkH;
+  const canopy=[[-1,2],[0,2],[1,1]];
+  for(const[dyo,r]of canopy){const yy=cy+dyo;
+    for(let dx=-r;dx<=r;dx++)for(let dz=-r;dz<=r;dz++){
+      if(dx===0&&dz===0&&dyo<0)continue;
+      const dist=Math.abs(dx)+Math.abs(dz);
+      if(dist>r&&hash2(x+dx*7,z+dz*7,dyo*3+61)<0.55)continue;
+      setLeaf(x+dx,yy,z+dz,leafId);
+    }
+  }
+  setLeaf(x,cy+2,z,leafId);
+}
+function placeVegetation(){placeReef();placeDeadTrees();for(let x=3;x<WORLD_W-3;x++){for(let z=3;z<WORLD_D-3;z++){const h=heightMap[colIndex(x,z)];const biome=biomeMap[colIndex(x,z)];
+// MANGROVE & OASIS grow out of / beside water, so they must run before the
+// generic "skip submerged columns" guard below.
+if(biome===BIOME.MANGROVE){
+  // trees rise from shallow water; need a submerged-or-low floor and headroom
+  if(h>=SEA_LEVEL+2||h+12>=WORLD_H)continue;
+  if(hash2(x+999,z-777,5)<=0.984)continue;             // sparse stilted trees
+  buildMangroveTree(x,h,z);continue;
+}
+if(biome===BIOME.OASIS){
+  // palms ring the pool: only on the sandy banks just above the waterline
+  if(h<=SEA_LEVEL||h+10>=WORLD_H)continue;
+  const surf0=world[blockIndex(x,h,z)];if(surf0!==B.SAND)continue;
+  if(world[blockIndex(x,h+1,z)]!==B.AIR)continue;
+  if(hash2(x+999,z-777,5)<=0.965)continue;
+  buildPalmTree(x,h,z);continue;
+}
+if(h<=SEA_LEVEL+1||h+8>=WORLD_H)continue;const surf=world[blockIndex(x,h,z)];
 // Biomes with no (tree) vegetation: oceans, bare mountains, volcanoes, mesas.
 if(biome===BIOME.OCEAN||biome===BIOME.VOLCANO||biome===BIOME.MOUNTAINS||biome===BIOME.MESA)continue;
 if(biome===BIOME.DESERT){if(surf!==B.SAND||hash2(x+555,z+333,6)<=0.994)continue;const ch=1+Math.floor(hash2(x,z,7)*3);for(let y=1;y<=ch;y++)
@@ -592,6 +690,17 @@ if(biome===BIOME.CHERRY){
   if(surf!==B.GRASS||hash2(x+999,z-777,5)<=0.955)continue;
   if(h+12>=WORLD_H)continue;
   buildCherryTree(x,h,z);continue;
+}
+if(biome===BIOME.AUTUMN){
+  // autumn forest — fairly dense maples in red/orange/yellow
+  if(surf!==B.GRASS||hash2(x+999,z-777,5)<=0.95)continue;
+  if(h+11>=WORLD_H)continue;
+  buildMapleTree(x,h,z);continue;
+}
+if(biome===BIOME.FLOWER_FIELD){
+  // flower fields are open meadows — only the rare scattered oak, the rest is
+  // dense ground-cover flowers placed later.
+  if(surf!==B.GRASS||hash2(x+999,z-777,5)<=0.997)continue;
 }
 // Tree spawn probability per biome (lower threshold => denser forest).
 const treeP=biome===BIOME.JUNGLE?0.9:(biome===BIOME.FOREST?0.962:(biome===BIOME.SWAMP?0.985:(biome===BIOME.PLAINS?0.995:0.9965)));
@@ -677,24 +786,33 @@ world[blockIndex(x,h+1,z)]=B.DEAD_BUSH;
 // grassy biomes (plains/forest/jungle/swamp/snowy), Minecraft-style. Each is a
 // single 1-block-tall cross plant resting on a grass/snow surface with air above.
 const FLOWERS=[B.FLOWER_DANDELION,B.FLOWER_POPPY,B.FLOWER_CORNFLOWER];
+// A richer palette used by the dedicated FLOWER FIELD biome (and sprinkled
+// elsewhere) so the meadows burst with many flower kinds.
+const FIELD_FLOWERS=[B.FLOWER_DANDELION,B.FLOWER_POPPY,B.FLOWER_CORNFLOWER,B.FLOWER_ALLIUM,B.FLOWER_TULIP,B.FLOWER_OXEYE];
 function placeGroundCover(){for(let x=3;x<WORLD_W-3;x++){for(let z=3;z<WORLD_D-3;z++){
   const biome=biomeMap[colIndex(x,z)];
   // only lush, grassy land gets ground cover
-  if(biome!==BIOME.PLAINS&&biome!==BIOME.FOREST&&biome!==BIOME.JUNGLE&&biome!==BIOME.SWAMP&&biome!==BIOME.SNOWY&&biome!==BIOME.SAVANNA&&biome!==BIOME.TAIGA&&biome!==BIOME.GIANT_FOREST&&biome!==BIOME.CHERRY)continue;
+  if(biome!==BIOME.PLAINS&&biome!==BIOME.FOREST&&biome!==BIOME.JUNGLE&&biome!==BIOME.SWAMP&&biome!==BIOME.SNOWY&&biome!==BIOME.SAVANNA&&biome!==BIOME.TAIGA&&biome!==BIOME.GIANT_FOREST&&biome!==BIOME.CHERRY&&biome!==BIOME.AUTUMN&&biome!==BIOME.FLOWER_FIELD&&biome!==BIOME.MANGROVE)continue;
   const h=heightMap[colIndex(x,z)];if(h<SEA_LEVEL||h+2>=WORLD_H)continue;
   const surf=world[blockIndex(x,h,z)];const ground=biome===BIOME.SNOWY?B.SNOW:(biome===BIOME.SAVANNA?B.DRY_GRASS:B.GRASS);
   if(surf!==ground)continue;                       // skip dirt/sand/paths under trees etc.
   if(world[blockIndex(x,h+1,z)]!==B.AIR)continue;   // don't bury trunks/leaves/water
-  // Plains are flowery meadows; forests/jungles are grassy; snowy is sparse.
-  const density=biome===BIOME.PLAINS?0.30:(biome===BIOME.JUNGLE?0.40:(biome===BIOME.FOREST?0.22:(biome===BIOME.SWAMP?0.20:(biome===BIOME.SAVANNA?0.34:(biome===BIOME.TAIGA?0.16:(biome===BIOME.CHERRY?0.30:(biome===BIOME.GIANT_FOREST?0.18:0.08)))))));
+  // Plains are flowery meadows; flower fields are denser still; forests grassy.
+  const density=biome===BIOME.FLOWER_FIELD?0.55:(biome===BIOME.PLAINS?0.30:(biome===BIOME.JUNGLE?0.40:(biome===BIOME.FOREST?0.22:(biome===BIOME.SWAMP?0.20:(biome===BIOME.MANGROVE?0.22:(biome===BIOME.SAVANNA?0.34:(biome===BIOME.TAIGA?0.16:(biome===BIOME.CHERRY?0.30:(biome===BIOME.AUTUMN?0.26:(biome===BIOME.GIANT_FOREST?0.18:0.08))))))))));
   if(hash2(x+421,z-869,30)>density)continue;
   // Roughly 1 in 7 patches is a flower, the rest are grass tufts. In cherry
   // groves a good share of the cover is fallen pink petals carpeting the floor.
   let plant;
   if(biome===BIOME.CHERRY&&hash2(x-91,z+57,33)<0.45){
     plant=B.CHERRY_PETALS;
-  }else if(hash2(x-271,z+613,31)<(biome===BIOME.PLAINS?0.22:(biome===BIOME.SAVANNA?0.10:0.12))){
-    plant=FLOWERS[Math.floor(hash2(x+57,z+91,32)*FLOWERS.length)%FLOWERS.length];
+  }else if(biome===BIOME.FLOWER_FIELD){
+    // mostly flowers, from the full colourful palette, with a little grass
+    if(hash2(x-271,z+613,31)<0.78){
+      plant=FIELD_FLOWERS[Math.floor(hash2(x+57,z+91,32)*FIELD_FLOWERS.length)%FIELD_FLOWERS.length];
+    }else plant=B.TALL_GRASS;
+  }else if(hash2(x-271,z+613,31)<(biome===BIOME.PLAINS?0.22:(biome===BIOME.AUTUMN?0.18:(biome===BIOME.SAVANNA?0.10:0.12)))){
+    const pal=(biome===BIOME.PLAINS||biome===BIOME.AUTUMN)?FIELD_FLOWERS:FLOWERS;
+    plant=pal[Math.floor(hash2(x+57,z+91,32)*pal.length)%pal.length];
   }else{
     plant=B.TALL_GRASS;
   }
