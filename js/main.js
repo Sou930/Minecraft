@@ -2,6 +2,14 @@ const DAY_LENGTH=240;let dayTime=DAY_LENGTH*0.25;const skyDay=new BABYLON.Color3
 const td=document.getElementById('time-display');td.textContent=sunUp>0.15?'☀ Day':(sunUp<-0.15?'🌙 Night':(Math.cos(angle)>0?'🌅 Dawn':'🌇 Dusk'));if(sunUp<-0.15&&started&&worldReady&&typeof ACH!=='undefined')ACH.flag('night');}
 const GRAVITY=-24;function update(dt){if(!worldReady||!started||player.dead)return;if(paused&&!isMobile)return;if(inventoryOpen){if(mining.active||mining.progress>0){mining.active=false;resetMining();}
 return;}
+// While riding a boat, boat physics drives the player position; skip the
+// normal on-foot movement/gravity but keep camera, mobs, boats updated.
+if(typeof ridingBoat!=='undefined'&&ridingBoat){
+  if(mining.active||mining.progress>0){mining.active=false;resetMining();}
+  updateCamera();updatePlayerModel(dt);updateMobs(dt);if(typeof updateAttackCooldown==='function')updateAttackCooldown(dt);updateBoats(dt);updateTarget();
+  const inHead=isInWater(PLAYER.eye-0.1);document.getElementById('water-tint').style.opacity=inHead?'1':'0';
+  return;
+}
 let mx=0,mz=0;if(keys['KeyW'])mz+=1;if(keys['KeyS'])mz-=1;if(keys['KeyA'])mx-=1;if(keys['KeyD'])mx+=1;if(joy.active){mx+=joy.x;mz+=-joy.y;}
 const mlen=Math.hypot(mx,mz);if(mlen>1){mx/=mlen;mz/=mlen;}
 const sin=Math.sin(player.yaw),cos=Math.cos(player.yaw);const dirX=mx*cos+mz*sin,dirZ=-mx*sin+mz*cos;const inWaterBody=isInWater(0.5);const inWaterHead=isInWater(PLAYER.eye-0.1);if(inWaterHead&&typeof ACH!=='undefined')ACH.flag('swim');const sprint=(!!keys['ShiftLeft']||!!keys['ShiftRight'])&&player.pose===POSE.STAND;let speed=player.flying?10:(sprint?6.6:4.3);
@@ -31,7 +39,7 @@ if(player.hunger>=14&&player.hp<20){player.regenTimer+=dt;if(player.regenTimer>3
 // Lava burns: standing in / touching lava deals rapid damage.
 if(!player.flying&&(isInLava(0.2)||isInLava(0.9))){player.lavaTimer=(player.lavaTimer||0)+dt;if(player.lavaTimer>0.5){player.lavaTimer=0;damage(3);}}else player.lavaTimer=0;
 if(typeof SFX!=='undefined'){if(inWaterBody&&!player._wasInWater)SFX.splash();player._wasInWater=inWaterBody;}
-updateCamera();updatePlayerModel(dt);updateMobs(dt);updateTarget();updateMining(dt);document.getElementById('water-tint').style.opacity=inWaterHead?'1':'0';}
+updateCamera();updatePlayerModel(dt);updateMobs(dt);if(typeof updateAttackCooldown==='function')updateAttackCooldown(dt);if(typeof updateBoats==='function')updateBoats(dt);updateTarget();updateMining(dt);document.getElementById('water-tint').style.opacity=inWaterHead?'1':'0';}
 // Update camera position based on view mode
 function updateCamera(){const eyeX=player.pos.x,eyeY=player.pos.y+PLAYER.eye,eyeZ=player.pos.z;const view=(typeof cameraView!=='undefined')?cameraView:0;if(view===0){camera.position.set(eyeX,eyeY,eyeZ);camera.rotation.set(player.pitch,player.yaw,0);return;}
 const cp=Math.cos(player.pitch),sp=Math.sin(player.pitch),sy=Math.sin(player.yaw),cy=Math.cos(player.yaw);

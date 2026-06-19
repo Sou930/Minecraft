@@ -10,10 +10,10 @@ function makePart(parent,name,size,pos,hex){const box=BABYLON.MeshBuilder.Create
 
 // Mob type definitions
 const MOB_TYPES={
-  pig:   {name:'Pig',  emoji:'🐷', body:'#e89bb0', leg:'#d98aa0', head:'#e89bb0', snout:'#d97a92', bodyH:0.7, legH:0.45, headSize:0.55, speed:1.4, hp:10},
-  sheep: {name:'Sheep',emoji:'🐑', body:'#eef0ee', leg:'#6b6f72', head:'#e6e2da', snout:null,      bodyH:0.8, legH:0.5,  headSize:0.5,  speed:1.2, hp:8, fluffy:true},
-  cow:   {name:'Cow',  emoji:'🐮', body:'#5a4636', leg:'#3f3228', head:'#5a4636', snout:'#d7c5b0', bodyH:0.85,legH:0.55, headSize:0.55, speed:1.1, hp:12, patch:'#efeae2'},
-  chicken:{name:'Chicken',emoji:'🐔',body:'#f2f2f2', leg:'#e0a23a', head:'#f2f2f2', snout:'#e0a23a',bodyH:0.45,legH:0.25, headSize:0.32, speed:1.6, hp:4, small:true},
+  pig:   {name:'Pig',  emoji:'🐷', body:'#e89bb0', leg:'#d98aa0', head:'#e89bb0', snout:'#d97a92', bodyH:0.7, legH:0.45, headSize:0.55, speed:1.4, hp:10, drops:[{id:230,min:1,max:3}]},
+  sheep: {name:'Sheep',emoji:'🐑', body:'#eef0ee', leg:'#6b6f72', head:'#e6e2da', snout:null,      bodyH:0.8, legH:0.5,  headSize:0.5,  speed:1.2, hp:8, fluffy:true, drops:[{id:233,min:1,max:2},{id:42,min:1,max:1}]},
+  cow:   {name:'Cow',  emoji:'🐮', body:'#5a4636', leg:'#3f3228', head:'#5a4636', snout:'#d7c5b0', bodyH:0.85,legH:0.55, headSize:0.55, speed:1.1, hp:12, patch:'#efeae2', drops:[{id:231,min:1,max:3},{id:234,min:0,max:2}]},
+  chicken:{name:'Chicken',emoji:'🐔',body:'#f2f2f2', leg:'#e0a23a', head:'#f2f2f2', snout:'#e0a23a',bodyH:0.45,legH:0.25, headSize:0.32, speed:1.6, hp:4, small:true, drops:[{id:232,min:1,max:1},{id:235,min:0,max:2}]},
 };
 
 // Build mob mesh hierarchy
@@ -56,6 +56,7 @@ function spawnMob(type,x,y,z){const meshes=buildMobMesh(type);const t=MOB_TYPES[
   lookTimer:0,
   jumpCooldown:0,
   stuckTimer:0,prevX:x+0.5,prevZ:z+0.5,
+  hurtFlash:0,dead:false,invuln:0,
   };meshes.root.position.copyFrom(mob.pos);mobs.push(mob);return mob;}
 
 function trySpawnMobs(){if(mobs.length>=MAX_MOBS)return;if(typeof player==='undefined')return;for(let attempt=0;attempt<6&&mobs.length<MAX_MOBS;attempt++){const ang=Math.random()*Math.PI*2;const r=14+Math.random()*16;const x=Math.floor(player.pos.x+Math.cos(ang)*r);const z=Math.floor(player.pos.z+Math.sin(ang)*r);if(x<2||x>=WORLD_W-2||z<2||z>=WORLD_D-2)continue;const y=spawnHeightAt(x,z);if(y===null)continue;spawnMob(pickAnimalType(),x,y,z);}}
@@ -139,7 +140,83 @@ function updateOneMob(mob,dt){
   if(moving){mob.walkPhase+=dt*(5+groundSpeed*3.2);}else{mob.walkPhase*=0.82;}
   const amp=Math.min(0.6,0.25+groundSpeed*0.22);const swing=Math.sin(mob.walkPhase)*amp;
   mob.meshes.legs.forEach((leg,i)=>{const s=(i===0||i===3)?swing:-swing;leg.rotation.x=s;});
+
+  // Hit reaction: a brief squash + lift when recently damaged (per-mob, via
+  // the mob's own root transform so it never affects other mobs).
+  if(mob.invuln>0)mob.invuln-=dt;
+  if(mob.hurtFlash>0){mob.hurtFlash-=dt;const f=Math.max(0,mob.hurtFlash/0.3);
+    mob.meshes.root.scaling.set(1+f*0.22,1-f*0.18,1+f*0.22);
+  }else if(mob.meshes.root.scaling.y!==1){mob.meshes.root.scaling.set(1,1,1);}
 }
+
+// --- Combat: damaging / killing mobs ---------------------------------------
+// Find the mob the camera is currently aiming at within `maxDist`.
+function pickAttackMob(maxDist){
+  if(typeof camera==='undefined')return null;
+  const origin=camera.position;const dir=camera.getDirection(BABYLON.Vector3.Forward());
+  let best=null,bestT=maxDist;
+  for(const mob of mobs){if(mob.dead)continue;
+    const hw=mob.halfW+0.15,h=mob.height+0.1;
+    const minX=mob.pos.x-hw,maxX=mob.pos.x+hw,minY=mob.pos.y-0.05,maxY=mob.pos.y+h,minZ=mob.pos.z-hw,maxZ=mob.pos.z+hw;
+    const t=rayBoxHit(origin,dir,minX,minY,minZ,maxX,maxY,maxZ);
+    if(t!==null&&t<bestT){bestT=t;best=mob;}
+  }
+  return best;
+}
+// Slab-method ray vs AABB; returns entry distance or null.
+function rayBoxHit(o,d,minX,minY,minZ,maxX,maxY,maxZ){
+  let tmin=0,tmax=Infinity;
+  const axes=[['x',minX,maxX],['y',minY,maxY],['z',minZ,maxZ]];
+  for(const[a,mn,mx]of axes){const od=d[a];const oo=o[a];
+    if(Math.abs(od)<1e-8){if(oo<mn||oo>mx)return null;}
+    else{let t1=(mn-oo)/od,t2=(mx-oo)/od;if(t1>t2){const tmp=t1;t1=t2;t2=tmp;}
+      tmin=Math.max(tmin,t1);tmax=Math.min(tmax,t2);if(tmin>tmax)return null;}}
+  return tmin;
+}
+
+// Damage a mob; applies knockback, flash, flee and handles death + drops.
+function attackMob(mob,dmg){
+  if(!mob||mob.dead||mob.invuln>0)return false;
+  mob.hp-=dmg;mob.invuln=0.35;mob.hurtFlash=0.3;
+  if(typeof SFX!=='undefined'&&SFX.hurt)SFX.hurt();
+  // Knockback away from player + a little hop.
+  const dx=mob.pos.x-player.pos.x,dz=mob.pos.z-player.pos.z;const len=Math.hypot(dx,dz)||1;
+  mob.vel.x+=(dx/len)*5.5;mob.vel.z+=(dz/len)*5.5;if(mob.onGround)mob.vel.y=4.2;
+  // Panic: run away from the player.
+  mob.moving=true;mob.targetYaw=Math.atan2(dx,dz);mob.wanderTimer=Math.max(mob.wanderTimer,2.5);
+  if(mob.hp<=0){killMob(mob);return true;}
+  return true;
+}
+
+function killMob(mob){
+  if(mob.dead)return;mob.dead=true;
+  // Drop loot.
+  const drops=mob.t.drops||[];
+  if(typeof addToInventory==='function'){
+    for(const d of drops){const n=d.min+Math.floor(Math.random()*(d.max-d.min+1));for(let i=0;i<n;i++)addToInventory(d.id,1);}
+  }
+  if(typeof ACH!=='undefined'&&ACH.track)ACH.track('hunt');
+  // Despawn.
+  const idx=mobs.indexOf(mob);if(idx>=0)mobs.splice(idx,1);
+  mob.meshes.root.dispose();mob.meshes.legs.forEach(l=>l.dispose&&l.dispose());
+}
+
+// Player attack: called on left-click. Returns true if a mob was hit
+// (so the caller can skip block-mining for that click).
+let _attackCooldown=0;
+function tryPlayerAttack(){
+  if(_attackCooldown>0)return false;
+  const reach=isMobile?3.6:4.0;
+  const mob=pickAttackMob(reach);
+  if(!mob)return false;
+  // Base damage 2; +damage when holding a tool (axe/pickaxe = weapon-ish).
+  let dmg=2;const slot=(typeof inventory!=='undefined')?inventory[selectedSlot]:null;
+  if(slot&&typeof isTool==='function'&&isTool(slot.id)){const td=toolDef(slot.id);const mat=(typeof TOOL_MATERIALS!=='undefined')?TOOL_MATERIALS[td.material]:null;dmg=2+(mat?mat.tier:1)*1.5;}
+  attackMob(mob,dmg);
+  _attackCooldown=0.45;
+  return true;
+}
+function updateAttackCooldown(dt){if(_attackCooldown>0)_attackCooldown-=dt;}
 
 let playerModel=null;
 function buildPlayerModel(){const root=new BABYLON.TransformNode('playerModel',scene);
