@@ -1,5 +1,22 @@
-const DAY_LENGTH=240;let dayTime=DAY_LENGTH*0.25;const skyDay=new BABYLON.Color3(0.53,0.81,0.92);const skyNight=new BABYLON.Color3(0.03,0.05,0.13);function updateDayNight(dt){dayTime=(dayTime+dt)%DAY_LENGTH;const angle=(dayTime/DAY_LENGTH)*Math.PI*2;const sunUp=Math.sin(angle);const dayF=Math.max(0,Math.min(1,sunUp*2+0.2));sunLight.direction=new BABYLON.Vector3(-Math.cos(angle)*0.6,-Math.max(0.15,sunUp),-0.35).normalize();sunLight.intensity=0.75*Math.max(0,sunUp);hemiLight.intensity=0.25+0.6*dayF;const sky=BABYLON.Color3.Lerp(skyNight,skyDay,dayF);scene.clearColor=new BABYLON.Color4(sky.r,sky.g,sky.b,1);scene.fogColor=sky;const SKY_DIST=230;const sx=Math.cos(angle)*0.6,sy=sunUp,sz=0.35;const sl=Math.hypot(sx,sy,sz);sunMesh.position.set(camera.position.x+(sx/sl)*SKY_DIST,camera.position.y+(sy/sl)*SKY_DIST,camera.position.z+(sz/sl)*SKY_DIST);sunMesh.setEnabled(sunUp>-0.12);moonMesh.position.set(camera.position.x-(sx/sl)*SKY_DIST,camera.position.y-(sy/sl)*SKY_DIST,camera.position.z-(sz/sl)*SKY_DIST);moonMesh.setEnabled(sunUp<0.12);if(typeof LIGHTING!=='undefined')LIGHTING.setNightFactor(dayF);
+const DAY_LENGTH=720;let dayTime=DAY_LENGTH*0.25;const skyDay=new BABYLON.Color3(0.53,0.81,0.92);const skyNight=new BABYLON.Color3(0.03,0.05,0.13);function updateDayNight(dt){dayTime=(dayTime+dt)%DAY_LENGTH;const angle=(dayTime/DAY_LENGTH)*Math.PI*2;const sunUp=Math.sin(angle);const dayF=Math.max(0,Math.min(1,sunUp*2+0.2));sunLight.direction=new BABYLON.Vector3(-Math.cos(angle)*0.6,-Math.max(0.15,sunUp),-0.35).normalize();sunLight.intensity=0.75*Math.max(0,sunUp);hemiLight.intensity=0.25+0.6*dayF;const sky=BABYLON.Color3.Lerp(skyNight,skyDay,dayF);scene.clearColor=new BABYLON.Color4(sky.r,sky.g,sky.b,1);scene.fogColor=sky;const SKY_DIST=230;const sx=Math.cos(angle)*0.6,sy=sunUp,sz=0.35;const sl=Math.hypot(sx,sy,sz);sunMesh.position.set(camera.position.x+(sx/sl)*SKY_DIST,camera.position.y+(sy/sl)*SKY_DIST,camera.position.z+(sz/sl)*SKY_DIST);sunMesh.setEnabled(sunUp>-0.12);moonMesh.position.set(camera.position.x-(sx/sl)*SKY_DIST,camera.position.y-(sy/sl)*SKY_DIST,camera.position.z-(sz/sl)*SKY_DIST);moonMesh.setEnabled(sunUp<0.12);if(typeof LIGHTING!=='undefined')LIGHTING.setNightFactor(dayF);
 const td=document.getElementById('time-display');td.textContent=sunUp>0.15?'☀ Day':(sunUp<-0.15?'🌙 Night':(Math.cos(angle)>0?'🌅 Dawn':'🌇 Dusk'));if(sunUp<-0.15&&started&&worldReady&&typeof ACH!=='undefined')ACH.flag('night');}
+// True while it is night (sun well below the horizon) — used to gate sleeping.
+function isNightTime(){const angle=(dayTime/DAY_LENGTH)*Math.PI*2;return Math.sin(angle)<-0.12;}
+// Bed sleep: fast-forward `dayTime` to dawn (the start of the day cycle) when
+// the player uses a bed at night. Mirrors Minecraft's "sleep through the night".
+function tryUseBed(){
+  if(typeof player!=='undefined'&&player&&player.dead)return;
+  if(!isNightTime()){
+    showBedMessage(typeof t==='function'?t('bedDayOnly'):'🛏 You can only sleep at night');
+    return;
+  }
+  // Advance time to the next morning (just after sunrise) and skip the rest of
+  // the night. dayTime wraps within [0,DAY_LENGTH); dawn is at dayTime≈0.
+  dayTime=DAY_LENGTH*0.02;
+  if(typeof SFX!=='undefined'&&SFX.resume)SFX.resume();
+  showBedMessage(typeof t==='function'?t('bedSlept'):'🛏 Good morning! You slept through the night.');
+}
+function showBedMessage(msg){const el=document.getElementById('tool-break-msg');if(!el)return;el.textContent=msg;el.style.opacity='1';clearTimeout(el._t);el._t=setTimeout(()=>{el.style.opacity='0';},1600);}
 const GRAVITY=-24;function update(dt){if(!worldReady||!started||player.dead)return;if(paused&&!isMobile)return;if(inventoryOpen){if(mining.active||mining.progress>0){mining.active=false;resetMining();}
 return;}
 // While riding a boat, boat physics drives the player position; skip the

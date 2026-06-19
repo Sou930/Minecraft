@@ -37,7 +37,8 @@ const I18N = {
     rename:'Rename', delete:'Delete',
     renamePrompt:'New world name:', defaultWorldName:'My World',
     deleteConfirm:'Delete this world? This cannot be undone.',
-    home:'Home', screenshotMode:'Screenshot mode (F2)', exit:'Exit',
+    home:'Home', screenshotMode:'Screenshot mode (P)', exit:'Exit',
+    bedDayOnly:'🛏 You can only sleep at night', bedSlept:'🛏 Good morning! You slept through the night.',
   },
   ja: {
     langName:'日本語',
@@ -65,7 +66,8 @@ const I18N = {
     rename:'名前変更', delete:'削除',
     renamePrompt:'新しいワールド名：', defaultWorldName:'マイワールド',
     deleteConfirm:'このワールドを削除しますか？元に戻せません。',
-    home:'ホーム', screenshotMode:'スクリーンショットモード (F2)', exit:'終了',
+    home:'ホーム', screenshotMode:'スクリーンショットモード (P)', exit:'終了',
+    bedDayOnly:'🛏 夜にしか眠れません', bedSlept:'🛏 おはよう！朝まで眠りました。',
   },
 };
 const LANG_ORDER=['en','ja'];

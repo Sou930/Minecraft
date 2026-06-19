@@ -9,8 +9,8 @@ if(!started||paused)return;if(e.code==='KeyE'){toggleInventory();return;}
 if(inventoryOpen){if(e.code==='Escape')toggleInventory(false);return;}
 if(e.code>='Digit1'&&e.code<='Digit9')selectSlot(parseInt(e.code.slice(5),10)-1);if(e.code==='KeyF'){if(typeof ridingBoat!=='undefined'&&ridingBoat){exitBoat();return;}player.flying=!player.flying;player.vel.y=0;if(player.flying&&typeof ACH!=='undefined')ACH.flag('fly');}
 if(e.code==='KeyR')respawn();
-// P: cycle camera views (PC)
-if(e.code==='KeyP')cycleCameraView();
+// V: cycle camera views (PC)
+if(e.code==='KeyV')cycleCameraView();
 // Ctrl: crouch (hold to crouch, release to stand up)
 if(e.code==='ControlLeft'||e.code==='ControlRight')setCrouch(true);
 });document.addEventListener('keyup',(e)=>{keys[e.code]=false;if((e.code==='ControlLeft'||e.code==='ControlRight')&&started&&!paused)setCrouch(false);});document.addEventListener('mousemove',(e)=>{if(document.pointerLockElement!==canvas)return;player.yaw+=e.movementX*0.0023;player.pitch+=e.movementY*0.0023;player.pitch=Math.max(-1.55,Math.min(1.55,player.pitch));});document.addEventListener('pointerlockchange',()=>{if(isMobile)return;if(document.pointerLockElement===canvas){paused=false;document.getElementById('start-overlay').style.display='none';}else if(typeof SCREENSHOT!=='undefined'&&SCREENSHOT.isActive()){SCREENSHOT.exit();}else if(started&&!inventoryOpen&&!(typeof settingsOpen!=='undefined'&&settingsOpen)){paused=true;const ov=document.getElementById('start-overlay');ov.style.display='flex';ov.querySelector('h1').textContent=(typeof t==='function'?t('paused'):'Paused');document.getElementById('btn-start').textContent='▶ '+(typeof t==='function'?t('resume'):'Resume');}});let actionInterval=null;canvas.addEventListener('mousedown',(e)=>{if(isMobile||!started||paused)return;if(document.pointerLockElement!==canvas)return;if(e.button===0){if(typeof tryPlayerAttack==='function'&&tryPlayerAttack())return;mining.active=true;}else if(e.button===2){placeOrEat();clearInterval(actionInterval);actionInterval=setInterval(placeOrEat,240);}});document.addEventListener('mouseup',(e)=>{clearInterval(actionInterval);if(e.button===0){mining.active=false;resetMining();}});document.addEventListener('contextmenu',(e)=>e.preventDefault());canvas.addEventListener('wheel',(e)=>{if(!started||paused||inventoryOpen)return;selectSlot((selectedSlot+(e.deltaY>0?1:-1)+9)%9);},{passive:true});(function setupJoystick(){const zone=document.getElementById('joystick-zone');const base=document.getElementById('joystick-base');const knob=document.getElementById('joystick-knob');let touchId=null;function center(){const r=base.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2,rad:r.width/2};}
@@ -65,6 +65,10 @@ if(typeof ridingBoat!=='undefined'&&ridingBoat){clearInterval(actionInterval);ex
 // Right-click an existing boat in the world to board it.
 if(typeof tryEnterNearbyBoat==='function'&&tryEnterNearbyBoat()){clearInterval(actionInterval);return;}
 if(currentTarget&&currentTarget.id===B.CRAFTING){clearInterval(actionInterval);toggleInventory(true,3);return;}
+// Right-click a bed (red wool) at night to sleep through it, fast-forwarding
+// to the next morning. During the day, fall through so red wool can still be
+// stacked/built with normally. Holding nothing in hand also lets you sleep.
+if(currentTarget&&currentTarget.id===B.WOOL_RED&&typeof isNightTime==='function'&&isNightTime()){clearInterval(actionInterval);if(typeof tryUseBed==='function')tryUseBed();return;}
 const slot=inventory[selectedSlot];if(!slot)return;const itemDef=ITEMS[slot.id];
 // Boat item: place a boat on the targeted water.
 if(itemDef&&itemDef.boat){clearInterval(actionInterval);if(typeof tryPlaceBoat==='function'&&tryPlaceBoat())consumeFromSlot(selectedSlot,1);return;}

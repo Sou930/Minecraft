@@ -4,7 +4,7 @@
  * ----------------------------------------------------------------------------
  * Hides ALL gameplay UI (HUD, hotbar, crosshair, joystick, touch buttons, …)
  * leaving only the rendered world so the player can capture clean scenery.
- * Toggle with the 📷 button or the F2 key; exit with F2 / Esc / the ✕ button.
+ * Toggle with the 📷 button or the P key; exit with P / Esc / the ✕ button.
  *
  * On PC, pointer lock stays active so the player can still look around (move the
  * mouse) while in screenshot mode. Gameplay input that would change UI state is
@@ -38,7 +38,7 @@
 
   // --- input bindings ------------------------------------------------------
   document.addEventListener('keydown',(e)=>{
-    if(e.code==='F2'){e.preventDefault();toggle();return;}
+    if(e.code==='KeyP'){e.preventDefault();toggle();return;}
     if(active&&e.code==='Escape'){e.preventDefault();exit();}
   });
 
