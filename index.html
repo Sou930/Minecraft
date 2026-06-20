@@ -29,6 +29,16 @@ Place a crafting table and right-click to open 3×3 crafting
         <button class="set-toggle" id="set-lowqual-toggle">Off</button>
       </div>
       <p class="set-hint" id="set-lowqual-hint">Blurs/down-samples textures for better performance</p>
+      <div class="set-row">
+        <span class="set-label" id="set-shaders-label">Shaders (Shadow Mod)</span>
+        <button class="set-toggle" id="set-shaders-toggle">On</button>
+      </div>
+      <p class="set-hint" id="set-shaders-hint">Built-in shadow-mod look: dynamic shadows, bloom &amp; richer lighting</p>
+      <div class="set-row">
+        <span class="set-label" id="set-fly-label">Flight Mode</span>
+        <button class="set-toggle" id="set-fly-toggle">Off</button>
+      </div>
+      <p class="set-hint" id="set-fly-hint">Password-protected. While ON: Space = up, C = down</p>
     </section>
   </div>
   <div id="ach-overlay" aria-label="Achievements"> <section id="ach-panel"> <header id="ach-header"> <h2>🏆 Achievements</h2> <span id="ach-summary">0 / 0 unlocked</span> <button id="btn-ach-close" aria-label="Close">✕</button> </header> <ul id="ach-list"></ul> </section> </div>
@@ -97,6 +107,8 @@ Place a crafting table and right-click to open 3×3 crafting
   <script src="js/systems/fishing.js"></script>
   <!-- Visual effects -->
   <script src="js/effects/particles.js"></script>
+  <!-- Built-in shadow-mod shaders + held-light system -->
+  <script src="js/effects/shaderfx.js"></script>
   <!-- UI screens -->
   <script src="js/ui/home.js"></script>
   <script src="js/ui/screenshot.js"></script>
