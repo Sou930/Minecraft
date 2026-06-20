@@ -289,6 +289,43 @@ function doorBase(t,seed){const[ox,oy]=tileOrigin(t);const rnd=mulberry32(seed);
  panel(5,3,9,26);panel(18,3,9,26);
  // door handle near the right edge
  ctx.fillStyle='#4e3a1c';ctx.fillRect(ox+27,oy+12,2,4);ctx.fillStyle='#3a2a12';ctx.fillRect(ox+28,oy+13,1,2);}
+// --- Bed -------------------------------------------------------------------
+// Top: a red quilted mattress with a white pillow at one end and quilt seams.
+{const[ox,oy]=tileOrigin(T.BED_TOP);const rnd=mulberry32(2060);
+ // red mattress base
+ ctx.fillStyle='#b53b32';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);
+ for(let i=0;i<70;i++){ctx.fillStyle=['#a8342b','#c14138','#9e2f27'][Math.floor(rnd()*3)];ctx.fillRect(ox+Math.floor(rnd()*TILE_PX/2)*2,oy+Math.floor(rnd()*TILE_PX/2)*2,2,2);}
+ // quilt seam grid
+ ctx.fillStyle='rgba(80,20,16,0.5)';for(let x=8;x<TILE_PX;x+=8)ctx.fillRect(ox+x,oy+8,1,TILE_PX-8);for(let y=14;y<TILE_PX;y+=8)ctx.fillRect(ox,oy+y,TILE_PX,1);
+ // white pillow across the top edge
+ ctx.fillStyle='#eee9e2';ctx.fillRect(ox+2,oy+2,TILE_PX-4,8);
+ ctx.fillStyle='#fbf8f3';ctx.fillRect(ox+3,oy+3,TILE_PX-6,3);
+ ctx.fillStyle='#d8d2c8';ctx.fillRect(ox+2,oy+9,TILE_PX-4,1);
+ // pillow crease
+ ctx.fillStyle='rgba(180,170,158,0.6)';ctx.fillRect(ox+TILE_PX/2-1,oy+3,1,6);}
+// Side: red cloth over a wooden bed frame with little legs.
+{const[ox,oy]=tileOrigin(T.BED_SIDE);
+ // wooden frame underneath
+ ctx.fillStyle='#8a5a2c';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);
+ // red blanket draped over the top ~two-thirds
+ ctx.fillStyle='#b53b32';ctx.fillRect(ox,oy,TILE_PX,20);
+ const rnd=mulberry32(2061);for(let i=0;i<40;i++){ctx.fillStyle=['#a8342b','#c14138'][Math.floor(rnd()*2)];ctx.fillRect(ox+Math.floor(rnd()*16)*2,oy+Math.floor(rnd()*10)*2,2,2);}
+ // blanket bottom hem
+ ctx.fillStyle='#8a201a';ctx.fillRect(ox,oy+19,TILE_PX,2);
+ // wooden frame rail + legs
+ ctx.fillStyle='#6f4a24';ctx.fillRect(ox,oy+21,TILE_PX,4);
+ ctx.fillStyle='#5e3f1e';ctx.fillRect(ox+2,oy+25,5,7);ctx.fillRect(ox+TILE_PX-7,oy+25,5,7);}
+// End (head/footboard): wooden board with the red blanket showing above it.
+{const[ox,oy]=tileOrigin(T.BED_END);
+ ctx.fillStyle='#8a5a2c';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);
+ // red blanket edge at the very top
+ ctx.fillStyle='#b53b32';ctx.fillRect(ox,oy,TILE_PX,7);
+ ctx.fillStyle='#8a201a';ctx.fillRect(ox,oy+6,TILE_PX,1);
+ // wooden plank grain on the board
+ const rnd=mulberry32(2062);for(let x=0;x<TILE_PX;x+=2){ctx.fillStyle=['#7d5128','#946133','#85562b'][Math.floor(rnd()*3)];ctx.fillRect(ox+x,oy+8,2,TILE_PX-8);}
+ ctx.fillStyle='#6f4a24';ctx.fillRect(ox,oy+7,TILE_PX,2);
+ // little legs
+ ctx.fillStyle='#5e3f1e';ctx.fillRect(ox+2,oy+25,5,7);ctx.fillRect(ox+TILE_PX-7,oy+25,5,7);}
 })();function tileUV(t){const col=t%ATLAS_TILES,row=Math.floor(t/ATLAS_TILES);const padU=0.5/ATLAS_W,padV=0.5/ATLAS_H;return{u1:col/ATLAS_TILES+padU,u2:(col+1)/ATLAS_TILES-padU,v1:1-(row+1)/ATLAS_ROWS+padV,v2:1-row/ATLAS_ROWS-padV,};}
 /* ---------------------------------------------------------------------------
  * Per-material tool textures (pickaxe / axe / shovel / hoe + stick).
