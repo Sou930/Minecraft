@@ -20,11 +20,73 @@ const MOB_TYPES={
   sheep: {name:'Sheep',emoji:'🐑', body:'#eef0ee', leg:'#5a4a3c', head:'#d9cfc2', snout:null,      bodyH:0.8, legH:0.5,  headSize:0.5,  speed:1.2, hp:8, fluffy:true, wool:'#f3f1ec', ears:'#cabfae', drops:[{id:233,min:1,max:2},{id:42,min:1,max:1}]},
   cow:   {name:'Cow',  emoji:'🐮', body:'#4a3a2c', leg:'#3a2d22', head:'#4a3a2c', snout:'#c9b6a0', bodyH:0.85,legH:0.55, headSize:0.55, speed:1.1, hp:12, patch:'#efeae2', horns:'#e8e0cf', ears:'#3a2d22', udder:'#e7a6ad', drops:[{id:231,min:1,max:3},{id:234,min:0,max:2}]},
   chicken:{name:'Chicken',emoji:'🐔',body:'#f2f2f2', leg:'#e0a23a', head:'#f2f2f2', snout:null,bodyH:0.55,legH:0.25, headSize:0.32, speed:1.6, hp:4, small:true, beak:'#e0a23a', wattle:'#d23b3b', wing:'#e2e2e2', bodyWidthMul:1.05, bodyDepthMul:0.62, drops:[{id:232,min:1,max:1},{id:235,min:0,max:2}]},
+  // --- Hostile humanoid mobs (spawn at night, attack the player) ----------
+  // Ghoul (zombie-type): melee attacker that relentlessly chases the player.
+  ghoul:  {name:'Ghoul',  emoji:'🧟', humanoid:true, hostile:true, melee:true,
+           skin:'#5a8f5a', shirt:'#2f4a78', pants:'#3a2f4a',
+           speed:2.0, hp:18, attackDamage:3, attackRange:1.6, attackCooldown:1.0,
+           sightRange:24, drops:[{id:230,min:0,max:2}]},
+  // Bone Archer (skeleton-type): ranged attacker that fires arrows from afar.
+  bonearcher:{name:'Bone Archer', emoji:'💀', humanoid:true, hostile:true, ranged:true,
+           skin:'#e6e6dd', shirt:'#cfcfc4', pants:'#bcbcb2',
+           speed:1.7, hp:14, attackDamage:2, sightRange:28,
+           shootRange:18, shootCooldown:1.8, keepDist:8, arrowSpeed:22,
+           drops:[]},
 };
+
+// Build a bipedal humanoid mesh (zombie / skeleton style): upright torso,
+// cube head, two arms (held forward for the ghoul, ready-to-draw for the
+// archer) and two legs that swing while walking. Returns the same shape as
+// buildMobMesh so the rest of the AI/animation code can treat it uniformly.
+function buildHumanoidMesh(type){
+  const t=MOB_TYPES[type];const root=new BABYLON.TransformNode('mob_'+type,scene);
+  const parts=[];
+  const legH=0.78,torsoH=0.7,torsoW=0.42,torsoD=0.24,hs=0.46;
+  // Torso sits on top of the legs.
+  const torso=makePart(root,'torso',[torsoW,torsoH,torsoD],[0,legH+torsoH/2,0],t.shirt,parts);
+  // Head group (so it can look toward the player).
+  const headGroup=new BABYLON.TransformNode('headGroup',scene);headGroup.parent=root;
+  headGroup.position.set(0,legH+torsoH+hs/2-0.02,0);
+  makePart(headGroup,'head',[hs,hs,hs],[0,0,0],t.skin,parts);
+  // Glowing eyes: red for the ghoul, dark sockets for the skeleton archer.
+  const eyeCol=type==='ghoul'?'#ff3b30':'#1a1a1a';
+  makePart(headGroup,'eyeL',[hs*0.18,hs*0.16,0.02],[-hs*0.22,hs*0.05,hs*0.5],eyeCol,parts);
+  makePart(headGroup,'eyeR',[hs*0.18,hs*0.16,0.02],[ hs*0.22,hs*0.05,hs*0.5],eyeCol,parts);
+  // Bone archer gets a simple ribcage hint and a jaw line.
+  if(type==='bonearcher'){
+    makePart(headGroup,'jaw',[hs*0.7,hs*0.18,hs*0.6],[0,-hs*0.42,0],'#d8d8cd',parts);
+    makePart(root,'ribs',[torsoW*0.7,torsoH*0.55,torsoD*0.6],[0,legH+torsoH*0.5,torsoD*0.25],'#deded3',parts);
+  }
+  // Arms: pivot at the shoulder so they can be posed/animated.
+  const armW=0.14,armH=0.68,armD=0.16;const shoulderY=legH+torsoH-0.04;
+  const armL=new BABYLON.TransformNode('armLp',scene);armL.parent=root;armL.position.set(-(torsoW/2+armW/2),shoulderY,0);
+  makePart(armL,'armL',[armW,armH,armD],[0,-armH/2,0],type==='bonearcher'?t.skin:t.skin,parts);
+  const armR=new BABYLON.TransformNode('armRp',scene);armR.parent=root;armR.position.set((torsoW/2+armW/2),shoulderY,0);
+  makePart(armR,'armR',[armW,armH,armD],[0,-armH/2,0],t.skin,parts);
+  // Pose the arms: ghoul reaches forward (classic zombie), archer holds a
+  // drawn-bow stance with one arm extended.
+  if(type==='ghoul'){armL.rotation.x=-Math.PI*0.5;armR.rotation.x=-Math.PI*0.5;}
+  if(type==='bonearcher'){
+    armL.rotation.x=-Math.PI*0.5;armR.rotation.x=-Math.PI*0.35;
+    // A small bow held in the left hand.
+    const bow=makePart(armL,'bow',[0.06,0.7,0.06],[0,-armH-0.05,0.18],'#6b4a2a',parts);
+    bow.rotation.x=Math.PI*0.5;
+  }
+  // Legs.
+  const legW=0.18,legD=0.2;
+  const legs=[];
+  const legL=new BABYLON.TransformNode('legPivotL',scene);legL.parent=root;legL.position.set(-legW/2-0.01,legH,0);
+  makePart(legL,'legL',[legW,legH,legD],[0,-legH/2,0],t.pants,parts);legs.push(legL);
+  const legR=new BABYLON.TransformNode('legPivotR',scene);legR.parent=root;legR.position.set(legW/2+0.01,legH,0);
+  makePart(legR,'legR',[legW,legH,legD],[0,-legH/2,0],t.pants,parts);legs.push(legR);
+  return {root,legs,head:headGroup,bodyH:legH,parts,wings:[],arms:[armL,armR],humanoid:true};
+}
 
 // Build mob mesh hierarchy
 function buildMobMesh(type){
-  const t=MOB_TYPES[type];const root=new BABYLON.TransformNode('mob_'+type,scene);
+  const t=MOB_TYPES[type];
+  if(t.humanoid)return buildHumanoidMesh(type);
+  const root=new BABYLON.TransformNode('mob_'+type,scene);
   const s=t.small?0.8:1;
   // Per-species body proportions. The chicken in particular needs a more
   // compact, upright body (shorter front-to-back) so it doesn't read as an
@@ -101,6 +163,10 @@ const MOB_TICK={spawnTimer:0};
 function spawnHeightAt(x,z){for(let y=WORLD_H-2;y>1;y--){const id=getBlock(x,y,z);if(id===B.WATER||id===B.LAVA)return null;if(isSolid(id)){if(getBlock(x,y+1,z)===B.AIR&&getBlock(x,y+2,z)===B.AIR)return y+1;return null;}}return null;}
 
 function pickAnimalType(){const r=Math.random();if(r<0.3)return 'pig';if(r<0.6)return 'sheep';if(r<0.82)return 'cow';return 'chicken';}
+// Pick a hostile mob type: roughly 60% melee ghoul, 40% ranged bone archer.
+function pickHostileType(){return Math.random()<0.6?'ghoul':'bonearcher';}
+// Count how many currently-alive mobs are hostile (used to cap night spawns).
+function countHostile(){let n=0;for(const m of mobs)if(m.hostile)n++;return n;}
 
 function spawnMob(type,x,y,z){const meshes=buildMobMesh(type);const t=MOB_TYPES[type];const mob={type,t,meshes,pos:new BABYLON.Vector3(x+0.5,y,z+0.5),vel:new BABYLON.Vector3(0,0,0),yaw:Math.random()*Math.PI*2,onGround:false,wanderTimer:0,targetYaw:Math.random()*Math.PI*2,moving:false,walkPhase:0,hp:t.hp,halfW:0.32,height:Math.max(0.5,t.bodyH+t.legH),
   speedMul:0,
@@ -109,9 +175,29 @@ function spawnMob(type,x,y,z){const meshes=buildMobMesh(type);const t=MOB_TYPES[
   jumpCooldown:0,
   stuckTimer:0,prevX:x+0.5,prevZ:z+0.5,
   hurtFlash:0,dead:false,invuln:0,
+  hostile:!!t.hostile,
+  attackTimer:0,        // melee swing / shoot cooldown
+  burnTimer:0,          // daylight burn accumulator (undead burn in sun)
   };meshes.root.position.copyFrom(mob.pos);mobs.push(mob);return mob;}
 
-function trySpawnMobs(){if(mobs.length>=MAX_MOBS)return;if(typeof player==='undefined')return;for(let attempt=0;attempt<6&&mobs.length<MAX_MOBS;attempt++){const ang=Math.random()*Math.PI*2;const r=14+Math.random()*16;const x=Math.floor(player.pos.x+Math.cos(ang)*r);const z=Math.floor(player.pos.z+Math.sin(ang)*r);if(x<2||x>=WORLD_W-2||z<2||z>=WORLD_D-2)continue;const y=spawnHeightAt(x,z);if(y===null)continue;spawnMob(pickAnimalType(),x,y,z);}}
+const MAX_HOSTILE=8;
+function trySpawnMobs(){
+  if(typeof player==='undefined')return;
+  const night=(typeof isNightTime==='function')&&isNightTime();
+  for(let attempt=0;attempt<6&&mobs.length<MAX_MOBS;attempt++){
+    const ang=Math.random()*Math.PI*2;
+    // Hostile mobs spawn a little farther out so they don't pop in right on top
+    // of the player.
+    const r=(night?18:14)+Math.random()*16;
+    const x=Math.floor(player.pos.x+Math.cos(ang)*r);const z=Math.floor(player.pos.z+Math.sin(ang)*r);
+    if(x<2||x>=WORLD_W-2||z<2||z>=WORLD_D-2)continue;
+    const y=spawnHeightAt(x,z);if(y===null)continue;
+    // At night, prefer spawning hostiles (until the hostile cap is reached);
+    // by day only passive animals appear.
+    if(night&&countHostile()<MAX_HOSTILE&&Math.random()<0.7){spawnMob(pickHostileType(),x,y,z);}
+    else{spawnMob(pickAnimalType(),x,y,z);}
+  }
+}
 
 // Swept axis-aligned collision for a mob. Mirrors the player's moveAxis():
 // after resolving against the first overlapping block we recompute the AABB
@@ -145,6 +231,7 @@ const MOB_GRAVITY=-22;
 function updateMobs(dt){if(!worldReady||!started)return;
   MOB_TICK.spawnTimer+=dt;if(MOB_TICK.spawnTimer>3){MOB_TICK.spawnTimer=0;trySpawnMobs();despawnFarMobs();}
   for(const mob of mobs){updateOneMob(mob,dt);}
+  updateArrows(dt);
 }
 
 function despawnFarMobs(){for(let i=mobs.length-1;i>=0;i--){const m=mobs[i];const dx=m.pos.x-player.pos.x,dz=m.pos.z-player.pos.z;if(dx*dx+dz*dz>70*70){m.meshes.root.dispose();m.meshes.legs.forEach(l=>l.dispose&&l.dispose());mobs.splice(i,1);}}}
@@ -164,12 +251,21 @@ function updateOneMob(mob,dt){
 
   const dx=mob.pos.x-player.pos.x,dz=mob.pos.z-player.pos.z;const distSq=dx*dx+dz*dz;
   let fleeing=false;
-  if(distSq<16){fleeing=true;mob.moving=true;mob.targetYaw=Math.atan2(dx,dz);mob.wanderTimer=Math.max(mob.wanderTimer,0.5);}
+  let chasing=false;
+  if(mob.attackTimer>0)mob.attackTimer-=dt;
 
-  const turnRate=fleeing?6.0:2.6;
+  if(mob.hostile&&!player.dead){
+    updateHostileMob(mob,dt,dx,dz,distSq);
+    chasing=mob._chasing;
+  }else if(distSq<16){
+    // Passive animals flee when the player gets close.
+    fleeing=true;mob.moving=true;mob.targetYaw=Math.atan2(dx,dz);mob.wanderTimer=Math.max(mob.wanderTimer,0.5);
+  }
+
+  const turnRate=(fleeing||chasing)?6.0:2.6;
   mob.yaw=approachAngle(mob.yaw,mob.targetYaw,turnRate*dt);
 
-  const targetSpeedMul=mob.moving?(fleeing?1.35:1.0):0;
+  const targetSpeedMul=mob.moving?(fleeing?1.35:(chasing?1.25:1.0)):0;
   mob.speedMul+=(targetSpeedMul-mob.speedMul)*Math.min(1,dt*3.5);
   if(mob.speedMul<0.02)mob.speedMul=0;
   const sp=mob.t.speed*mob.speedMul;
@@ -231,12 +327,38 @@ function updateOneMob(mob,dt){
   if(moving){mob.walkPhase+=dt*(5+groundSpeed*3.2);}else{mob.walkPhase*=0.82;}
   const amp=Math.min(0.6,0.25+groundSpeed*0.22);const swing=Math.sin(mob.walkPhase)*amp;
   mob.meshes.legs.forEach((leg,i)=>{const s=(i===0||i===3)?swing:-swing;leg.rotation.x=s;});
+  // Humanoid arm easing: after an attack lunge the arms ease back to their
+  // species rest pose (ghoul reaching forward, archer in a draw stance).
+  if(mob.meshes.humanoid&&mob.meshes.arms&&mob.meshes.arms.length){
+    let restL,restR;
+    if(mob.type==='ghoul'){restL=-Math.PI*0.5;restR=-Math.PI*0.5;}
+    else{restL=-Math.PI*0.5;restR=-Math.PI*0.35;}
+    const a=mob.meshes.arms;const k=Math.min(1,dt*6);
+    a[0].rotation.x+=(restL-a[0].rotation.x)*k;
+    a[1].rotation.x+=(restR-a[1].rotation.x)*k;
+  }
   // Chicken wings flutter up/down: fast when moving (or airborne), gentle idle.
   if(mob.meshes.wings&&mob.meshes.wings.length){
     const airborne=!mob.onGround;
     const flap=airborne?Math.sin(mob.walkPhase*4)*0.9+0.5:(moving?Math.abs(Math.sin(mob.walkPhase*2))*0.5:0.05+Math.sin(mob.walkPhase*1.5)*0.05);
     mob.meshes.wings[0].rotation.z=flap;   // left wing swings out (+z)
     mob.meshes.wings[1].rotation.z=-flap;  // right wing mirrored
+  }
+
+  // Undead burn in daylight: when an exposed hostile mob is caught in the sun
+  // it slowly takes damage (classic Minecraft zombie/skeleton behaviour).
+  if(mob.hostile&&typeof isNightTime==='function'&&!isNightTime()){
+    // Only burn when there is open sky above (no solid block overhead).
+    let sheltered=false;
+    const hx=Math.floor(mob.pos.x),hz=Math.floor(mob.pos.z);
+    for(let yy=Math.floor(mob.pos.y+mob.height)+1;yy<WORLD_H;yy++){if(isSolid(getBlock(hx,yy,hz))){sheltered=true;break;}}
+    if(!sheltered){
+      mob.burnTimer+=dt;
+      if(mob.burnTimer>=1){mob.burnTimer=0;mob.hp-=1;mob.hurtFlash=0.25;
+        if(typeof spawnHurtParticles==='function')spawnHurtParticles(mob.pos);
+        if(mob.hp<=0){killMob(mob);return;}
+      }
+    }else mob.burnTimer=0;
   }
 
   // Hit reaction: a brief squash + lift plus a Minecraft-style red flash when
@@ -262,6 +384,120 @@ function setMobHurtOverlay(mob,on,f){
   for(const p of parts){
     p.renderOverlay=on;
     if(on){p.overlayColor=_HURT_COLOR;p.overlayAlpha=0.55*Math.max(0.35,f);}
+  }
+}
+
+// --- Hostile AI -------------------------------------------------------------
+// Drives a hostile mob each frame: acquire / pursue the player, keep distance
+// (archer), and trigger melee swings or arrow shots. Sets `mob._chasing` for
+// the caller's animation/turn-rate handling.
+function updateHostileMob(mob,dt,dx,dz,distSq){
+  const t=mob.t;mob._chasing=false;
+  const dist=Math.sqrt(distSq);
+  const sight=t.sightRange||22;
+  // Lose interest if the player is far away (then fall back to wandering).
+  if(dist>sight*1.4){return;}
+  // Angle pointing FROM the mob TOWARD the player (note: yaw uses sin/cos of
+  // the facing direction, and the mob's forward is +Z when yaw=0).
+  const toPlayerYaw=Math.atan2(-dx,-dz);
+
+  if(t.ranged){
+    // Bone archer: maintain a comfortable shooting distance, then fire arrows
+    // while keeping line-of-sight to the player.
+    const keep=t.keepDist||8;const shootRange=t.shootRange||18;
+    mob._chasing=true;
+    if(dist>shootRange){
+      // Too far: close in.
+      mob.moving=true;mob.targetYaw=toPlayerYaw;
+    }else if(dist<keep){
+      // Too close: back away (face the player but walk backwards a bit).
+      mob.moving=true;mob.targetYaw=toPlayerYaw+Math.PI;
+    }else{
+      // In the sweet spot: hold position and face the player.
+      mob.moving=false;mob.targetYaw=toPlayerYaw;
+    }
+    mob.yaw=approachAngle(mob.yaw,toPlayerYaw,8*dt); // aim toward player
+    if(dist<=shootRange&&mob.attackTimer<=0&&hasLineOfSight(mob)){
+      mob.attackTimer=t.shootCooldown||1.8;
+      fireArrow(mob);
+      // Brief "draw" recoil on the arm.
+      if(mob.meshes.arms&&mob.meshes.arms[1])mob.meshes.arms[1].rotation.x=-Math.PI*0.55;
+    }
+    mob.wanderTimer=Math.max(mob.wanderTimer,0.4);
+  }else{
+    // Ghoul: relentless melee pursuit.
+    mob._chasing=true;mob.moving=true;mob.targetYaw=toPlayerYaw;
+    mob.wanderTimer=Math.max(mob.wanderTimer,0.4);
+    const range=t.attackRange||1.6;
+    if(dist<=range&&mob.attackTimer<=0){
+      mob.attackTimer=t.attackCooldown||1.0;
+      if(typeof damage==='function')damage(t.attackDamage||3);
+      // Lunge animation: swing arms.
+      if(mob.meshes.arms){mob.meshes.arms[0].rotation.x=-Math.PI*0.8;mob.meshes.arms[1].rotation.x=-Math.PI*0.8;}
+    }
+  }
+}
+
+// Crude line-of-sight check between a mob's "eyes" and the player's head:
+// step along the ray and fail if it passes through a solid block.
+function hasLineOfSight(mob){
+  const ox=mob.pos.x,oy=mob.pos.y+mob.height*0.85,oz=mob.pos.z;
+  const px=player.pos.x,py=player.pos.y+PLAYER.eye*0.8,pz=player.pos.z;
+  const dx=px-ox,dy=py-oy,dz=pz-oz;const dist=Math.hypot(dx,dy,dz)||1;
+  const steps=Math.min(40,Math.ceil(dist*2));
+  for(let i=1;i<steps;i++){const f=i/steps;const bx=Math.floor(ox+dx*f),by=Math.floor(oy+dy*f),bz=Math.floor(oz+dz*f);if(isSolid(getBlock(bx,by,bz)))return false;}
+  return true;
+}
+
+// --- Arrow projectiles (bone archer) ---------------------------------------
+const arrows=[];
+const _arrowMat=null;
+function getArrowMat(){if(getArrowMat._m)return getArrowMat._m;const m=new BABYLON.StandardMaterial('arrowMat',scene);m.diffuseColor=new BABYLON.Color3(0.32,0.22,0.12);m.emissiveColor=new BABYLON.Color3(0.18,0.13,0.07);m.specularColor=new BABYLON.Color3(0,0,0);getArrowMat._m=m;return m;}
+
+function fireArrow(mob){
+  if(typeof BABYLON==='undefined')return;
+  const t=mob.t;
+  const ox=mob.pos.x,oy=mob.pos.y+mob.height*0.8,oz=mob.pos.z;
+  // Aim at the player's torso with a little upward lead so gravity carries it.
+  const tx=player.pos.x,ty=player.pos.y+PLAYER.eye*0.6,tz=player.pos.z;
+  let dx=tx-ox,dy=ty-oy,dz=tz-oz;const d=Math.hypot(dx,dy,dz)||1;
+  const speed=t.arrowSpeed||22;
+  // Simple ballistic lead: raise the aim a touch based on distance.
+  dy+=d*0.06;
+  const inv=1/Math.hypot(dx,dy,dz);
+  const mesh=BABYLON.MeshBuilder.CreateBox('arrow',{width:0.06,height:0.06,depth:0.5},scene);
+  mesh.material=getArrowMat();mesh.isPickable=false;mesh.position.set(ox,oy,oz);
+  const arrow={mesh,pos:new BABYLON.Vector3(ox,oy,oz),
+    vel:new BABYLON.Vector3(dx*inv*speed,dy*inv*speed,dz*inv*speed),
+    life:5,damage:t.attackDamage||2};
+  arrows.push(arrow);
+  if(typeof SFX!=='undefined'&&SFX.shoot)SFX.shoot();
+}
+
+const ARROW_GRAVITY=-9;
+function updateArrows(dt){
+  if(typeof player==='undefined')return;
+  for(let i=arrows.length-1;i>=0;i--){
+    const a=arrows[i];a.life-=dt;
+    a.vel.y+=ARROW_GRAVITY*dt;
+    const nx=a.pos.x+a.vel.x*dt,ny=a.pos.y+a.vel.y*dt,nz=a.pos.z+a.vel.z*dt;
+    let dead=a.life<=0;
+    // Hit a solid block?
+    if(!dead&&isSolid(getBlock(Math.floor(nx),Math.floor(ny),Math.floor(nz))))dead=true;
+    // Hit the player? (AABB around the player capsule.)
+    if(!dead&&!player.dead){
+      const hw=PLAYER.halfW+0.15,h=PLAYER.height;
+      if(nx>player.pos.x-hw&&nx<player.pos.x+hw&&nz>player.pos.z-hw&&nz<player.pos.z+hw&&ny>player.pos.y&&ny<player.pos.y+h){
+        if(typeof damage==='function')damage(a.damage);
+        dead=true;
+      }
+    }
+    a.pos.set(nx,ny,nz);a.mesh.position.copyFrom(a.pos);
+    // Orient the arrow along its velocity.
+    const vlen=Math.hypot(a.vel.x,a.vel.z);
+    a.mesh.rotation.y=Math.atan2(a.vel.x,a.vel.z);
+    a.mesh.rotation.x=-Math.atan2(a.vel.y,vlen);
+    if(dead){a.mesh.dispose();arrows.splice(i,1);}
   }
 }
 

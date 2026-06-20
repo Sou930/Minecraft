@@ -280,6 +280,14 @@ const SFX = (function () {
     noiseBurst({ dur: 0.1, vol: 0.18, freq: 300, q: 0.8, type: 'lowpass' });
   }
 
+  // Bow/arrow release: a short airy "thwip".
+  function shoot() {
+    if (!ensure() || !enabled) return;
+    resume();
+    noiseBurst({ dur: 0.12, vol: 0.16, freq: 2200, q: 1.2, type: 'bandpass' });
+    tone({ freq: 900, dur: 0.1, vol: 0.06, type: 'triangle', glide: -500 });
+  }
+
   function setMuted(m) {
     enabled = !m;
     if (master) master.gain.value = enabled ? masterVol : 0;
@@ -287,7 +295,7 @@ const SFX = (function () {
   function isMuted() { return !enabled; }
 
   return {
-    resume, dig, place, footstep, digHit, splash, hurt,
+    resume, dig, place, footstep, digHit, splash, hurt, shoot,
     startAmbient, updateAmbient, materialOf,
     setMuted, isMuted,
   };
