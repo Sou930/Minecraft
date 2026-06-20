@@ -1,3 +1,18 @@
+// Flight is now toggled from the (password-protected) Settings panel rather
+// than the F key. setFlyingEnabled() is the single entry point both the
+// settings UI and any restore-on-load logic call so player state stays in sync.
+function setFlyingEnabled(on){
+  on=!!on;
+  if(typeof player==='undefined'||!player)return;
+  player.flying=on;
+  player.vel.y=0;
+  if(on){
+    // Standing pose only while flying (mirrors the old toggle behaviour).
+    player.wantCrouch=false;
+    if(typeof POSE!=='undefined'){player.pose=POSE.STAND;if(typeof applyPose==='function')applyPose();if(typeof updatePoseUI==='function')updatePoseUI();}
+    if(typeof ACH!=='undefined')ACH.flag('fly');
+  }
+}
 const EPS=0.001;function moveAxis(axis,delta){if(delta===0)return false;player.pos[axis]+=delta;let hit=false;const box=playerAABB(player.pos);forEachOverlapBlock(box,(bx,by,bz)=>{hit=true;if(axis==='x')player.pos.x=delta>0?bx-PLAYER.halfW-EPS:bx+1+PLAYER.halfW+EPS;if(axis==='z')player.pos.z=delta>0?bz-PLAYER.halfW-EPS:bz+1+PLAYER.halfW+EPS;if(axis==='y')player.pos.y=delta>0?by-PLAYER.height-EPS:by+1+EPS;const nb=playerAABB(player.pos);box.minX=nb.minX;box.maxX=nb.maxX;box.minY=nb.minY;box.maxY=nb.maxY;box.minZ=nb.minZ;box.maxZ=nb.maxZ;return false;});return hit;}
 function isInWater(offsetY){return getBlock(Math.floor(player.pos.x),Math.floor(player.pos.y+offsetY),Math.floor(player.pos.z))===B.WATER;}
 function isInLava(offsetY){return getBlock(Math.floor(player.pos.x),Math.floor(player.pos.y+offsetY),Math.floor(player.pos.z))===B.LAVA;}
@@ -7,7 +22,11 @@ if(e.code==='KeyO'&&typeof toggleSettings==='function'){toggleSettings();return;
 if(typeof settingsOpen!=='undefined'&&settingsOpen){if(e.code==='Escape')toggleSettings(false);return;}
 if(!started||paused)return;if(e.code==='KeyE'){toggleInventory();return;}
 if(inventoryOpen){if(e.code==='Escape')toggleInventory(false);return;}
-if(e.code>='Digit1'&&e.code<='Digit9')selectSlot(parseInt(e.code.slice(5),10)-1);if(e.code==='KeyF'){if(typeof ridingBoat!=='undefined'&&ridingBoat){exitBoat();return;}if(typeof ridingCart!=='undefined'&&ridingCart){exitMinecart();return;}if(typeof FISHING!=='undefined'&&FISHING.active){reelIn();return;}player.flying=!player.flying;player.vel.y=0;if(player.flying&&typeof ACH!=='undefined')ACH.flag('fly');}
+if(e.code>='Digit1'&&e.code<='Digit9')selectSlot(parseInt(e.code.slice(5),10)-1);// F key: only used to exit a boat / minecart or reel in a fishing line.
+// The old "F = toggle flight" behaviour has been removed — flight is now
+// controlled exclusively from the password-protected Settings panel
+// (see settings.js -> SETTINGS.flying / setFlyingEnabled).
+if(e.code==='KeyF'){if(typeof ridingBoat!=='undefined'&&ridingBoat){exitBoat();return;}if(typeof ridingCart!=='undefined'&&ridingCart){exitMinecart();return;}if(typeof FISHING!=='undefined'&&FISHING.active){reelIn();return;}}
 if(e.code==='KeyR')respawn();
 // V: cycle camera views (PC)
 if(e.code==='KeyV')cycleCameraView();
