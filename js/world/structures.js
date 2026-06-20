@@ -284,31 +284,388 @@ function buildMarket(cx,cz,gy,desert){
 }
 
 // ===========================================================================
-//  ABANDONED MINESHAFTS
+//  ABANDONED MINESHAFTS  (large-scale, realistic, multi-level networks)
+// ===========================================================================
+//  A mineshaft is now a sprawling, organic network rather than a few straight
+//  spokes.  Each complex is grown from a hub by recursively spawning corridor
+//  "segments" that:
+//      • run for a stretch in one of the cardinal directions, gently drifting
+//        in height so the network spans many depths,
+//      • spawn branch corridors and the occasional staircase that drops to a
+//        deeper level,
+//      • are framed with periodic timber supports (posts + cross-beam + fence-
+//        rail planks), planked or partially-collapsed floors, centre rails,
+//        cobwebs, hanging supports, and scattered lanterns / torches,
+//      • terminate (or pass through) hand-built rooms: cross intersections,
+//        storage cellars with loot, mineshaft "stations" with parallel rails,
+//        and large open dig-site caverns supported by wooden scaffolding.
+//  Everything is seeded so a world regenerates identically.
 // ===========================================================================
 function placeMineshafts(){
   const rng=mulberry32((SEED^0x27d4eb2f)>>>0);
-  const count=Math.max(2,Math.floor((WORLD_W*WORLD_D)/150000));
-  for(let i=0;i<count;i++){
-    const cx=20+Math.floor(rng()*(WORLD_W-40));
-    const cz=20+Math.floor(rng()*(WORLD_D-40));
-    const cy=10+Math.floor(rng()*22);          // shallow-to-mid depth
-    buildMineshaft(cx,cy,cz,rng);
-    if(rng()<0.7)buildMineEntrance(cx,cy,cz,rng);
+  // More, bigger complexes than before.
+  const count=Math.max(4,Math.floor((WORLD_W*WORLD_D)/95000));
+  const placed=[];
+  let attempts=0;
+  while(placed.length<count&&attempts<count*8){
+    attempts++;
+    const cx=24+Math.floor(rng()*(WORLD_W-48));
+    const cz=24+Math.floor(rng()*(WORLD_D-48));
+    // keep complexes reasonably apart so they don't fully overlap
+    let tooClose=false;
+    for(const p of placed){if(Math.abs(p.x-cx)<70&&Math.abs(p.z-cz)<70){tooClose=true;break;}}
+    if(tooClose)continue;
+    const cy=12+Math.floor(rng()*24);          // shallow-to-mid start depth
+    buildMineshaftComplex(cx,cy,cz,rng);
+    placed.push({x:cx,z:cz});
   }
 }
 
+// ---- mineshaft block palette ----------------------------------------------
+// Weathered floor: mostly oak planks, with gaps (air = collapsed) and a little
+// gravel/dirt that has caved in over the ages.
+function mineFloorBlock(x,y,z,rng){
+  const r=hash3(x,y,z,991);
+  if(r<0.12)return B.AIR;        // collapsed hole in the walkway
+  if(r<0.18)return B.GRAVEL;     // caved-in rubble
+  return B.PLANKS;
+}
+
+// Carve a hollow box (interior to air) but DON'T smash bedrock.
+function mineHollow(x0,y0,z0,x1,y1,z1){
+  for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)for(let z=z0;z<=z1;z++){
+    if(getBlock(x,y,z)!==B.BEDROCK)sBlock(x,y,z,B.AIR);
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  COMPLEX GROWTH
+// ---------------------------------------------------------------------------
+function buildMineshaftComplex(sx,sy,sz,rng){
+  const DIRS=[[1,0],[-1,0],[0,1],[0,-1]];
+  // budget controls overall size: number of corridor segments allowed.
+  let budget=46+Math.floor(rng()*40);
+  const builtRooms=[];     // remember room centres to avoid stacking
+
+  // central hub: a cross-intersection station with rails both ways + supports
+  buildIntersection(sx,sy,sz,rng);
+  buildStationRoom(sx,sy,sz,rng);
+  builtRooms.push({x:sx,y:sy,z:sz});
+
+  // a queue of growth heads radiating from the hub
+  const heads=[];
+  const startDirs=DIRS.slice();
+  // shuffle deterministically
+  for(let i=startDirs.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[startDirs[i],startDirs[j]]=[startDirs[j],startDirs[i]];}
+  const startN=3+Math.floor(rng()*2);
+  for(let i=0;i<startN;i++){
+    const d=startDirs[i%startDirs.length];
+    heads.push({x:sx+d[0]*2,y:sy,z:sz+d[1]*2,dx:d[0],dz:d[1],depth:0});
+  }
+
+  // optional surface entrance from the hub
+  if(rng()<0.85)buildMineEntrance(sx,sy,sz,rng);
+
+  let guard=0;
+  while(heads.length&&budget>0&&guard<400){
+    guard++;
+    const h=heads.shift();
+    if(budget<=0)break;
+    const seg=growCorridor(h.x,h.y,h.z,h.dx,h.dz,rng,h.depth);
+    budget--;
+    if(!seg)continue;
+
+    // chance to terminate in a room
+    const wantRoom=rng()<0.45&&seg.steps>=6;
+    if(wantRoom){
+      let ok=true;
+      for(const r of builtRooms){if(Math.abs(r.x-seg.x)<10&&Math.abs(r.z-seg.z)<10&&Math.abs(r.y-seg.y)<6){ok=false;break;}}
+      if(ok){
+        const roll=rng();
+        if(roll<0.4)buildStorageCellar(seg.x,seg.y,seg.z,rng);
+        else if(roll<0.72)buildIntersection(seg.x,seg.y,seg.z,rng);
+        else buildDigSiteCavern(seg.x,seg.y,seg.z,rng);
+        builtRooms.push({x:seg.x,y:seg.y,z:seg.z});
+      }
+    }
+
+    // branch generation: keep going straight, turn, and sometimes descend.
+    if(h.depth<5){
+      // continue forward
+      if(budget>0&&rng()<0.78)heads.push({x:seg.x,y:seg.y,z:seg.z,dx:h.dx,dz:h.dz,depth:h.depth+1});
+      // side branch (perpendicular)
+      if(budget>0&&rng()<0.6){
+        const perp=(h.dx!==0)?[0,(rng()<0.5?1:-1)]:[(rng()<0.5?1:-1),0];
+        heads.push({x:seg.x,y:seg.y,z:seg.z,dx:perp[0],dz:perp[1],depth:h.depth+1});
+      }
+      // staircase down to a deeper level, then continue
+      if(budget>1&&rng()<0.4&&seg.y>8){
+        const nd=DIRS[Math.floor(rng()*4)];
+        const drop=buildStaircase(seg.x,seg.y,seg.z,nd[0],nd[1],rng);
+        budget--;
+        if(drop)heads.push({x:drop.x,y:drop.y,z:drop.z,dx:nd[0],dz:nd[1],depth:h.depth+1});
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  CORRIDOR (a single run of tunnel in one direction)
+//  Returns {x,y,z,steps} of the end point, or null if it couldn't start.
+// ---------------------------------------------------------------------------
+function growCorridor(x,y,z,dx,dz,rng,depth){
+  const len=10+Math.floor(rng()*16);
+  // gentle vertical drift so corridors aren't perfectly flat
+  let drift=0;const driftEvery=4+Math.floor(rng()*4);
+  let steps=0;
+  for(let s=0;s<len;s++){
+    x+=dx;z+=dz;
+    if(s>0&&s%driftEvery===0){
+      const dd=(rng()<0.5)?0:(rng()<0.5?1:-1);
+      if(dd!==0&&y+dd>5&&y+dd<WORLD_H-9){y+=dd;}
+    }
+    if(x<3||x>=WORLD_W-3||z<3||z>=WORLD_D-3||y<5||y>WORLD_H-9)break;
+    carveCorridorSlice(x,y,z,dx!==0,s,rng);
+    steps++;
+  }
+  if(steps===0)return null;
+  return {x,y,z,steps};
+}
+
+// Carve a 3-wide, 3-tall corridor slice and decorate it. axisX true => running
+// along the X axis (cross-section spans Z), else running along Z.
+function carveCorridorSlice(x,y,z,axisX,step,rng){
+  // hollow tunnel cross-section (3 wide x 3 tall)
+  for(let dy=0;dy<=2;dy++){
+    for(let dp=-1;dp<=1;dp++){
+      const xx=axisX?x:x+dp, zz=axisX?z+dp:z;
+      if(getBlock(xx,y+dy,zz)!==B.BEDROCK)sBlock(xx,y+dy,zz,B.AIR);
+    }
+  }
+  // weathered floor under the whole width
+  for(let dp=-1;dp<=1;dp++){
+    const xx=axisX?x:x+dp, zz=axisX?z+dp:z;
+    if(getBlock(xx,y-1,zz)!==B.BEDROCK){
+      const fb=mineFloorBlock(xx,y-1,zz,rng);
+      // don't leave a floating air hole over lava/void unnecessarily: still ok,
+      // collapsed gaps add character.
+      sBlock(xx,y-1,zz,fb);
+    }
+  }
+  // rail down the centre (only over solid floor, not over a collapsed hole)
+  if(getBlock(x,y,z)===B.AIR&&getBlock(x,y-1,z)!==B.AIR){
+    // occasional missing rail for that abandoned look
+    if(hash3(x,y,z,920)>0.18)sBlock(x,y,z,B.RAIL);
+  }
+  // periodic timber support frame: two posts + a beam, with plank "fence" caps
+  if(step%5===0){
+    const lx=axisX?x:x-1, lz=axisX?z-1:z;
+    const rx=axisX?x:x+1, rz=axisX?z+1:z;
+    sBlock(lx,y,lz,B.LOG);sBlock(lx,y+1,lz,B.LOG);
+    sBlock(rx,y,rz,B.LOG);sBlock(rx,y+1,rz,B.LOG);
+    for(let dp=-1;dp<=1;dp++){const xx=axisX?x:x+dp,zz=axisX?z+dp:z;sBlock(xx,y+2,zz,B.PLANKS);}
+    // a lantern hanging from the beam occasionally lights the way
+    if(hash3(x,y,z,930)<0.18)sBlockSoft(x,y+1,z,B.LANTERN);
+  }
+  // hanging cobweb clusters in the corners
+  if(step%3===0){
+    const r=hash3(x,y,z,310);
+    if(r<0.55){
+      const cx=axisX?x:x+(step%2?1:-1), cz=axisX?z+(step%2?1:-1):z;
+      sBlockSoft(cx,y+2,cz,B.COBWEB);
+      if(r<0.22)sBlockSoft(cx,y+1,cz,B.COBWEB);
+    }
+  }
+  // rare wall torch
+  if(step%7===0&&hash3(x,y,z,940)<0.4){
+    const tx=axisX?x:x+1, tz=axisX?z+1:z;
+    sBlockSoft(tx,y+1,tz,B.TORCH);
+  }
+  // occasional caved-in rubble pile (gravel) partially blocking the way
+  if(step%9===0&&hash3(x,y,z,950)<0.25){
+    sBlockSoft(x,y,z,B.GRAVEL);
+  }
+}
+
+// ---------------------------------------------------------------------------
+//  STAIRCASE: a descending stepped tunnel dropping ~5 levels, framed in wood.
+//  Returns the landing {x,y,z} or null.
+// ---------------------------------------------------------------------------
+function buildStaircase(x,y,z,dx,dz,rng){
+  const drop=4+Math.floor(rng()*3);
+  const axisX=dx!==0;
+  let cx=x,cy=y,cz=z;
+  for(let i=0;i<drop;i++){
+    // each step: advance 1, descend 1
+    cx+=dx;cz+=dz;
+    if(cx<3||cx>=WORLD_W-3||cz<3||cz>=WORLD_D-3)return null;
+    // carve a 3-wide, 4-tall headroom column at each step
+    for(let dy=0;dy<=3;dy++)for(let dp=-1;dp<=1;dp++){
+      const xx=axisX?cx:cx+dp, zz=axisX?cz+dp:cz;
+      if(getBlock(xx,cy+dy,zz)!==B.BEDROCK)sBlock(xx,cy+dy,zz,B.AIR);
+    }
+    // a plank step block as the tread
+    for(let dp=-1;dp<=1;dp++){
+      const xx=axisX?cx:cx+dp, zz=axisX?cz+dp:cz;
+      if(getBlock(xx,cy-1,zz)!==B.BEDROCK)sBlock(xx,cy-1,zz,B.PLANKS);
+    }
+    // side posts every other step
+    if(i%2===0){
+      const lx=axisX?cx:cx-1, lz=axisX?cz-1:cz;
+      const rx=axisX?cx:cx+1, rz=axisX?cz+1:cz;
+      sBlock(lx,cy,lz,B.LOG);sBlock(rx,cy,rz,B.LOG);
+    }
+    cy-=1;
+    if(cy<5)break;
+  }
+  return {x:cx,y:cy,z:cz};
+}
+
+// ---------------------------------------------------------------------------
+//  ROOMS
+// ---------------------------------------------------------------------------
+// A 4-way cross intersection with rails through both axes and corner supports.
+function buildIntersection(cx,cy,cz,rng){
+  mineHollow(cx-2,cy,cz-2,cx+2,cy+2,cz+2);
+  // floor
+  for(let dx=-2;dx<=2;dx++)for(let dz=-2;dz<=2;dz++){
+    if(getBlock(cx+dx,cy-1,cz+dz)!==B.BEDROCK)sBlock(cx+dx,cy-1,cz+dz,mineFloorBlock(cx+dx,cy-1,cz+dz,rng));
+  }
+  // corner timber columns + beams
+  for(const [dx,dz] of [[-2,-2],[2,-2],[-2,2],[2,2]]){
+    sBlock(cx+dx,cy,cz+dz,B.LOG);sBlock(cx+dx,cy+1,cz+dz,B.LOG);sBlock(cx+dx,cy+2,cz+dz,B.PLANKS);
+  }
+  // beams across the top edges
+  for(let d=-2;d<=2;d++){
+    sBlockSoft(cx+d,cy+2,cz-2,B.PLANKS);sBlockSoft(cx+d,cy+2,cz+2,B.PLANKS);
+    sBlockSoft(cx-2,cy+2,cz+d,B.PLANKS);sBlockSoft(cx+2,cy+2,cz+d,B.PLANKS);
+  }
+  // rails crossing through the middle
+  for(let d=-2;d<=2;d++){
+    if(getBlock(cx+d,cy,cz)===B.AIR&&getBlock(cx+d,cy-1,cz)!==B.AIR)sBlock(cx+d,cy,cz,B.RAIL);
+    if(getBlock(cx,cy,cz+d)===B.AIR&&getBlock(cx,cy-1,cz+d)!==B.AIR)sBlock(cx,cy,cz+d,B.RAIL);
+  }
+  sBlockSoft(cx,cy+1,cz,B.LANTERN);
+  // cobwebs in the corners
+  sBlockSoft(cx-2,cy+1,cz-2,B.COBWEB);sBlockSoft(cx+2,cy+1,cz+2,B.COBWEB);
+}
+
+// A station: parallel rail platform with chests / minecart loot area.
+function buildStationRoom(cx,cy,cz,rng){
+  mineHollow(cx-3,cy,cz-2,cx+3,cy+3,cz+2);
+  for(let dx=-3;dx<=3;dx++)for(let dz=-2;dz<=2;dz++){
+    if(getBlock(cx+dx,cy-1,cz+dz)!==B.BEDROCK)sBlock(cx+dx,cy-1,cz+dz,B.PLANKS);
+  }
+  // support frames along the long walls
+  for(let dx=-3;dx<=3;dx+=3){
+    sBlock(cx+dx,cy,cz-2,B.LOG);sBlock(cx+dx,cy+1,cz-2,B.LOG);
+    sBlock(cx+dx,cy,cz+2,B.LOG);sBlock(cx+dx,cy+1,cz+2,B.LOG);
+    sBlockSoft(cx+dx,cy+2,cz-2,B.PLANKS);sBlockSoft(cx+dx,cy+2,cz+2,B.PLANKS);
+  }
+  // double rail lines along x
+  for(let dx=-3;dx<=3;dx++){
+    sBlockSoft(cx+dx,cy,cz-1,B.RAIL);
+    sBlockSoft(cx+dx,cy,cz+1,B.RAIL);
+  }
+  // central loot platform
+  sBlockSoft(cx,cy,cz,B.CHEST);
+  if(rng()<0.6)sBlockSoft(cx-2,cy,cz,B.CHEST);
+  sBlockSoft(cx,cy+2,cz,B.LANTERN);
+  sBlockSoft(cx+3,cy+1,cz-2,B.COBWEB);
+  sBlockSoft(cx-3,cy+1,cz+2,B.COBWEB);
+}
+
+// A storage cellar: walled-off room with shelves, barrels (planks), loot.
+function buildStorageCellar(cx,cy,cz,rng){
+  const w=2+Math.floor(rng()*2),d=2+Math.floor(rng()*2);
+  mineHollow(cx-w,cy,cz-d,cx+w,cy+2,cz+d);
+  for(let dx=-w;dx<=w;dx++)for(let dz=-d;dz<=d;dz++){
+    if(getBlock(cx+dx,cy-1,cz+dz)!==B.BEDROCK)sBlock(cx+dx,cy-1,cz+dz,B.PLANKS);
+  }
+  // corner posts
+  for(const [sxn,szn] of [[-1,-1],[1,-1],[-1,1],[1,1]]){
+    const px=cx+sxn*w,pz=cz+szn*d;
+    sBlock(px,cy,pz,B.LOG);sBlock(px,cy+1,pz,B.LOG);
+  }
+  // stacked crates (planks) and bookshelf-like storage along a wall
+  for(let dx=-w+1;dx<=w-1;dx++){
+    if(rng()<0.5)sBlockSoft(cx+dx,cy,cz-d,B.PLANKS);
+    if(rng()<0.4){sBlockSoft(cx+dx,cy,cz+d,B.PLANKS);sBlockSoft(cx+dx,cy+1,cz+d,B.PLANKS);}
+  }
+  // loot
+  sBlockSoft(cx,cy,cz,B.CHEST);
+  if(rng()<0.5)sBlockSoft(cx+(rng()<0.5?1:-1),cy,cz+(rng()<0.5?1:-1),B.CHEST);
+  sBlockSoft(cx,cy+2,cz,B.LANTERN);
+  // age it with cobwebs
+  sBlockSoft(cx-w,cy+1,cz-d,B.COBWEB);
+  sBlockSoft(cx+w,cy+1,cz+d,B.COBWEB);
+}
+
+// A big open dig-site cavern: irregular hollow supported by wooden scaffolding
+// pillars, with ore veins exposed, a central loot pile and lots of cobwebs.
+function buildDigSiteCavern(cx,cy,cz,rng){
+  const rx=4+Math.floor(rng()*3),rz=4+Math.floor(rng()*3),ry=3+Math.floor(rng()*2);
+  for(let dx=-rx;dx<=rx;dx++)for(let dy=-1;dy<=ry;dy++)for(let dz=-rz;dz<=rz;dz++){
+    const d=(dx*dx)/(rx*rx)+(dz*dz)/(rz*rz)+(dy*dy)/(ry*ry*0.8);
+    const wob=hash3(cx+dx,cy+dy,cz+dz,961)*0.35;
+    if(d<=1+wob){
+      if(getBlock(cx+dx,cy+dy,cz+dz)!==B.BEDROCK)sBlock(cx+dx,cy+dy,cz+dz,B.AIR);
+    }
+  }
+  // wooden scaffolding pillars supporting the roof
+  for(const [ox,oz] of [[-2,-2],[2,2],[-2,2],[2,-2],[0,0]]){
+    for(let dy=0;dy<=ry;dy++){
+      if(getBlock(cx+ox,cy+dy,cz+oz)===B.AIR)sBlock(cx+ox,cy+dy,cz+oz,B.LOG);
+    }
+    // cross-braces at the top
+    sBlockSoft(cx+ox,cy+ry,cz+oz,B.PLANKS);
+  }
+  // floor planks under the centre platform
+  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){
+    if(getBlock(cx+dx,cy-1,cz+dz)===B.AIR)sBlock(cx+dx,cy-1,cz+dz,B.PLANKS);
+  }
+  // expose some ores in the walls for that "they were mining here" feel
+  for(let i=0;i<10;i++){
+    const ax=cx+Math.floor((rng()-0.5)*rx*2);
+    const az=cz+Math.floor((rng()-0.5)*rz*2);
+    const ay=cy+Math.floor(rng()*ry);
+    if(getBlock(ax,ay,az)===B.STONE){
+      const o=rng();
+      sBlock(ax,ay,az,o<0.5?B.COAL_ORE:o<0.8?B.IRON_ORE:o<0.95?B.GOLD_ORE:B.DIAMOND_ORE);
+    }
+  }
+  // central loot + light
+  sBlockSoft(cx,cy,cz,B.CHEST);
+  sBlockSoft(cx,cy+1,cz,B.LANTERN);
+  // lots of cobwebs around the edges
+  for(let i=0;i<8;i++){
+    const wx=cx+Math.floor((rng()-0.5)*rx*2);
+    const wz=cz+Math.floor((rng()-0.5)*rz*2);
+    const wy=cy+1+Math.floor(rng()*ry);
+    sBlockSoft(wx,wy,wz,B.COBWEB);
+  }
+  // a rail spur leading out of the cavern
+  for(let dx=-rx;dx<=rx;dx++)if(getBlock(cx+dx,cy,cz)===B.AIR&&getBlock(cx+dx,cy-1,cz)!==B.AIR)sBlockSoft(cx+dx,cy,cz,B.RAIL);
+}
+
+// ---------------------------------------------------------------------------
+//  SURFACE ENTRANCE: a timber-framed shaft head rising to the surface, with a
+//  ladder of rails / steps down to the hub.
+// ---------------------------------------------------------------------------
 function buildMineEntrance(hubX,hubY,hubZ,rng){
   let ex=hubX, ez=hubZ;
-  for(let tries=0;tries<6;tries++){
-    const tx=hubX+Math.floor((rng()-0.5)*6),tz=hubZ+Math.floor((rng()-0.5)*6);
+  let found=false;
+  for(let tries=0;tries<10;tries++){
+    const tx=hubX+Math.floor((rng()-0.5)*8),tz=hubZ+Math.floor((rng()-0.5)*8);
     if(tx<3||tx>=WORLD_W-3||tz<3||tz>=WORLD_D-3)continue;
     const gy=heightMap[colIndex(tx,tz)];
     const top=world[blockIndex(tx,gy,tz)];
-    if(top!==B.WATER&&top!==B.LAVA&&gy>hubY+4){ ex=tx; ez=tz; break; }
+    if(top!==B.WATER&&top!==B.LAVA&&gy>hubY+5){ ex=tx; ez=tz; found=true; break; }
   }
+  if(!found)return;
   const gy=heightMap[colIndex(ex,ez)];
-  if(gy<=hubY+3)return;
+  if(gy<=hubY+4)return;
+  // a little timber shaft head poking above the ground
   for(const [dx,dz] of [[-1,-1],[1,-1],[-1,1],[1,1]]){
     sBlock(ex+dx,gy+1,ez+dz,B.LOG);
     sBlock(ex+dx,gy+2,ez+dz,B.LOG);
@@ -319,88 +676,21 @@ function buildMineEntrance(hubX,hubY,hubZ,rng){
   }
   sBlock(ex,gy+1,ez,B.AIR);
   sBlockSoft(ex+1,gy+1,ez,B.TORCH);
-  sBlockSoft(ex-2,gy+1,ez,B.RAIL);
-  sBlockSoft(ex+2,gy+1,ez,B.RAIL);
   if(rng()<0.6)sBlockSoft(ex-1,gy+1,ez+1,B.CHEST);
-  if(rng()<0.5)sBlockSoft(ex+1,gy+1,ez-1,B.COBWEB);
+  // dig the descending shaft, framed every few blocks, with rails as a "ladder"
   for(let y=gy;y>=hubY;y--){
     for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){
-      const cur=getBlock(ex+dx,y,ez+dz);
-      if(cur!==B.BEDROCK)sBlock(ex+dx,y,ez+dz,B.AIR);
+      if(getBlock(ex+dx,y,ez+dz)!==B.BEDROCK)sBlock(ex+dx,y,ez+dz,B.AIR);
     }
     if((gy-y)%4===0){
       sBlock(ex-1,y,ez,B.LOG);sBlock(ex+1,y,ez,B.LOG);
       sBlockSoft(ex,y,ez,B.RAIL);
     }
+    if((gy-y)%5===0)sBlockSoft(ex,y,ez,B.LANTERN);
     if((gy-y)%3===0&&rng()<0.5)sBlockSoft(ex+(rng()<0.5?1:-1),y,ez+(rng()<0.5?1:-1),B.COBWEB);
   }
-  fillBox(Math.min(ex,hubX),hubY+2,Math.min(ez,hubZ),Math.max(ex,hubX),hubY+2,Math.max(ez,hubZ),B.AIR);
-}
-
-function buildMineshaft(sx,sy,sz,rng){
-  // A handful of straight corridors radiating/branching from a hub, each lined
-  // with wooden support frames at intervals, a rail down the middle, cobwebs
-  // and the occasional chest.
-  const corridors=4+Math.floor(rng()*4);
-  let bx=sx,by=sy,bz=sz;
-  for(let c=0;c<corridors;c++){
-    const horiz=rng()<0.5;                       // run along x or z
-    const dir=rng()<0.5?1:-1;
-    const len=14+Math.floor(rng()*22);
-    let x=bx,z=bz,y=by;
-    // gentle vertical drift so the network spans several depths
-    const yDrift=(rng()<0.5?0:(rng()<0.5?1:-1));
-    for(let s=0;s<len;s++){
-      if(horiz)x+=dir;else z+=dir;
-      if(s%5===0&&yDrift!==0)y+=yDrift;
-      if(x<2||x>=WORLD_W-2||z<2||z>=WORLD_D-2||y<4||y>WORLD_H-8)break;
-      carveCorridorSlice(x,y,z,horiz,s);
-    }
-    // next corridor branches from somewhere along this one
-    bx=Math.max(2,Math.min(WORLD_W-2,horiz?x-dir*Math.floor(len/2):bx));
-    bz=Math.max(2,Math.min(WORLD_D-2,horiz?bz:z-dir*Math.floor(len/2)));
-    by=y;
-    // a loot chest at the end of some corridors
-    if(rng()<0.6){const fy=y;sBlockSoft(x,fy,z,B.CHEST);sBlockSoft(x,fy+1,z,B.TORCH);}
-  }
-  // hub room
-  fillBox(sx-2,sy,sz-2,sx+2,sy+2,sz+2,B.AIR);
-  for(const [dx,dz] of [[-2,-2],[2,-2],[-2,2],[2,2]]){
-    sBlock(sx+dx,sy,sz+dz,B.LOG);sBlock(sx+dx,sy+1,sz+dz,B.LOG);sBlock(sx+dx,sy+2,sz+dz,B.PLANKS);
-  }
-  sBlockSoft(sx,sy+2,sz,B.TORCH);
-  sBlockSoft(sx+1,sy,sz+1,B.CHEST);
-}
-
-// Carve a 3-wide, 3-tall corridor slice and decorate it. `axis` true=x-run.
-function carveCorridorSlice(x,y,z,axisX,step){
-  // tunnel cross-section (perpendicular to travel direction)
-  for(let dy=0;dy<=2;dy++){
-    for(let dp=-1;dp<=1;dp++){
-      const xx=axisX?x:x+dp, zz=axisX?z+dp:z;
-      const cur=getBlock(xx,y+dy,zz);
-      if(cur!==B.BEDROCK&&cur!==B.AIR)sBlock(xx,y+dy,zz,B.AIR);
-    }
-  }
-  // floor planks
-  const fx0=axisX?x:x-1, fz0=axisX?z-1:z;
-  sBlock(fx0,y-1>=0?y-1:0,fz0,B.PLANKS);
-  for(let dp=-1;dp<=1;dp++){const xx=axisX?x:x+dp,zz=axisX?z+dp:z;if(getBlock(xx,y-1,zz)===B.AIR)sBlock(xx,y-1,zz,B.PLANKS);}
-  // rail down the centre
-  if(getBlock(x,y,z)===B.AIR)sBlock(x,y,z,B.RAIL);
-  // support frames every few blocks: two posts + a beam across the top
-  if(step%4===0){
-    const lx=axisX?x:x-1, lz=axisX?z-1:z;
-    const rx=axisX?x:x+1, rz=axisX?z+1:z;
-    sBlock(lx,y,lz,B.LOG);sBlock(lx,y+1,lz,B.LOG);
-    sBlock(rx,y,rz,B.LOG);sBlock(rx,y+1,rz,B.LOG);
-    for(let dp=-1;dp<=1;dp++){const xx=axisX?x:x+dp,zz=axisX?z+dp:z;sBlock(xx,y+2,zz,B.PLANKS);}
-  }
-  // cobwebs in the upper corners, occasionally
-  if(step%3===0){
-    const cx=axisX?x:x+(step%2?1:-1), cz=axisX?z+(step%2?1:-1):z;
-    if(getBlock(cx,y+2,cz)===B.AIR&&hash3(cx,y,cz,310)<0.6)sBlock(cx,y+2,cz,B.COBWEB);
-  }
+  // connect the shaft bottom to the hub with a short air channel
+  fillBox(Math.min(ex,hubX),hubY+1,Math.min(ez,hubZ),Math.max(ex,hubX),hubY+2,Math.max(ez,hubZ),B.AIR);
 }
 
 // ===========================================================================

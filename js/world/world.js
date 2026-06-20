@@ -308,8 +308,10 @@ for(let y=h+1;y<=SEA_LEVEL;y++)world[blockIndex(x,y,z)]=B.WATER;
 if(biome===BIOME.SNOWY&&h<SEA_LEVEL)world[blockIndex(x,SEA_LEVEL,z)]=B.ICE;
 // VOLCANO crater lava lake: flood the summit bowl up to the rim with lava.
 if(biome===BIOME.VOLCANO){const lv=craterLavaLevelAt(x,z);if(lv>h){for(let y=h+1;y<=lv&&y<WORLD_H;y++)world[blockIndex(x,y,z)]=B.LAVA;}}}}}
-function carveCaves(){for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];const yMax=Math.min(h-4,WORLD_H-1);for(let y=2;y<=yMax;y++){const n1=valueNoise3(x/11,y/7,z/11,71);if(n1<=0.6)continue;if(n1>0.745){world[blockIndex(x,y,z)]=B.AIR;continue;}
-const n2=valueNoise3(x/23,y/13,z/23,73);if(n1>0.62&&n2>0.63)world[blockIndex(x,y,z)]=B.AIR;}}}}
+function carveCaves(){for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];const yMax=Math.min(h-4,WORLD_H-1);for(let y=2;y<=yMax;y++){const n1=valueNoise3(x/11,y/7,z/11,71);if(n1<=0.54)continue;if(n1>0.70){world[blockIndex(x,y,z)]=B.AIR;continue;}
+const n2=valueNoise3(x/23,y/13,z/23,73);if(n1>0.565&&n2>0.575)world[blockIndex(x,y,z)]=B.AIR;
+// secondary spaghetti cave layer for denser interconnected tunnels
+else{const n3=valueNoise3(x/17,y/9,z/17,77),n4=valueNoise3(x/31,y/15,z/31,79);if(n3>0.66&&n4>0.64)world[blockIndex(x,y,z)]=B.AIR;}}}}}
 // Hollow out a block only if it is part of the solid underground (never the
 // surface skin or bedrock). Below y<=4 we leave a lava floor for atmosphere.
 function caveDig(x,y,z){if(x<1||x>=WORLD_W-1||z<1||z>=WORLD_D-1||y<=1||y>=WORLD_H)return;const h=heightMap[colIndex(x,z)];if(y>h-3)return;const cur=world[blockIndex(x,y,z)];if(cur===B.AIR||cur===B.WATER||cur===B.LAVA||cur===B.BEDROCK)return;world[blockIndex(x,y,z)]=(y<=4)?B.LAVA:B.AIR;}
@@ -320,7 +322,7 @@ function caveDig(x,y,z){if(x<1||x>=WORLD_W-1||z<1||z>=WORLD_D-1||y<=1||y>=WORLD_
 function carveLargeCaves(){
   const rng=mulberry32((SEED^0x9e3779b9)>>>0);
   // --- 1) CAVERNS: large ellipsoidal chambers --------------------------
-  const cavernCount=Math.floor((WORLD_W*WORLD_D)/90000)+6;
+  const cavernCount=Math.floor((WORLD_W*WORLD_D)/55000)+10;
   for(let i=0;i<cavernCount;i++){
     const cx=2+Math.floor(rng()*(WORLD_W-4));
     const cz=2+Math.floor(rng()*(WORLD_D-4));
@@ -333,7 +335,7 @@ function carveLargeCaves(){
     }
   }
   // --- 2) TUNNELS: meandering worm tunnels -----------------------------
-  const tunnelCount=Math.floor((WORLD_W*WORLD_D)/70000)+8;
+  const tunnelCount=Math.floor((WORLD_W*WORLD_D)/40000)+14;
   for(let i=0;i<tunnelCount;i++){
     let x=2+rng()*(WORLD_W-4),z=2+rng()*(WORLD_D-4),y=10+rng()*36;
     let yaw=rng()*Math.PI*2,pitch=(rng()-0.5)*0.5;
@@ -348,7 +350,7 @@ function carveLargeCaves(){
     }
   }
   // --- 3) SHAFTS: deep vertical wells -----------------------------------
-  const shaftCount=Math.floor((WORLD_W*WORLD_D)/130000)+5;
+  const shaftCount=Math.floor((WORLD_W*WORLD_D)/80000)+8;
   for(let i=0;i<shaftCount;i++){
     const cx=3+Math.floor(rng()*(WORLD_W-6));
     const cz=3+Math.floor(rng()*(WORLD_D-6));
@@ -410,7 +412,7 @@ function decorateChamber(cx,cy,cz,rx,ry,rz,opts){
 function carveCaveFeatures(){
   const rng=mulberry32((SEED^0x68bc21ab)>>>0);
   const area=WORLD_W*WORLD_D;
-  const limeCount=Math.floor(area/120000)+4;
+  const limeCount=Math.floor(area/75000)+6;
   for(let i=0;i<limeCount;i++){
     const cx=6+Math.floor(rng()*(WORLD_W-12));
     const cz=6+Math.floor(rng()*(WORLD_D-12));
@@ -424,7 +426,7 @@ function carveCaveFeatures(){
     }
     decorateChamber(cx,cy,cz,rx,ry,rz,{rng,dripP:0.30,dripLen:5,moss:true,mossP:0.18,lichen:true,lichenP:0.10});
   }
-  const lavaCount=Math.floor(area/200000)+3;
+  const lavaCount=Math.floor(area/130000)+4;
   for(let i=0;i<lavaCount;i++){
     const cx=6+Math.floor(rng()*(WORLD_W-12));
     const cz=6+Math.floor(rng()*(WORLD_D-12));
@@ -438,7 +440,7 @@ function carveCaveFeatures(){
     }
     decorateChamber(cx,cy,cz,rx,ry,rz,{rng,dripP:0.16,dripLen:4,moss:false,mossP:0,lichen:false,lichenP:0,lake:B.LAVA});
   }
-  const waterCount=Math.floor(area/200000)+3;
+  const waterCount=Math.floor(area/130000)+4;
   for(let i=0;i<waterCount;i++){
     const cx=6+Math.floor(rng()*(WORLD_W-12));
     const cz=6+Math.floor(rng()*(WORLD_D-12));
