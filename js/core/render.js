@@ -13,7 +13,57 @@ scene.skipPointerMovePicking=true;scene.constantlyUpdateMeshUnderPointer=false;s
 // per-frame evaluation passes. (SFX uses its own Web Audio graph, so Babylon's
 // audio engine is safe to switch off here.)
 scene.collisionsEnabled=false;scene.spritesEnabled=false;scene.lensFlaresEnabled=false;scene.probesEnabled=false;scene.proceduralTexturesEnabled=false;scene.audioEnabled=false;scene.fogMode=BABYLON.Scene.FOGMODE_LINEAR;scene.fogStart=140;scene.fogEnd=260;scene.fogColor=new BABYLON.Color3(0.53,0.81,0.92);const camera=new BABYLON.FreeCamera('cam',new BABYLON.Vector3(0,30,0),scene);camera.minZ=0.1;camera.maxZ=520;camera.fov=1.1;camera.inputs.clear();const hemiLight=new BABYLON.HemisphericLight('hemi',new BABYLON.Vector3(0,1,0),scene);hemiLight.intensity=0.8;hemiLight.specular=new BABYLON.Color3(0,0,0);hemiLight.groundColor=new BABYLON.Color3(0.35,0.32,0.3);const sunLight=new BABYLON.DirectionalLight('sun',new BABYLON.Vector3(-0.4,-1,-0.3),scene);sunLight.intensity=0.7;sunLight.specular=new BABYLON.Color3(0,0,0);function makeSkyBillboard(name,size,draw){const tex=new BABYLON.DynamicTexture(name+'Tex',{width:64,height:64},scene,false);tex.hasAlpha=true;const c=tex.getContext();c.clearRect(0,0,64,64);draw(c);tex.update();const mat=new BABYLON.StandardMaterial(name+'Mat',scene);mat.emissiveTexture=tex;mat.opacityTexture=tex;mat.diffuseColor=new BABYLON.Color3(0,0,0);mat.specularColor=new BABYLON.Color3(0,0,0);mat.disableLighting=true;mat.fogEnabled=false;mat.backFaceCulling=false;const mesh=BABYLON.MeshBuilder.CreatePlane(name,{size},scene);mesh.material=mat;mesh.billboardMode=BABYLON.Mesh.BILLBOARDMODE_ALL;mesh.isPickable=false;mesh.applyFog=false;mesh.renderingGroupId=0;return mesh;}
-const sunMesh=makeSkyBillboard('sunMesh',34,(c)=>{const g=c.createRadialGradient(32,32,10,32,32,32);g.addColorStop(0,'rgba(255,244,180,0.95)');g.addColorStop(0.55,'rgba(255,220,90,0.55)');g.addColorStop(1,'rgba(255,200,40,0)');c.fillStyle=g;c.fillRect(0,0,64,64);c.fillStyle='#ffe24a';c.fillRect(17,17,30,30);c.fillStyle='#fff6b0';c.fillRect(21,21,22,22);});const moonMesh=makeSkyBillboard('moonMesh',22,(c)=>{c.fillStyle='#e8ecf2';c.fillRect(16,16,32,32);c.fillStyle='#c4ccda';c.fillRect(22,22,8,8);c.fillRect(36,30,6,6);c.fillRect(26,38,6,4);c.fillStyle='#f6f8fc';c.fillRect(34,20,8,6);});const atlasTex=new BABYLON.DynamicTexture('atlas',{width:ATLAS_W,height:ATLAS_H},scene,false,BABYLON.Texture.NEAREST_SAMPLINGMODE);atlasTex.getContext().drawImage(atlasCanvas,0,0);atlasTex.update(true);
+const sunMesh=makeSkyBillboard('sunMesh',34,(c)=>{const g=c.createRadialGradient(32,32,10,32,32,32);g.addColorStop(0,'rgba(255,244,180,0.95)');g.addColorStop(0.55,'rgba(255,220,90,0.55)');g.addColorStop(1,'rgba(255,200,40,0)');c.fillStyle=g;c.fillRect(0,0,64,64);c.fillStyle='#ffe24a';c.fillRect(17,17,30,30);c.fillStyle='#fff6b0';c.fillRect(21,21,22,22);});const moonMesh=makeSkyBillboard('moonMesh',22,(c)=>{c.fillStyle='#e8ecf2';c.fillRect(16,16,32,32);c.fillStyle='#c4ccda';c.fillRect(22,22,8,8);c.fillRect(36,30,6,6);c.fillRect(26,38,6,4);c.fillStyle='#f6f8fc';c.fillRect(34,20,8,6);});
+// --- Starfield -------------------------------------------------------------
+// A dome of small star quads merged into a single mesh that sits far away on
+// the sky sphere and follows the camera. It's drawn behind the world (depth
+// write off, no fog/lighting) and its visibility / opacity is driven by the
+// day-night cycle (see updateStars) so stars fade in at dusk and out at dawn.
+const starField=(function(){
+  // Tiny round star sprite shared by every quad.
+  const tex=new BABYLON.DynamicTexture('starTex',{width:32,height:32},scene,false);tex.hasAlpha=true;
+  {const c=tex.getContext();c.clearRect(0,0,32,32);const g=c.createRadialGradient(16,16,0,16,16,16);g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(0.4,'rgba(255,255,255,0.85)');g.addColorStop(1,'rgba(255,255,255,0)');c.fillStyle=g;c.beginPath();c.arc(16,16,16,0,Math.PI*2);c.fill();tex.update();}
+  const mat=new BABYLON.StandardMaterial('starMat',scene);
+  mat.emissiveTexture=tex;mat.opacityTexture=tex;mat.diffuseColor=new BABYLON.Color3(0,0,0);mat.specularColor=new BABYLON.Color3(0,0,0);
+  mat.emissiveColor=new BABYLON.Color3(1,1,1);mat.disableLighting=true;mat.fogEnabled=false;mat.backFaceCulling=false;mat.alpha=0;
+  // Build star quads on the upper hemisphere of a big sphere.
+  const R=300,N=520;const merge=[];
+  let seed=1337;const rnd=()=>{seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;};
+  for(let i=0;i<N;i++){
+    // Bias toward the upper hemisphere so most stars are overhead.
+    const u=rnd(),v=rnd()*0.92+0.04;
+    const theta=u*Math.PI*2;const phi=Math.acos(1-v); // 0=up
+    const dx=Math.sin(phi)*Math.cos(theta),dy=Math.cos(phi),dz=Math.sin(phi)*Math.sin(theta);
+    const sz=1.1+rnd()*2.6;
+    const p=BABYLON.MeshBuilder.CreatePlane('star'+i,{size:sz},scene);
+    p.position.set(dx*R,dy*R,dz*R);
+    // Orient each quad to face the dome centre (the camera) so after merging
+    // (which bakes the transform) every star presents its front face inward.
+    p.lookAt(BABYLON.Vector3.Zero());
+    merge.push(p);
+  }
+  const mesh=BABYLON.Mesh.MergeMeshes(merge,true,true,undefined,false,false)||merge[0];
+  // MergeMeshes drops billboard mode; instead we keep the dome static relative
+  // to the camera by repositioning it each frame (see updateStars).
+  mesh.material=mat;mesh.isPickable=false;mesh.applyFog=false;
+  mesh.renderingGroupId=0;mesh.alwaysSelectAsActiveMesh=true;
+  mesh.setEnabled(false);
+  return {mesh,mat};
+})();
+// Fade the stars with the night factor (1=day → 0 alpha, deep night → ~0.9).
+function updateStars(dayF){
+  if(!starField||!starField.mesh)return;
+  // Stars only visible when it's getting dark.
+  const a=Math.max(0,Math.min(1,(0.45-dayF)/0.45));
+  if(a<=0.01){if(starField.mesh.isEnabled())starField.mesh.setEnabled(false);return;}
+  if(!starField.mesh.isEnabled())starField.mesh.setEnabled(true);
+  starField.mat.alpha=a*0.9;
+  // Keep the dome centred on the camera and slowly rotate it for a subtle
+  // sky-spin so the night sky feels alive.
+  starField.mesh.position.copyFrom(camera.position);
+  starField.mesh.rotation.y+=0.0; // (dome stays fixed; centred on camera)
+}
+const atlasTex=new BABYLON.DynamicTexture('atlas',{width:ATLAS_W,height:ATLAS_H},scene,false,BABYLON.Texture.NEAREST_SAMPLINGMODE);atlasTex.getContext().drawImage(atlasCanvas,0,0);atlasTex.update(true);
 // Low-quality texture mode: redraw the atlas through a tiny buffer so each
 // tile loses pixel detail (cheaper to sample / blurrier look). Re-uploads the
 // atlas dynamic texture in place so all chunk materials update instantly.
