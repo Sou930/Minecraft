@@ -17,7 +17,7 @@
   const LIST_KEY   = 'bw_worlds';        // [{id,name,seed,created,lastPlayed}]
   const ACTIVE_KEY = 'bw_active_world';   // id of the world to load on boot
   // Keys that are scoped to a single world (everything except global settings).
-  const WORLD_SCOPED = ['seed','edits','inventory','crops','ach_stats','ach_done','world_version'];
+  const WORLD_SCOPED = ['seed','edits','inventory','crops','ach_stats','ach_done','world_version','player'];
 
   function uid(){ return 'w'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 
@@ -46,11 +46,12 @@
       ach_stats: localStorage.getItem('bw_ach_stats'),
       ach_done: localStorage.getItem('bw_ach_done'),
       world_version: localStorage.getItem('bw_world_version'),
+      player: localStorage.getItem('bw_player'),
     };
     const prefix = 'bw_w_'+id+'_';
     for(const k in moves){ if(moves[k]!==null) localStorage.setItem(prefix+k, moves[k]); }
     // Clean up the old global keys so they aren't accidentally reused.
-    ['bw_seed','bw_edits','bw_inventory','bw_crops','bw_ach_stats','bw_ach_done','bw_world_version']
+    ['bw_seed','bw_edits','bw_inventory','bw_crops','bw_ach_stats','bw_ach_done','bw_world_version','bw_player']
       .forEach(k=>localStorage.removeItem(k));
     list.push(w);
     saveList(list);
