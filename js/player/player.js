@@ -93,6 +93,10 @@ if(currentTarget&&currentTarget.id===B.CRAFTING){clearInterval(actionInterval);t
 // Right-click a door (either half) to toggle open/closed. Both halves are
 // rewritten together so they always share the same facing + open state.
 if(currentTarget&&typeof isDoor==='function'&&isDoor(currentTarget.id)){clearInterval(actionInterval);toggleDoor(currentTarget.x,currentTarget.y,currentTarget.z);return;}
+// Right-click a Bed to sleep: fast-forward to the next morning at night.
+// (tryUseBed shows a hint during the day rather than skipping time.) Also set
+// the player's spawn point to the bed, Minecraft-style.
+if(currentTarget&&currentTarget.id===B.BED){clearInterval(actionInterval);if(typeof setBedSpawn==='function')setBedSpawn(currentTarget.x,currentTarget.y,currentTarget.z);if(typeof tryUseBed==='function')tryUseBed();return;}
 // Right-click a bed (red wool) at night to sleep through it, fast-forwarding
 // to the next morning. During the day, fall through so red wool can still be
 // stacked/built with normally. Holding nothing in hand also lets you sleep.
@@ -140,6 +144,9 @@ function plantSeed(itemId,blockId){if(!currentTarget)return false;const{px,py,pz
 function eatFood(slotIndex){const slot=inventory[slotIndex];if(!slot||!ITEMS[slot.id])return;if(player.eatCooldown>0||player.hunger>=20)return;player.hunger=Math.min(20,player.hunger+ITEMS[slot.id].food);player.eatCooldown=1.5;consumeFromSlot(slotIndex,1);updateVitalsUI();if(typeof ACH!=='undefined')ACH.track('eaten');}
 function damage(amount){if(player.dead||amount<=0)return;player.hp=Math.max(0,player.hp-amount);if(typeof SFX!=='undefined')SFX.hurt();const flash=document.getElementById('damage-flash');flash.style.transition='none';flash.style.opacity='1';requestAnimationFrame(()=>{flash.style.transition='opacity .45s';flash.style.opacity='0';});updateVitalsUI();if(player.hp<=0)die();}
 function die(){player.dead=true;document.getElementById('death-overlay').style.display='flex';setTimeout(()=>{respawn();document.getElementById('death-overlay').style.display='none';},1600);}
+// Set the respawn point to a placed bed (Minecraft-style). Spawns the player on
+// top of the bed block on death/respawn instead of the original world spawn.
+function setBedSpawn(x,y,z){if(typeof spawnPoint==='undefined'||!spawnPoint)return;spawnPoint.set(x+0.5,y+1,z+0.5);}
 function respawn(){if(typeof ridingBoat!=='undefined'&&ridingBoat){ridingBoat=null;if(typeof _showBoatHint==='function')_showBoatHint(false);}if(typeof ridingCart!=='undefined'&&ridingCart){ridingCart=null;if(typeof _showCartHint==='function')_showCartHint(false);}if(typeof cancelFishing==='function')cancelFishing();player.pos.copyFrom(spawnPoint);player.vel.set(0,0,0);player.hp=20;player.hunger=20;player.dead=false;player.fallStartY=null;player.pose=POSE.STAND;player.wantCrouch=false;applyPose();mining.active=false;resetMining();updateVitalsUI();updatePoseUI();}
 // Hold-to-crouch. wantCrouch tracks the player's intent; the actual pose
 // only returns to STAND when there is enough headroom to stand up.

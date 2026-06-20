@@ -3,7 +3,15 @@
 
 // Solid colour material cache
 const _mobMats={};
-function mobMat(hex){if(_mobMats[hex])return _mobMats[hex];const m=new BABYLON.StandardMaterial('mobMat_'+hex,scene);const c=BABYLON.Color3.FromHexString(hex);m.diffuseColor=c;m.emissiveColor=c.scale(0.35);m.specularColor=new BABYLON.Color3(0,0,0);_mobMats[hex]=m;return m;}
+function mobMat(hex){if(_mobMats[hex])return _mobMats[hex];const m=new BABYLON.StandardMaterial('mobMat_'+hex,scene);const c=BABYLON.Color3.FromHexString(hex);m.diffuseColor=c;
+  // Use a small flat ambient-style emissive (NOT proportional to the colour) so
+  // bright/white mobs (sheep, chicken, wool, skeletons) don't visibly self-glow.
+  // A constant low grey lift keeps dark mobs readable without making pale mobs
+  // look like light sources. The scene's lighting does the real shading.
+  const lum=0.2126*c.r+0.7152*c.g+0.0722*c.b;
+  const e=0.08*(1-lum*0.6); // darker mobs get a touch more lift, light mobs almost none
+  m.emissiveColor=new BABYLON.Color3(e,e,e);
+  m.specularColor=new BABYLON.Color3(0,0,0);_mobMats[hex]=m;return m;}
 
 // Create a box part relative to a parent node.
 // `partList` (optional) collects every created box so callers can later apply a
@@ -180,7 +188,16 @@ function pickHostileType(){return Math.random()<0.6?'ghoul':'bonearcher';}
 // Count how many currently-alive mobs are hostile (used to cap night spawns).
 function countHostile(){let n=0;for(const m of mobs)if(m.hostile)n++;return n;}
 
-function spawnMob(type,x,y,z){const meshes=buildMobMesh(type);const t=MOB_TYPES[type];const mob={type,t,meshes,pos:new BABYLON.Vector3(x+0.5,y,z+0.5),vel:new BABYLON.Vector3(0,0,0),yaw:Math.random()*Math.PI*2,onGround:false,wanderTimer:0,targetYaw:Math.random()*Math.PI*2,moving:false,walkPhase:0,hp:t.hp,halfW:0.32,height:Math.max(0.5,t.bodyH+t.legH),
+function spawnMob(type,x,y,z){const meshes=buildMobMesh(type);const t=MOB_TYPES[type];
+  // Collision height. Humanoid mobs (ghoul / bone archer) don't define bodyH/legH
+  // on their type, so fall back to the mesh's reported height (legs+torso+head).
+  // Previously this produced NaN for humanoids, which broke their vertical
+  // collision and let them sink into / fall through the ground.
+  let collH;
+  if(t.humanoid){collH=1.9;}
+  else if(Number.isFinite(t.bodyH)&&Number.isFinite(t.legH)){collH=Math.max(0.5,t.bodyH+t.legH);}
+  else{collH=Math.max(0.5,(meshes&&Number.isFinite(meshes.bodyH))?meshes.bodyH+0.6:1.0);}
+  const mob={type,t,meshes,pos:new BABYLON.Vector3(x+0.5,y,z+0.5),vel:new BABYLON.Vector3(0,0,0),yaw:Math.random()*Math.PI*2,onGround:false,wanderTimer:0,targetYaw:Math.random()*Math.PI*2,moving:false,walkPhase:0,hp:t.hp,halfW:0.32,height:collH,
   speedMul:0,
   headYaw:0,headPitch:0,
   lookTimer:0,
@@ -222,7 +239,10 @@ function trySpawnMobs(){
 // the ground or get squeezed out at high speed = "flying away").
 function mobMoveAxis(mob,axis,delta){
   if(delta===0)return false;
-  const hw=mob.halfW,h=mob.height;
+  const hw=mob.halfW;
+  // Defensive: never let a non-finite height collapse the collision AABB (which
+  // would make a mob ignore the ground and sink through it).
+  let h=mob.height;if(!Number.isFinite(h)||h<=0){h=mob.height=mob.t&&mob.t.humanoid?1.9:1.0;}
   mob.pos[axis]+=delta;
   let hit=false;
   // Iterate a few times so multi-block overlaps are all resolved.
