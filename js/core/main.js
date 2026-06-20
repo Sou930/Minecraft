@@ -97,7 +97,13 @@ async function bootstrap(){
   if(typeof ACH!=='undefined'&&typeof ACH.load==='function')ACH.load();
   await generateWorldAsync(setLoadProgress);
   loadEdits();
-  spawnPoint=findSpawn();player.pos.copyFrom(spawnPoint);
+  // spawnPoint is the "fresh start" / respawn location (always ground level).
+  spawnPoint=findSpawn();
+  // If this world has a saved player position, resume exactly there; otherwise
+  // start at the computed spawn point.
+  if(!(typeof loadPlayerState==='function'&&loadPlayerState())){
+    player.pos.copyFrom(spawnPoint);
+  }
   // Bake the correct day brightness into chunks BEFORE the initial meshing so
   // the terrain loads at the right light level (instead of a daytime default).
   {const angle=(dayTime/DAY_LENGTH)*Math.PI*2;const sunUp=Math.sin(angle);const dayF=Math.max(0,Math.min(1,sunUp*2+0.2));if(typeof setDayLight!=='undefined')setDayLight(dayF);}
@@ -143,8 +149,16 @@ if(typeof WORLDS!=='undefined'&&typeof WORLDS.clearActive==='function')WORLDS.cl
 if(typeof showHome==='function')showHome();
 function startGame(){started=true;if(typeof SFX!=='undefined'){SFX.resume();SFX.startAmbient();}if(isMobile){paused=false;document.getElementById('start-overlay').style.display='none';}else{canvas.requestPointerLock();setTimeout(()=>{if(document.pointerLockElement!==canvas){paused=false;document.getElementById('start-overlay').style.display='none';}},300);}}
 {const sb=document.getElementById('btn-sound');if(sb){const sync=()=>{const m=typeof SFX!=='undefined'&&SFX.isMuted();sb.textContent=m?'🔇':'🔊';sb.classList.toggle('muted',m);};sb.addEventListener('click',(e)=>{e.stopPropagation();if(typeof SFX!=='undefined'){SFX.resume();SFX.setMuted(!SFX.isMuted());if(!SFX.isMuted())SFX.startAmbient();sync();}});sb.addEventListener('touchstart',(e)=>e.stopPropagation(),{passive:true});sync();}}
-document.getElementById('btn-start').addEventListener('click',(e)=>{e.stopPropagation();startGame();});document.getElementById('start-overlay').addEventListener('click',startGame);{const hb=document.getElementById('btn-home');if(hb)hb.addEventListener('click',(e)=>{e.stopPropagation();if(typeof WORLDS!=='undefined')WORLDS.clearActive();location.reload();});}
-document.getElementById('btn-reset-world').addEventListener('click',(e)=>{e.stopPropagation();if(confirm(typeof t==='function'?t('resetConfirm'):'Reset the world? All builds will be lost.')){if(typeof WORLDS!=='undefined'){WORLDS.removeItem('edits');WORLDS.removeItem('inventory');WORLDS.removeItem('crops');WORLDS.removeItem('ach_stats');WORLDS.removeItem('ach_done');}if(typeof ACH!=='undefined')ACH.reset();location.reload();}});engine.runRenderLoop(()=>{const dt=Math.min(0.05,engine.getDeltaTime()/1000);update(dt);if(typeof FLUID!=='undefined')FLUID.update(dt);if(typeof FARM!=='undefined'&&worldReady&&started){FARM.update(dt);FARM.updateFarmlandWetness(dt);}updateDayNight(dt);if(worldReady){if(typeof processRelightQueue!=='undefined')processRelightQueue(3);if(typeof LIGHTING!=='undefined')LIGHTING.update(dt);if(typeof SHADERFX!=='undefined')SHADERFX.update(dt);updateAudioEnvironment(dt);if(typeof updatePetals==='function')updatePetals(dt);if(typeof PERF!=='undefined')PERF.update(dt);}updateHUD(dt);scene.render();});
+document.getElementById('btn-start').addEventListener('click',(e)=>{e.stopPropagation();startGame();});document.getElementById('start-overlay').addEventListener('click',startGame);{const hb=document.getElementById('btn-home');if(hb)hb.addEventListener('click',(e)=>{e.stopPropagation();if(typeof savePlayerState==='function')savePlayerState();if(typeof WORLDS!=='undefined')WORLDS.clearActive();location.reload();});}
+// Persist the player's position when leaving the page (reload / tab close) so a
+// world always resumes where it was left off.
+window.addEventListener('beforeunload',()=>{if(typeof savePlayerState==='function')savePlayerState();});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&typeof savePlayerState==='function')savePlayerState();});
+document.getElementById('btn-reset-world').addEventListener('click',(e)=>{e.stopPropagation();if(confirm(typeof t==='function'?t('resetConfirm'):'Reset the world? All builds will be lost.')){if(typeof WORLDS!=='undefined'){WORLDS.removeItem('edits');WORLDS.removeItem('inventory');WORLDS.removeItem('crops');WORLDS.removeItem('ach_stats');WORLDS.removeItem('ach_done');WORLDS.removeItem('player');}if(typeof ACH!=='undefined')ACH.reset();location.reload();}});let _posSaveAcc=0;engine.runRenderLoop(()=>{const dt=Math.min(0.05,engine.getDeltaTime()/1000);update(dt);if(typeof FLUID!=='undefined')FLUID.update(dt);if(typeof FARM!=='undefined'&&worldReady&&started){FARM.update(dt);FARM.updateFarmlandWetness(dt);}updateDayNight(dt);if(worldReady){if(typeof processRelightQueue!=='undefined')processRelightQueue(3);if(typeof LIGHTING!=='undefined')LIGHTING.update(dt);if(typeof SHADERFX!=='undefined')SHADERFX.update(dt);updateAudioEnvironment(dt);if(typeof updatePetals==='function')updatePetals(dt);if(typeof PERF!=='undefined')PERF.update(dt);}
+// Periodically persist player position (every ~5s of play) so an unexpected
+// crash / close still resumes near where the player was.
+if(worldReady&&started&&!paused){_posSaveAcc+=dt;if(_posSaveAcc>=5){_posSaveAcc=0;if(typeof savePlayerState==='function')savePlayerState();}}
+updateHUD(dt);scene.render();});
 // Cherry-blossom petals & falling leaves now live in js/effects/particles.js
 // Update ambient audio state
 function updateAudioEnvironment(dt){if(typeof SFX==='undefined')return;const px=Math.floor(player.pos.x),py=Math.floor(player.pos.y+1),pz=Math.floor(player.pos.z);const underground=!(typeof skyExposed==='function'&&skyExposed(px,py,pz));

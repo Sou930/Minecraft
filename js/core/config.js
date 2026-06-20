@@ -223,6 +223,7 @@ function loadActiveWorld(){
   if(WORLDS.getItem('world_version')!==WORLD_VERSION){
     WORLDS.removeItem('edits');
     WORLDS.removeItem('crops');
+    WORLDS.removeItem('player');
     WORLDS.setItem('world_version',WORLD_VERSION);
   }
   return true;

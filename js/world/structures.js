@@ -72,7 +72,7 @@ function siteIsFlat(cx,cz,radius){
 }
 
 function tryBuildVillage(cx,cz,rng){
-  const R=22;
+  const R=30;     // larger footprint so the expanded village fits comfortably
   if(!siteIsFlat(cx,cz,R))return false;
   const ground=heightMap[colIndex(cx,cz)];      // common ground level
   const biome=biomeMap[colIndex(cx,cz)];
@@ -96,26 +96,39 @@ function tryBuildVillage(cx,cz,rng){
   layVillageRoads(cx,cz,ground,R,desert);
   // 3) central well at the crossroads.
   buildWell(cx,cz,ground,desert);
-  // 4) ring of buildings around the well, facing inward.
+  // 4) buildings laid out in two concentric rings around the well, all facing
+  //    inward toward the plaza. The expanded village has ~20 structures plus
+  //    multiple farm fields and a market, making it feel like a real town.
   const houseSpots=[
-    [-12,-12],[12,-12],[-12,12],[12,12],
-    [0,-15],[0,15],[-15,0],[15,0],
-    [-8,8],[8,-8],
+    // inner ring
+    [-10,-10],[10,-10],[-10,10],[10,10],
+    [0,-13],[0,13],[-13,0],[13,0],
+    // outer ring
+    [-22,-10],[22,-10],[-22,10],[22,10],
+    [-10,-22],[10,-22],[-10,22],[10,22],
+    [-22,-22],[22,-22],[-22,22],[22,22],
+    [0,-24],[0,24],[-24,0],[24,0],
   ];
-  let builtFarm=false,builtMarket=false;
+  let farms=0,builtMarket=false;
+  const FARM_TARGET=3;          // multiple crop fields per village
   for(let i=0;i<houseSpots.length;i++){
     const hx=cx+houseSpots[i][0],hz=cz+houseSpots[i][1];
-    const gy=heightMap[colIndex(Math.max(0,Math.min(WORLD_W-1,hx)),Math.max(0,Math.min(WORLD_D-1,hz)))];
+    if(hx<R+2||hx>=WORLD_W-R-2||hz<R+2||hz>=WORLD_D-R-2)continue;
     const r=rng();
-    if(!builtFarm&&i>=4&&r<0.5){buildFarm(hx,hz,ground,desert);builtFarm=true;continue;}
-    if(!builtMarket&&i>=4&&r<0.35){buildMarket(hx,hz,ground,desert);builtMarket=true;continue;}
+    // Farms prefer the roomier outer ring (i>=8).
+    if(farms<FARM_TARGET&&i>=8&&r<0.45){buildFarm(hx,hz,ground,desert);farms++;continue;}
+    if(!builtMarket&&i>=4&&r<0.3){buildMarket(hx,hz,ground,desert);builtMarket=true;continue;}
     buildHouse(hx,hz,ground,rng,desert,snowy,cx,cz);
     // a lamp post beside most houses
     if(rng()<0.7)buildLampPost(hx+(houseSpots[i][0]<0?3:-3),hz+2,ground);
   }
-  // a few standalone lamp posts along the main road
-  buildLampPost(cx+6,cz,ground);buildLampPost(cx-6,cz,ground);
-  buildLampPost(cx,cz+6,ground);buildLampPost(cx,cz-6,ground);
+  // Guarantee at least one farm even if the random rolls skipped them.
+  if(farms===0){buildFarm(cx-22,cz+10,ground,desert);farms++;}
+  // lamp posts lining the main cross road for an evenly-lit town centre
+  for(let d=6;d<=R-6;d+=8){
+    buildLampPost(cx+d,cz+2,ground);buildLampPost(cx-d,cz-2,ground);
+    buildLampPost(cx+2,cz+d,ground);buildLampPost(cx-2,cz-d,ground);
+  }
   return true;
 }
 
@@ -253,20 +266,49 @@ function buildLampPost(x,z,gy){
   sBlock(x,gy+4,z,B.LANTERN);
 }
 
-// A small fenced farm: tilled rows of hay (crops) bordered by log posts and a
-// water trench for irrigation.
+// A Minecraft-style crop field: a rectangular plot of tilled (wet) farmland
+// bordered by a low log/fence frame, irrigated by a central water canal, and
+// planted with neat rows of mature crops (wheat / carrots / potatoes). Crop
+// blocks placed straight into the terrain (with no FARM growth entry) render at
+// their final maturity stage, so the field reads as a fully-grown harvest.
 function buildFarm(cx,cz,gy,desert){
-  const R=4;
-  for(let dx=-R;dx<=R;dx++)for(let dz=-R;dz<=R;dz++){
-    const x=cx+dx,z=cz+dz;
-    if(Math.abs(dx)===R||Math.abs(dz)===R){sBlock(x,gy+1,z,B.LOG);} // fence posts
-    else if(dz===0){sBlock(x,gy,z,B.WATER);}                        // central canal
-    else {sBlock(x,gy,z,desert?B.SAND:B.DIRT);sBlock(x,gy+1,z,(Math.abs(dz)%1===0)?B.HAY:B.AIR);}
+  const RX=5, RZ=4;                  // plot half-extents (10x8 interior + border)
+  // Pick one crop type per field so rows look uniform, like a Minecraft farm.
+  // (desert villages still get crops — irrigated farmland works on sand too.)
+  const cropChoices=[B.WHEAT,B.CARROT,B.POTATO];
+  const crop=cropChoices[Math.abs((cx*31+cz*17))%cropChoices.length];
+  for(let dx=-RX;dx<=RX;dx++){
+    for(let dz=-RZ;dz<=RZ;dz++){
+      const x=cx+dx,z=cz+dz;
+      // clear any vegetation / debris above the plot
+      for(let y=gy+1;y<=gy+3;y++)sBlock(x,y,z,B.AIR);
+      const edge=(Math.abs(dx)===RX||Math.abs(dz)===RZ);
+      if(edge){
+        // Border frame: oak-log fence posts at the corners + along the rim,
+        // sitting on a packed-dirt path so the field has a tidy walkway edge.
+        sBlock(x,gy,z,desert?B.SANDSTONE:B.PATH);
+        sBlock(x,gy+1,z,B.LOG);
+        continue;
+      }
+      // Central irrigation canal runs the length of the plot (dx===0 column).
+      if(dx===0){
+        sBlock(x,gy,z,B.WATER);
+        sBlock(x,gy+1,z,B.AIR);
+        continue;
+      }
+      // Everywhere else: wet farmland topped with a mature crop. Leave a 1-wide
+      // gap right beside the canal so the player can walk the rows.
+      sBlock(x,gy,z,B.FARMLAND_WET);
+      if(Math.abs(dx)===1){ sBlock(x,gy+1,z,B.AIR); }   // tending path beside canal
+      else { sBlock(x,gy+1,z,crop); }
+    }
   }
-  // hay only on the crop rows (avoid burying the canal)
-  for(let dx=-R+1;dx<=R-1;dx++)for(let dz=-R+1;dz<=R-1;dz++){
-    if(dz===0)continue;sBlock(cx+dx,gy+1,cz+dz,B.HAY);
-  }
+  // A couple of hay bales & a scarecrow-ish lantern post at one corner give the
+  // field that lived-in village look.
+  sBlock(cx-RX+1,gy+1,cz-RZ+1,B.HAY);
+  sBlock(cx-RX+1,gy+2,cz-RZ+1,B.HAY);
+  sBlock(cx+RX-1,gy+1,cz+RZ-1,B.LOG);
+  sBlock(cx+RX-1,gy+2,cz+RZ-1,B.LANTERN);
 }
 
 // A little market stall: planks counter under a wool awning on log posts.
