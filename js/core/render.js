@@ -42,6 +42,17 @@ function applyAtlasQuality(lowQuality){
 // material because only the texture content (not the material binding) changes.
 solidMat.freeze();waterMat.freeze();lavaMat.freeze();
 const FACES=[{dir:[1,0,0],face:'side',shade:0.80,corners:[[1,0,1],[1,0,0],[1,1,0],[1,1,1]]},{dir:[-1,0,0],face:'side',shade:0.80,corners:[[0,0,0],[0,0,1],[0,1,1],[0,1,0]]},{dir:[0,0,1],face:'side',shade:0.65,corners:[[0,0,1],[1,0,1],[1,1,1],[0,1,1]]},{dir:[0,0,-1],face:'side',shade:0.65,corners:[[1,0,0],[0,0,0],[0,1,0],[1,1,0]]},{dir:[0,1,0],face:'top',shade:1.00,corners:[[0,1,1],[1,1,1],[1,1,0],[0,1,0]]},{dir:[0,-1,0],face:'bottom',shade:0.50,corners:[[0,0,0],[1,0,0],[1,0,1],[0,0,1]]},];function tileForFace(def,face){if(def.all!==undefined)return def.all;if(face==='top')return def.top;if(face==='bottom')return def.bottom;return def.side;}
+// Day/night brightness for SKY light only (0=full night, 1=full day). Block
+// light (torches/lava) is unaffected, so a torch genuinely lights up the dark.
+// Baked into chunk vertex colours, so changing it requires rebuilding chunks
+// (see maybeScheduleRelight / processRelightQueue, driven by the day cycle).
+// Module-scoped so both the per-chunk meshing (skyMulAt) and the relight
+// scheduler can read/update it.
+let _dayLightFactor=1;
+const NIGHT_SKY_MIN=0.16;   // how dark open sky gets at deep night
+function _quantiseDay(f){return Math.round(Math.max(0,Math.min(1,f))*8);} // 9 steps
+let _lastBakedDayStep=_quantiseDay(_dayLightFactor);
+function setDayLight(f){_dayLightFactor=Math.max(0,Math.min(1,f));_lastBakedDayStep=_quantiseDay(_dayLightFactor);}
 const CHUNKS_X=WORLD_W/CHUNK,CHUNKS_Z=WORLD_D/CHUNK;const chunkMeshes=[];function buildChunk(cx,cz){const old=chunkMeshes[cz*CHUNKS_X+cx];if(old){if(old.solid)old.solid.dispose();if(old.water)old.water.dispose();if(old.lava)old.lava.dispose();}
 // Compute block light with margin for chunk border bleed
 const _blMargin=(typeof BLOCKLIGHT_MAX!=='undefined')?BLOCKLIGHT_MAX:15;
@@ -50,8 +61,9 @@ const _blx1=Math.min(WORLD_W-1,cx*CHUNK+CHUNK-1+_blMargin),_blz1=Math.min(WORLD_
 const _blField=(typeof computeBlockLight!=='undefined')?computeBlockLight(_blx0,0,_blz0,_blx1-_blx0+1,WORLD_H,_blz1-_blz0+1):null;
 function blockLightAt(x,y,z){if(!_blField)return 0;const lx=x-_blField.bx0,ly=y-_blField.by0,lz=z-_blField.bz0;if(lx<0||lx>=_blField.sx||ly<0||ly>=_blField.sy||lz<0||lz>=_blField.sz)return 0;return _blField.lv[_blField.idx(lx,ly,lz)];}
 // Convert block light level to brightness multiplier
-// Torch/block-light brightness doubled (clamped to 1.0 max)
-function blockLightMul(level){if(level<=0)return 0;const f=level/15;return Math.min(1,(f*f*0.85+f*0.15)*2);}
+// Torch/block-light brightness boosted: ramps up fast and saturates near full
+// so a single torch lights its surroundings strongly (clamped to 1.0 max).
+function blockLightMul(level){if(level<=0)return 0;const f=level/15;return Math.min(1,(f*f*0.85+f*0.15)*4);}
 const buf={pos:[],idx:[],nrm:[],uv:[],col:[]};const wbuf={pos:[],idx:[],nrm:[],uv:[],col:[]};const lbuf={pos:[],idx:[],nrm:[],uv:[],col:[]};function pushFace(b,x,y,z,f,tile,shade,alpha){const base=b.pos.length/3;const{u1,u2,v1,v2}=tileUV(tile);const uvs=[[u1,v1],[u2,v1],[u2,v2],[u1,v2]];for(let i=0;i<4;i++){const c=f.corners[i];b.pos.push(x+c[0],y+c[1],z+c[2]);b.nrm.push(f.dir[0],f.dir[1],f.dir[2]);b.uv.push(uvs[i][0],uvs[i][1]);b.col.push(shade,shade,shade,alpha);}
 b.idx.push(base,base+1,base+2,base,base+2,base+3);}
 // Fluid face: lower top height based on fluid level
@@ -114,7 +126,10 @@ function pushDoor(b,x,y,z,tile,facing,open,shade){const{u1,u2,v1,v2}=tileUV(tile
   const uvs=[[u1,v2],[u2,v2],[u2,v1],[u1,v1]];
   for(const fc of faces){const base=b.pos.length/3;for(let i=0;i<4;i++){b.pos.push(x+fc.q[i][0],y+fc.q[i][1],z+fc.q[i][2]);b.nrm.push(fc.n[0],fc.n[1],fc.n[2]);b.uv.push(uvs[i][0],uvs[i][1]);b.col.push(shade,shade,shade,1);}b.idx.push(base,base+1,base+2,base,base+2,base+3);}}
 // Cave darkness: min brightness for underground areas
-const CAVE_MIN=0.10;function skyMulAt(x,y,z,def){if(def&&def.emissive)return 1;const s=skyLightAt(x,y,z);return CAVE_MIN+(1-CAVE_MIN)*s;}
+const CAVE_MIN=0.10;
+// Sky-light multiplier for one cell, scaled by the module-level day factor so
+// open terrain darkens at night while block light (torches) fills back in.
+function skyMulAt(x,y,z,def){if(def&&def.emissive)return 1;const s=skyLightAt(x,y,z);const sky=CAVE_MIN+(1-CAVE_MIN)*s;return sky*(NIGHT_SKY_MIN+(1-NIGHT_SKY_MIN)*_dayLightFactor);}
 // Combined sky + block light multiplier
 function litMulAt(x,y,z,def,blx,bly,blz){
   if(def&&def.emissive)return 1;
@@ -172,6 +187,33 @@ const lo_z=Math.max(0,pcz-VIEW_DIST_CHUNKS-1),hi_z=Math.min(CHUNKS_Z-1,pcz+VIEW_
 // the mesh's child hierarchy and dirties scene caches, so calling it every
 // frame for hundreds of already-correct chunks is pure overhead.
 if(m._vis!==vis){m._vis=vis;if(m.solid)m.solid.setEnabled(vis);if(m.water)m.water.setEnabled(vis);if(m.lava)m.lava.setEnabled(vis);}}}return built;}
+// --- Day/night relighting --------------------------------------------------
+// Sky-light brightness is baked into chunk vertex colours, so when the day
+// factor changes we must rebuild chunks for the new lighting to show. We do
+// this in stepped quanta (so we don't rebuild every frame) and spread the work
+// across frames in an outward ring from the player to avoid hitches.
+let _relightQueue=null;
+function maybeScheduleRelight(dayF){
+  const step=_quantiseDay(dayF);
+  if(step===_lastBakedDayStep)return;
+  setDayLight(dayF); // updates _dayLightFactor + _lastBakedDayStep
+  // Queue all currently-built chunks, sorted near→far from the player, so the
+  // visible area relights first.
+  const pcx=Math.floor(player.pos.x/CHUNK),pcz=Math.floor(player.pos.z/CHUNK);
+  const list=[];
+  for(let cz=0;cz<CHUNKS_Z;cz++)for(let cx=0;cx<CHUNKS_X;cx++){if(!chunkBuilt[cz*CHUNKS_X+cx])continue;const d=Math.max(Math.abs(cx-pcx),Math.abs(cz-pcz));if(d>VIEW_DIST_CHUNKS+1)continue;list.push({cx,cz,d});}
+  list.sort((a,b)=>a.d-b.d);
+  _relightQueue=list;
+}
+// Rebuild a budgeted slice of the relight queue each frame. Always keep the
+// global _dayLightFactor in sync with the latest requested factor so newly
+// streamed chunks bake at the right brightness immediately.
+function processRelightQueue(budget){
+  if(!_relightQueue||_relightQueue.length===0){_relightQueue=null;return;}
+  let n=0;
+  while(_relightQueue.length&&n<budget){const c=_relightQueue.shift();if(chunkBuilt[c.cz*CHUNKS_X+c.cx]){buildChunk(c.cx,c.cz);n++;}}
+  if(_relightQueue.length===0)_relightQueue=null;
+}
 function setBlock(x,y,z,id){if(x<0||x>=WORLD_W||y<0||y>=WORLD_H||z<0||z>=WORLD_D)return;const prevId=world[blockIndex(x,y,z)];world[blockIndex(x,y,z)]=id;worldEdits[`${x},${y},${z}`]=id;scheduleSave();const cx=Math.floor(x/CHUNK),cz=Math.floor(z/CHUNK);buildChunk(cx,cz);if(x%CHUNK===0&&cx>0)buildChunk(cx-1,cz);if(x%CHUNK===CHUNK-1&&cx<CHUNKS_X-1)buildChunk(cx+1,cz);if(z%CHUNK===0&&cz>0)buildChunk(cx,cz-1);if(z%CHUNK===CHUNK-1&&cz<CHUNKS_Z-1)buildChunk(cx,cz+1);
 {const emitNow=(typeof blockLightEmission!=='undefined')?blockLightEmission(id):0;const emitPrev=(typeof blockLightEmission!=='undefined')?blockLightEmission(prevId):0;
 const opacityChanged=(typeof lightPasses!=='undefined')&&(lightPasses(prevId)!==lightPasses(id));

@@ -127,15 +127,23 @@ brickMasonry(T.STONE_BRICK,'#8d8d8d',['#7f7f7f','#9a9a9a','#757575','#868686'],5
 // Path
 {noisy(T.PATH_TOP,'#9a7a4e',['#8a6c44','#a8875a','#806440','#917252'],0.55);const[ox,oy]=tileOrigin(T.PATH_TOP);const rnd=mulberry32(5004);ctx.fillStyle='#6f5436';for(let i=0;i<10;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2+Math.floor(rnd()*2)*2,2);ctx.strokeStyle='rgba(60,45,28,0.5)';ctx.lineWidth=1;ctx.strokeRect(ox+1,oy+1,30,30);}
 {noisy(T.PATH_SIDE,'#8b5d3b',['#7a5132','#9a6a44','#6f4a2d'],0.7);const[ox,oy]=tileOrigin(T.PATH_SIDE);ctx.fillStyle='#9a7a4e';ctx.fillRect(ox,oy,TILE_PX,5);}
-// Torch
+// Torch — drawn to fill most of the tile width so it reads correctly when
+// mapped onto the thin column geometry (pushColumn hw≈0.12, top≈0.62). The
+// wooden handle occupies the lower ~2/3 and a layered flame sits on top.
 {const[ox,oy]=tileOrigin(T.TORCH);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
- ctx.fillStyle='#6b4a2a';ctx.fillRect(ox+13,oy+12,6,20);
- ctx.fillStyle='#7a5631';ctx.fillRect(ox+13,oy+12,2,20);
- ctx.fillStyle='#5c3f23';ctx.fillRect(ox+17,oy+12,2,20);
- ctx.fillStyle='#e8530f';ctx.fillRect(ox+12,oy+7,8,7);
- ctx.fillStyle='#ff8c1a';ctx.fillRect(ox+13,oy+5,6,8);
- ctx.fillStyle='#ffd23e';ctx.fillRect(ox+14,oy+5,4,7);
- ctx.fillStyle='#fff6c0';ctx.fillRect(ox+15,oy+6,2,4);}
+ // Wooden handle (fills the lower portion, broad so it doesn't get too thin).
+ ctx.fillStyle='#6b4a2a';ctx.fillRect(ox+10,oy+14,12,18);
+ ctx.fillStyle='#7d5836';ctx.fillRect(ox+10,oy+14,4,18);   // lit left edge
+ ctx.fillStyle='#553820';ctx.fillRect(ox+19,oy+14,3,18);   // shaded right edge
+ ctx.fillStyle='#4a3018';ctx.fillRect(ox+10,oy+14,12,2);    // grain line
+ // Charred top of the handle just under the flame.
+ ctx.fillStyle='#2c2016';ctx.fillRect(ox+11,oy+13,10,2);
+ // Flame: outer → inner, brightest core.
+ ctx.fillStyle='#d8420c';ctx.fillRect(ox+9,oy+4,14,11);     // outer red
+ ctx.fillStyle='#ff7a18';ctx.fillRect(ox+11,oy+2,10,11);    // orange body
+ ctx.fillStyle='#ffc12e';ctx.fillRect(ox+13,oy+2,6,9);      // yellow
+ ctx.fillStyle='#fff4b8';ctx.fillRect(ox+14,oy+3,4,5);      // hot core
+ ctx.fillStyle='#ffffff';ctx.fillRect(ox+15,oy+4,2,2);}     // white tip
 // Cobweb
 {const[ox,oy]=tileOrigin(T.COBWEB);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);ctx.strokeStyle='rgba(235,238,242,0.8)';ctx.lineWidth=1;const cx=ox+16,cy=oy+16;for(let a=0;a<8;a++){const ang=a*Math.PI/4;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(ang)*15,cy+Math.sin(ang)*15);ctx.stroke();}
 for(let r=4;r<=14;r+=4){ctx.beginPath();for(let a=0;a<=8;a++){const ang=a*Math.PI/4;const px=cx+Math.cos(ang)*r,py=cy+Math.sin(ang)*r;if(a===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}ctx.stroke();}}
