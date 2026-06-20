@@ -7,6 +7,8 @@ const ACH = (function () {
     harvest: 0, eaten: 0, diamond: 0, obsidian: 0, swim: 0, fly: 0, night: 0,
     // Combat: total kills + per-species kill flags.
     hunt: 0, kill_pig: 0, kill_sheep: 0, kill_cow: 0, kill_chicken: 0,
+    // Taming: befriend a wolf with meat.
+    tame_wolf: 0,
     // Exploration: one flag per biome reached.
     biome_plains: 0, biome_forest: 0, biome_desert: 0, biome_snowy: 0,
     biome_mountains: 0, biome_ocean: 0, biome_jungle: 0, biome_swamp: 0,

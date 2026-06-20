@@ -20,6 +20,10 @@ const MOB_TYPES={
   sheep: {name:'Sheep',emoji:'🐑', body:'#eef0ee', leg:'#5a4a3c', head:'#d9cfc2', snout:null,      bodyH:0.8, legH:0.5,  headSize:0.5,  speed:1.2, hp:8, fluffy:true, wool:'#f3f1ec', ears:'#cabfae', drops:[{id:233,min:1,max:2},{id:42,min:1,max:1}]},
   cow:   {name:'Cow',  emoji:'🐮', body:'#4a3a2c', leg:'#3a2d22', head:'#4a3a2c', snout:'#c9b6a0', bodyH:0.85,legH:0.55, headSize:0.55, speed:1.1, hp:12, patch:'#efeae2', horns:'#e8e0cf', ears:'#3a2d22', udder:'#e7a6ad', drops:[{id:231,min:1,max:3},{id:234,min:0,max:2}]},
   chicken:{name:'Chicken',emoji:'🐔',body:'#f2f2f2', leg:'#e0a23a', head:'#f2f2f2', snout:null,bodyH:0.55,legH:0.25, headSize:0.32, speed:1.6, hp:4, small:true, beak:'#e0a23a', wattle:'#d23b3b', wing:'#e2e2e2', bodyWidthMul:1.05, bodyDepthMul:0.62, drops:[{id:232,min:1,max:1},{id:235,min:0,max:2}]},
+  // Wolf: neutral animal. Won't attack unless provoked (or its pack is hit).
+  // Feed it raw meat to tame it; a tamed wolf follows the player and fights
+  // nearby hostile mobs (combat support). Tame/heal hooks live in the AI below.
+  wolf:  {name:'Wolf', emoji:'🐺', body:'#9a9a9a', leg:'#8a8a8a', head:'#a6a6a6', snout:'#5a5a5a', bodyH:0.5, legH:0.42, headSize:0.46, speed:2.2, hp:16, ears:'#6e6e6e', tail:'#8a8a8a', wolf:true, neutral:true, attackDamage:3, attackRange:1.5, attackCooldown:0.9, sightRange:20, drops:[]},
   // --- Hostile humanoid mobs (spawn at night, attack the player) ----------
   // Ghoul (zombie-type): melee attacker that relentlessly chases the player.
   ghoul:  {name:'Ghoul',  emoji:'🧟', humanoid:true, hostile:true, melee:true,
@@ -149,11 +153,19 @@ function buildMobMesh(type){
     // little tail feathers
     makePart(root,'tail',[bodyW*0.7,bodyH*0.7,0.1],[0,legY+bodyH*0.7,-bodyD/2-0.04],t.wing,parts);
   }
+  // --- Tail (wolf): an upright bushy box at the back that wags. ----------
+  let tailPivot=null;
+  if(t.tail){
+    tailPivot=new BABYLON.TransformNode('tailp',scene);tailPivot.parent=root;
+    tailPivot.position.set(0,legY+bodyH*0.7,-bodyD/2);
+    makePart(tailPivot,'tail',[0.16*s,0.42*s,0.16*s],[0,0.12*s,-0.04],t.tail,parts);
+    tailPivot.rotation.x=-0.5;
+  }
   // --- Legs --------------------------------------------------------------
   const legs=[];const lw=0.18*s,ld=0.18*s;const lx=bodyW/2-lw/2,lz=bodyD/2-ld*1.1;
   const legPos=[[-lx,lz],[lx,lz],[-lx,-lz],[lx,-lz]];
   for(let i=0;i<4;i++){const pivot=new BABYLON.TransformNode('legPivot'+i,scene);pivot.parent=root;pivot.position.set(legPos[i][0],legY,legPos[i][1]);makePart(pivot,'leg'+i,[lw,legY,ld],[0,-legY/2,0],t.leg,parts);legs.push(pivot);}
-  return {root,legs,head:headGroup,bodyH:legY,parts,wings};
+  return {root,legs,head:headGroup,bodyH:legY,parts,wings,tail:tailPivot};
 }
 
 const mobs=[];
@@ -162,7 +174,7 @@ const MOB_TICK={spawnTimer:0};
 
 function spawnHeightAt(x,z){for(let y=WORLD_H-2;y>1;y--){const id=getBlock(x,y,z);if(id===B.WATER||id===B.LAVA)return null;if(isSolid(id)){if(getBlock(x,y+1,z)===B.AIR&&getBlock(x,y+2,z)===B.AIR)return y+1;return null;}}return null;}
 
-function pickAnimalType(){const r=Math.random();if(r<0.3)return 'pig';if(r<0.6)return 'sheep';if(r<0.82)return 'cow';return 'chicken';}
+function pickAnimalType(){const r=Math.random();if(r<0.26)return 'pig';if(r<0.5)return 'sheep';if(r<0.7)return 'cow';if(r<0.86)return 'chicken';return 'wolf';}
 // Pick a hostile mob type: roughly 60% melee ghoul, 40% ranged bone archer.
 function pickHostileType(){return Math.random()<0.6?'ghoul':'bonearcher';}
 // Count how many currently-alive mobs are hostile (used to cap night spawns).
@@ -176,6 +188,10 @@ function spawnMob(type,x,y,z){const meshes=buildMobMesh(type);const t=MOB_TYPES[
   stuckTimer:0,prevX:x+0.5,prevZ:z+0.5,
   hurtFlash:0,dead:false,invuln:0,
   hostile:!!t.hostile,
+  neutral:!!t.neutral,  // wolf: passive until provoked
+  tamed:false,         // wolf: tamed via feeding meat
+  provoked:false,      // wolf: turned aggressive after being hit
+  begTimer:0,          // wolf: head-tilt "begging" timer when held meat is near
   attackTimer:0,        // melee swing / shoot cooldown
   burnTimer:0,          // daylight burn accumulator (undead burn in sun)
   };meshes.root.position.copyFrom(mob.pos);mobs.push(mob);return mob;}
@@ -234,7 +250,7 @@ function updateMobs(dt){if(!worldReady||!started)return;
   updateArrows(dt);
 }
 
-function despawnFarMobs(){for(let i=mobs.length-1;i>=0;i--){const m=mobs[i];const dx=m.pos.x-player.pos.x,dz=m.pos.z-player.pos.z;if(dx*dx+dz*dz>70*70){m.meshes.root.dispose();m.meshes.legs.forEach(l=>l.dispose&&l.dispose());mobs.splice(i,1);}}}
+function despawnFarMobs(){for(let i=mobs.length-1;i>=0;i--){const m=mobs[i];if(m.wolf&&m.tamed)continue;/* pets never despawn */const dx=m.pos.x-player.pos.x,dz=m.pos.z-player.pos.z;if(dx*dx+dz*dz>70*70){m.meshes.root.dispose();m.meshes.legs.forEach(l=>l.dispose&&l.dispose());mobs.splice(i,1);}}}
 
 function approachAngle(cur,target,maxStep){let dy=target-cur;while(dy>Math.PI)dy-=Math.PI*2;while(dy<-Math.PI)dy+=Math.PI*2;if(Math.abs(dy)<=maxStep)return target;return cur+Math.sign(dy)*maxStep;}
 
@@ -254,7 +270,10 @@ function updateOneMob(mob,dt){
   let chasing=false;
   if(mob.attackTimer>0)mob.attackTimer-=dt;
 
-  if(mob.hostile&&!player.dead){
+  if(mob.wolf){
+    updateWolf(mob,dt,dx,dz,distSq);
+    chasing=mob._chasing;fleeing=mob._fleeing;
+  }else if(mob.hostile&&!player.dead){
     updateHostileMob(mob,dt,dx,dz,distSq);
     chasing=mob._chasing;
   }else if(distSq<16){
@@ -337,6 +356,16 @@ function updateOneMob(mob,dt){
     a[0].rotation.x+=(restL-a[0].rotation.x)*k;
     a[1].rotation.x+=(restR-a[1].rotation.x)*k;
   }
+  // Wolf tail wag: tamed/happy wolves wag faster; angle eases with motion.
+  if(mob.meshes.tail){
+    const happy=mob.tamed||mob.begTimer>0;
+    const wagSpeed=happy?14:(moving?9:4);
+    const wagAmp=happy?0.7:(moving?0.5:0.25);
+    mob._tailPhase=(mob._tailPhase||0)+dt*wagSpeed;
+    mob.meshes.tail.rotation.y=Math.sin(mob._tailPhase)*wagAmp;
+    // Tail lifts when tamed (confident), droops slightly otherwise.
+    mob.meshes.tail.rotation.x=happy?-0.7:-0.4;
+  }
   // Chicken wings flutter up/down: fast when moving (or airborne), gentle idle.
   if(mob.meshes.wings&&mob.meshes.wings.length){
     const airborne=!mob.onGround;
@@ -385,6 +414,79 @@ function setMobHurtOverlay(mob,on,f){
     p.renderOverlay=on;
     if(on){p.overlayColor=_HURT_COLOR;p.overlayAlpha=0.55*Math.max(0.35,f);}
   }
+}
+
+// --- Wolf AI ----------------------------------------------------------------
+// Find the nearest hostile (or provoked) mob within `range` of a point. Used by
+// tamed wolves to pick a combat target so they can defend the player.
+function nearestEnemyOf(wolf,cx,cz,range){
+  let best=null,bestSq=range*range;
+  for(const m of mobs){
+    if(m===wolf||m.dead)continue;
+    // A valid enemy: a hostile mob, or a wolf that has turned on the player.
+    if(!(m.hostile||(m.wolf&&m.provoked&&!m.tamed)))continue;
+    const dx=m.pos.x-cx,dz=m.pos.z-cz;const sq=dx*dx+dz*dz;
+    if(sq<bestSq){bestSq=sq;best=m;}
+  }
+  return best;
+}
+
+// Drives a wolf each frame. Three modes:
+//  • Tamed   → follow the player; break off to attack nearby hostiles (combat
+//              support). Teleports back if it falls too far behind.
+//  • Provoked→ aggressive melee pursuit of the player (got hit while wild).
+//  • Wild    → neutral: wanders freely, only mildly wary of the player.
+function updateWolf(mob,dt,dx,dz,distSq){
+  const t=mob.t;mob._chasing=false;mob._fleeing=false;
+  mob.begTimer=Math.max(0,mob.begTimer-dt);
+  const dist=Math.sqrt(distSq);
+  const range=t.attackRange||1.5;
+
+  // Resolve / refresh a combat target (tamed wolf defends; provoked wolf may
+  // also lash out at whatever provoked it — handled via player targeting).
+  if(mob.combatTarget&&(mob.combatTarget.dead||mobs.indexOf(mob.combatTarget)<0))mob.combatTarget=null;
+
+  if(mob.tamed){
+    // Look for an enemy near the player (or near the wolf) to defend against.
+    if(!mob.combatTarget){mob.combatTarget=nearestEnemyOf(mob,player.pos.x,player.pos.z,14)||nearestEnemyOf(mob,mob.pos.x,mob.pos.z,12);}
+    if(mob.combatTarget){
+      const e=mob.combatTarget;const edx=e.pos.x-mob.pos.x,edz=e.pos.z-mob.pos.z;const ed=Math.hypot(edx,edz)||1;
+      // Drop the target if it (or the player) wandered too far away.
+      if(ed>22||Math.hypot(e.pos.x-player.pos.x,e.pos.z-player.pos.z)>26){mob.combatTarget=null;}
+      else{
+        mob._chasing=true;mob.moving=true;mob.targetYaw=Math.atan2(edx,edz);mob.wanderTimer=Math.max(mob.wanderTimer,0.4);
+        if(ed<=range&&mob.attackTimer<=0){
+          mob.attackTimer=t.attackCooldown||0.9;
+          attackMob(e,t.attackDamage||3,mob); // wolf bites the enemy
+        }
+        return;
+      }
+    }
+    // No enemy: heel to the player. Stay close but not on top of them.
+    if(dist>16){
+      // Too far behind — teleport to the player's side (vanilla-style follow).
+      const sy=spawnHeightAt(Math.floor(player.pos.x+1),Math.floor(player.pos.z));
+      if(sy!==null){mob.pos.set(player.pos.x+1.0,sy,player.pos.z);mob.vel.set(0,0,0);}
+    }
+    if(dist>2.6){mob._chasing=true;mob.moving=true;mob.targetYaw=Math.atan2(dx*-1,dz*-1);mob.wanderTimer=Math.max(mob.wanderTimer,0.4);}
+    else if(dist<1.4){mob.moving=false;} // close enough: idle next to player
+    return;
+  }
+
+  if(mob.provoked){
+    // Wild wolf that was attacked: hunt the player down (pack-style melee).
+    if(dist>(t.sightRange||20)*1.6){mob.provoked=false;return;}
+    mob._chasing=true;mob.moving=true;mob.targetYaw=Math.atan2(-dx,-dz);mob.wanderTimer=Math.max(mob.wanderTimer,0.4);
+    if(dist<=range&&mob.attackTimer<=0){
+      mob.attackTimer=t.attackCooldown||0.9;
+      if(typeof damage==='function')damage(t.attackDamage||3);
+    }
+    return;
+  }
+
+  // Wild & neutral: mostly independent. Only mildly shy — keep a little distance
+  // if the player crowds it, but it won't run in terror like prey animals.
+  if(distSq<6){mob._fleeing=true;mob.moving=true;mob.targetYaw=Math.atan2(dx,dz);mob.wanderTimer=Math.max(mob.wanderTimer,0.4);}
 }
 
 // --- Hostile AI -------------------------------------------------------------
@@ -503,11 +605,14 @@ function updateArrows(dt){
 
 // --- Combat: damaging / killing mobs ---------------------------------------
 // Find the mob the camera is currently aiming at within `maxDist`.
-function pickAttackMob(maxDist){
+function pickAttackMob(maxDist,includeTamed){
   if(typeof camera==='undefined')return null;
   const origin=camera.position;const dir=camera.getDirection(BABYLON.Vector3.Forward());
   let best=null,bestT=maxDist;
   for(const mob of mobs){if(mob.dead)continue;
+    // Don't let the player accidentally melee their own tamed wolf (but feeding
+    // still needs to target it, so callers can opt in with includeTamed).
+    if(mob.wolf&&mob.tamed&&!includeTamed)continue;
     const hw=mob.halfW+0.15,h=mob.height+0.1;
     const minX=mob.pos.x-hw,maxX=mob.pos.x+hw,minY=mob.pos.y-0.05,maxY=mob.pos.y+h,minZ=mob.pos.z-hw,maxZ=mob.pos.z+hw;
     const t=rayBoxHit(origin,dir,minX,minY,minZ,maxX,maxY,maxZ);
@@ -527,17 +632,40 @@ function rayBoxHit(o,d,minX,minY,minZ,maxX,maxY,maxZ){
 }
 
 // Damage a mob; applies knockback, flash, flee and handles death + drops.
-function attackMob(mob,dmg){
+// `attacker` is the source mob when one mob hits another (e.g. a tamed wolf
+// biting a ghoul). When omitted the player is assumed to be the attacker, which
+// triggers player-relative knockback and (for wild wolves) pack provocation.
+function attackMob(mob,dmg,attacker){
   if(!mob||mob.dead||mob.invuln>0)return false;
   mob.hp-=dmg;mob.invuln=0.35;mob.hurtFlash=0.3;
   if(typeof SFX!=='undefined'&&SFX.hurt)SFX.hurt();
-  // Knockback away from player + a little hop.
-  const dx=mob.pos.x-player.pos.x,dz=mob.pos.z-player.pos.z;const len=Math.hypot(dx,dz)||1;
+  // Knockback away from the attacker + a little hop.
+  const ax=attacker?attacker.pos.x:player.pos.x,az=attacker?attacker.pos.z:player.pos.z;
+  const dx=mob.pos.x-ax,dz=mob.pos.z-az;const len=Math.hypot(dx,dz)||1;
   mob.vel.x+=(dx/len)*5.5;mob.vel.z+=(dz/len)*5.5;if(mob.onGround)mob.vel.y=4.2;
-  // Panic: run away from the player.
-  mob.moving=true;mob.targetYaw=Math.atan2(dx,dz);mob.wanderTimer=Math.max(mob.wanderTimer,2.5);
+  if(attacker){
+    // Mob-vs-mob: the victim turns to fight back rather than flee the player.
+    if(mob.wolf&&!mob.tamed)mob.provoked=true;
+    mob.combatTarget=attacker;mob.moving=true;mob.targetYaw=Math.atan2(-dx,-dz);mob.wanderTimer=Math.max(mob.wanderTimer,1.0);
+  }else{
+    // Player hit a wild wolf → it (and nearby pack-mates) turn hostile.
+    if(mob.wolf&&!mob.tamed){
+      mob.provoked=true;provokeWolfPack(mob);
+    }
+    // Panic: run away from the player (non-aggressive victims).
+    mob.moving=true;mob.targetYaw=Math.atan2(dx,dz);mob.wanderTimer=Math.max(mob.wanderTimer,2.5);
+  }
   if(mob.hp<=0){killMob(mob);return true;}
   return true;
+}
+
+// When a wild wolf is struck, nearby untamed wolves join the fight (pack AI).
+function provokeWolfPack(src){
+  for(const m of mobs){
+    if(m===src||m.dead||!m.wolf||m.tamed)continue;
+    const dx=m.pos.x-src.pos.x,dz=m.pos.z-src.pos.z;
+    if(dx*dx+dz*dz<=16*16)m.provoked=true;
+  }
 }
 
 function killMob(mob){
@@ -555,6 +683,49 @@ function killMob(mob){
   // Despawn.
   const idx=mobs.indexOf(mob);if(idx>=0)mobs.splice(idx,1);
   mob.meshes.root.dispose();mob.meshes.legs.forEach(l=>l.dispose&&l.dispose());
+}
+
+// --- Wolf taming ------------------------------------------------------------
+// Raw meat the player can use to tame a wolf (the four raw mob meats).
+const WOLF_TAME_FOODS=(typeof ITEM_PORKCHOP!=='undefined')
+  ? [ITEM_PORKCHOP,ITEM_BEEF,ITEM_CHICKEN,ITEM_MUTTON]
+  : [230,231,232,233];
+const WOLF_TAME_CHANCE=0.34; // per feed; multiple feeds usually needed
+
+// Attempt to feed the wolf the player is currently aiming at. Returns true if a
+// piece of meat was consumed (so the caller can decrement the held stack).
+// Tamed wolves instead heal when fed. Drives the begging head-tilt feedback.
+function tryFeedWolf(foodId){
+  if(WOLF_TAME_FOODS.indexOf(foodId)<0)return false;
+  const reach=isMobile?3.6:4.2;
+  const mob=pickAttackMob(reach,true);
+  if(!mob||!mob.wolf||mob.dead)return false;
+  mob.begTimer=1.2;
+  if(typeof spawnHeartParticles==='function')spawnHeartParticles(mob.pos);
+  if(mob.tamed){
+    // Already a pet: feeding heals it back up.
+    if(mob.hp<mob.t.hp){mob.hp=Math.min(mob.t.hp,mob.hp+(ITEMS[foodId]?ITEMS[foodId].food||4:4));return true;}
+    return false; // full health — don't waste the meat
+  }
+  // Wild wolf: each feed has a chance to win it over.
+  mob.provoked=false; // accepting food calms an annoyed wolf
+  if(Math.random()<WOLF_TAME_CHANCE){tameWolf(mob);}
+  return true;
+}
+
+// Convert a wild wolf into a loyal, tamed companion.
+function tameWolf(mob){
+  mob.tamed=true;mob.provoked=false;mob.combatTarget=null;mob.hp=mob.t.hp;
+  // Add a red collar around the neck so tamed wolves read as "yours".
+  if(mob.meshes&&mob.meshes.root&&!mob._collar){
+    const t=mob.t;const s=t.small?0.8:1;const bodyD=1.0*s*(t.bodyDepthMul||1),bodyH=t.bodyH*s,bodyW=0.6*s*(t.bodyWidthMul||1);const legY=t.legH*s;
+    const collar=makePart(mob.meshes.root,'collar',[bodyW+0.06,0.1,0.16],[0,legY+bodyH*0.78,bodyD*0.42],'#c0392b',mob.meshes.parts);
+    mob._collar=collar;
+  }
+  if(typeof spawnHeartParticles==='function')spawnHeartParticles(mob.pos);
+  if(typeof SFX!=='undefined'&&SFX.collect)SFX.collect();
+  if(typeof ACH!=='undefined'){if(ACH.track)ACH.track('tame');if(ACH.flag)ACH.flag('tame_wolf');}
+  if(typeof showBedMessage==='function')showBedMessage('🐺 Wolf tamed!');
 }
 
 // Player attack: called on left-click. Returns true if a mob was hit

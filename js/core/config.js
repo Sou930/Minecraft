@@ -186,6 +186,7 @@ const ACHIEVEMENTS=[
   {id:'kill_cow',icon:'\ud83d\udc04',name:'Cowboy',desc:'Defeat a cow',stat:'kill_cow',goal:1},
   {id:'kill_chicken',icon:'\ud83d\udc14',name:'Fowl Play',desc:'Defeat a chicken',stat:'kill_chicken',goal:1},
   {id:'zookeeper',icon:'\ud83d\udc3e',name:'Zookeeper',desc:'Defeat every kind of animal',stat:'species_killed',goal:4},
+  {id:'tame_wolf',icon:'\ud83d\udc3a',name:'Best Friend',desc:'Tame a wolf with meat',stat:'tame_wolf',goal:1},
   {id:'diamond',icon:'\ud83d\udc8e',name:'Diamonds!',desc:'Mine diamond ore',stat:'diamond',goal:1},
   {id:'obsidian',icon:'\ud83d\udfea',name:'Obsidian Getter',desc:'Obtain obsidian',stat:'obsidian',goal:1},
   {id:'swimmer',icon:'\ud83c\udfca',name:'Swimmer',desc:'Submerge in water',stat:'swim',goal:1},

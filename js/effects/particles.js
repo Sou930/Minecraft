@@ -219,3 +219,38 @@ function updatePetals(dt){
     leafSystem.emitRate=rate;
   }
 }
+
+// --- Heart burst (wolf taming / feeding feedback) --------------------------
+// A small one-shot puff of pink hearts above a position, mirroring the classic
+// Minecraft "love mode" particles shown when an animal is tamed or fed.
+let _heartSystem=null;
+function buildHeartSystem(){
+  if(_heartSystem||typeof BABYLON==='undefined')return;
+  const tex=new BABYLON.DynamicTexture('heartTex',{width:16,height:16},scene,false);
+  tex.hasAlpha=true;const c=tex.getContext();c.clearRect(0,0,16,16);
+  // draw a tiny pixel heart
+  c.fillStyle='#ff5b7a';
+  c.beginPath();c.arc(5.5,6,3,0,Math.PI*2);c.arc(10.5,6,3,0,Math.PI*2);c.fill();
+  c.beginPath();c.moveTo(2.5,7.5);c.lineTo(8,13.5);c.lineTo(13.5,7.5);c.closePath();c.fill();
+  c.fillStyle='#ff9bb0';c.beginPath();c.arc(5,5,1.1,0,Math.PI*2);c.fill();tex.update();
+  const ps=new BABYLON.ParticleSystem('hearts',60,scene);
+  ps.particleTexture=tex;
+  ps.color1=new BABYLON.Color4(1,0.5,0.62,1);ps.color2=new BABYLON.Color4(1,0.7,0.8,1);ps.colorDead=new BABYLON.Color4(1,0.6,0.7,0);
+  ps.minSize=0.18;ps.maxSize=0.32;ps.minLifeTime=0.6;ps.maxLifeTime=1.1;
+  ps.emitRate=0;ps.blendMode=BABYLON.ParticleSystem.BLENDMODE_STANDARD;
+  ps.gravity=new BABYLON.Vector3(0,0.6,0);
+  ps.direction1=new BABYLON.Vector3(-0.5,1.2,-0.5);ps.direction2=new BABYLON.Vector3(0.5,1.8,0.5);
+  ps.minEmitPower=0.4;ps.maxEmitPower=0.9;ps.minAngularSpeed=-1;ps.maxAngularSpeed=1;ps.updateSpeed=0.02;
+  ps.start();_heartSystem=ps;
+}
+// Emit a quick burst of hearts at a world position (mob.pos). `pos` is a
+// BABYLON.Vector3; we lift it to roughly the animal's head height.
+function spawnHeartParticles(pos){
+  if(typeof BABYLON==='undefined'||!pos)return;
+  if(!_heartSystem)buildHeartSystem();
+  if(!_heartSystem)return;
+  _heartSystem.emitter=new BABYLON.Vector3(pos.x,pos.y+0.9,pos.z);
+  _heartSystem.minEmitBox=new BABYLON.Vector3(-0.25,0,-0.25);
+  _heartSystem.maxEmitBox=new BABYLON.Vector3(0.25,0.3,0.25);
+  _heartSystem.manualEmitCount=(_heartSystem.manualEmitCount||0)+7;
+}
