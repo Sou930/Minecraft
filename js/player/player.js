@@ -108,6 +108,9 @@ if(itemDef&&itemDef.door){clearInterval(actionInterval);if(tryPlaceDoor())consum
 if(itemDef&&itemDef.fishingRod){clearInterval(actionInterval);if(typeof useFishingRod==='function')useFishingRod();return;}
 if(itemDef&&itemDef.tool==='hoe'){tillSoil();return;}
 if(itemDef&&itemDef.plant!==undefined){if(plantSeed(slot.id,itemDef.plant))return;}
+// Feeding raw meat to a wolf you're aiming at tames / heals it instead of
+// being eaten. Only consumes meat when a wolf actually accepts it.
+if(itemDef&&itemDef.food&&typeof tryFeedWolf==='function'&&tryFeedWolf(slot.id)){consumeFromSlot(selectedSlot,1);return;}
 if(itemDef){if(itemDef.food)eatFood(selectedSlot);return;}
 if(!currentTarget)return;const{px,py,pz}=currentTarget;if(px<0||px>=WORLD_W||py<0||py>=WORLD_H||pz<0||pz>=WORLD_D)return;const cur=getBlock(px,py,pz);if(isSolid(cur))return;const box=playerAABB(player.pos);if(px+1>box.minX&&px<box.maxX&&py+1>box.minY&&py<box.maxY&&pz+1>box.minZ&&pz<box.maxZ)return;setBlock(px,py,pz,slot.id);if(typeof SFX!=='undefined')SFX.place(slot.id);consumeFromSlot(selectedSlot,1);if(typeof ACH!=='undefined')ACH.track('placed');}
 // Door facing constants matching doorFacing in config (N=0,E=1,S=2,W=3).
