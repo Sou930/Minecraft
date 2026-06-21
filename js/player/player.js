@@ -116,7 +116,13 @@ if(itemDef&&itemDef.plant!==undefined){if(plantSeed(slot.id,itemDef.plant))retur
 // being eaten. Only consumes meat when a wolf actually accepts it.
 if(itemDef&&itemDef.food&&typeof tryFeedWolf==='function'&&tryFeedWolf(slot.id)){consumeFromSlot(selectedSlot,1);return;}
 if(itemDef){if(itemDef.food)eatFood(selectedSlot);return;}
-if(!currentTarget)return;const{px,py,pz}=currentTarget;if(px<0||px>=WORLD_W||py<0||py>=WORLD_H||pz<0||pz>=WORLD_D)return;const cur=getBlock(px,py,pz);if(isSolid(cur))return;const box=playerAABB(player.pos);if(px+1>box.minX&&px<box.maxX&&py+1>box.minY&&py<box.maxY&&pz+1>box.minZ&&pz<box.maxZ)return;setBlock(px,py,pz,slot.id);if(typeof SFX!=='undefined')SFX.place(slot.id);consumeFromSlot(selectedSlot,1);if(typeof ACH!=='undefined')ACH.track('placed');}
+if(!currentTarget)return;const{px,py,pz}=currentTarget;if(px<0||px>=WORLD_W||py<0||py>=WORLD_H||pz<0||pz>=WORLD_D)return;const cur=getBlock(px,py,pz);if(isSolid(cur))return;const box=playerAABB(player.pos);if(px+1>box.minX&&px<box.maxX&&py+1>box.minY&&py<box.maxY&&pz+1>box.minZ&&pz<box.maxZ)return;
+// Stairs orient themselves: the low/open side faces the player so you climb away.
+let placeId=slot.id;if(BLOCKS[placeId]&&BLOCKS[placeId].stairs)placeId=stairBlockId(playerFacingDir());
+setBlock(px,py,pz,placeId);if(typeof SFX!=='undefined')SFX.place(placeId);consumeFromSlot(selectedSlot,1);if(typeof ACH!=='undefined')ACH.track('placed');}
+// Stair facing constants matching stairFacing in config (N=0,E=1,S=2,W=3).
+const STAIR_FACING_IDS=[B.STAIRS_N,B.STAIRS_E,B.STAIRS_S,B.STAIRS_W];
+function stairBlockId(facing){return STAIR_FACING_IDS[facing]||B.STAIRS_N;}
 // Door facing constants matching doorFacing in config (N=0,E=1,S=2,W=3).
 // Forward vector is (sin(yaw),cos(yaw)) in (x,z): +Z=South, +X=East.
 const DOOR_FACING_IDS=[

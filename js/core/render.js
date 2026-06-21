@@ -175,6 +175,35 @@ function pushDoor(b,x,y,z,tile,facing,open,shade){const{u1,u2,v1,v2}=tileUV(tile
   }
   const uvs=[[u1,v2],[u2,v2],[u2,v1],[u1,v1]];
   for(const fc of faces){const base=b.pos.length/3;for(let i=0;i<4;i++){b.pos.push(x+fc.q[i][0],y+fc.q[i][1],z+fc.q[i][2]);b.nrm.push(fc.n[0],fc.n[1],fc.n[2]);b.uv.push(uvs[i][0],uvs[i][1]);b.col.push(shade,shade,shade,1);}b.idx.push(base,base+1,base+2,base,base+2,base+3);}}
+// Wooden Stairs: built from two stacked axis-aligned boxes — a full half-height
+// bottom slab (y 0→0.5) plus a half-depth upper step (y 0.5→1) tucked against the
+// "high" side. `facing` (0=N/z-,1=E/x+,2=S/z+,3=W/x-) points toward the LOW (open)
+// side you step up from, so the tall step sits on the opposite edge. Each box is
+// emitted as 6 quads; UVs map the tile across each face so the oak grain reads.
+function pushBox(b,x,y,z,x0,y0,z0,x1,y1,z1,tile,shade){const{u1,u2,v1,v2}=tileUV(tile);
+  const uvs=[[u1,v1],[u2,v1],[u2,v2],[u1,v2]];
+  const faces=[
+    {n:[0,0,1], q:[[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]]},
+    {n:[0,0,-1],q:[[x1,y0,z0],[x0,y0,z0],[x0,y1,z0],[x1,y1,z0]]},
+    {n:[1,0,0], q:[[x1,y0,z1],[x1,y0,z0],[x1,y1,z0],[x1,y1,z1]]},
+    {n:[-1,0,0],q:[[x0,y0,z0],[x0,y0,z1],[x0,y1,z1],[x0,y1,z0]]},
+    {n:[0,1,0], q:[[x0,y1,z1],[x1,y1,z1],[x1,y1,z0],[x0,y1,z0]]},
+    {n:[0,-1,0],q:[[x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1]]},
+  ];
+  for(const f of faces){const base=b.pos.length/3;for(let i=0;i<4;i++){b.pos.push(x+f.q[i][0],y+f.q[i][1],z+f.q[i][2]);b.nrm.push(f.n[0],f.n[1],f.n[2]);b.uv.push(uvs[i][0],uvs[i][1]);b.col.push(shade,shade,shade,1);}b.idx.push(base,base+1,base+2,base,base+2,base+3);}}
+function pushStairs(b,x,y,z,tile,facing,shade){
+  // Bottom slab: the full footprint, half height.
+  pushBox(b,x,y,z,0,0,0,1,0.5,1,tile,shade);
+  // Upper step: half the footprint at the high edge (opposite the facing/open side).
+  let sx0=0,sz0=0,sx1=1,sz1=1;
+  switch(facing){
+    case 0: sz0=0.5; break;       // facing N (open to z-): high step on z+ side
+    case 2: sz1=0.5; break;       // facing S (open to z+): high step on z- side
+    case 1: sx0=0.5; break;       // facing E (open to x+): high step on x- side
+    default:sx1=0.5; break;       // facing W (open to x-): high step on x+ side
+  }
+  pushBox(b,x,y,z,sx0,0.5,sz0,sx1,1,sz1,tile,shade*0.97);
+}
 // Cave darkness: min brightness for underground areas
 const CAVE_MIN=0.10;
 // Sky-light multiplier for one cell, scaled by the module-level day factor so
@@ -207,6 +236,8 @@ if(def&&def.cross){const sh=(def.emissive?1:0.94*cellMul);pushCross(buf,x,y,z,de
 // Wooden door: thin slab using the top/bottom texture chosen by doorHalf,
 // placed/rotated per doorFacing & doorOpen (geometry handled by pushDoor).
 if(def&&def.door){const tile=(def.doorHalf==='top')?T.DOOR_TOP:T.DOOR_BOTTOM;pushDoor(buf,x,y,z,tile,def.doorFacing,def.doorOpen,0.9*cellMul);continue;}
+// Wooden stairs: two-box stepped shape oriented by stairFacing.
+if(def&&def.stairs){pushStairs(buf,x,y,z,def.all,def.stairFacing,0.95*cellMul);continue;}
 if(def&&def.flat){pushFlat(buf,x,y,z,def.all,0.95*cellMul);continue;}
 const isFluidCell=(id===B.WATER||id===B.LAVA);const topH=isFluidCell&&typeof FLUID!=='undefined'?FLUID.surfaceHeight(x,y,z):1;
 for(const f of FACES){const nx=x+f.dir[0],ny=y+f.dir[1],nz=z+f.dir[2];const n=getBlock(nx,ny,nz);
