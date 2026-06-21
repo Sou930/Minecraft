@@ -237,17 +237,27 @@ function buildHouse(hx,hz,gy,rng,desert,snowy,villageX,villageZ){
   if(rng()<0.6)sBlock(x0+1,gy+1,z1-1,B.CRAFTING);
 }
 
-// Simple pitched roof: stepped planks rising to a ridge, with a log ridge beam.
+// Pitched roof made of wooden stairs: each layer rises one block toward the
+// central ridge, with stair blocks giving the slope a clean angled silhouette
+// instead of a blocky staircase of full cubes. Desert (sandstone) cottages keep
+// solid blocks since there are no sandstone stairs. The two slopes face inward
+// (north slope faces S/2 toward the ridge, south slope faces N/0), and a log
+// ridge beam caps the apex.
 function buildRoof(x0,z0,x1,z1,baseY,desert){
-  const mat=desert?B.SANDSTONE:B.PLANKS;
   const midZ=(z0+z1)/2;const span=Math.ceil((z1-z0)/2)+1;
   for(let layer=0;layer<span;layer++){
     const y=baseY+layer;
     const za=z0+layer, zb=z1-layer;
     for(let x=x0-1;x<=x1+1;x++){
-      sBlock(x,y,za,mat);sBlock(x,y,zb,mat);
+      if(desert){sBlock(x,y,za,B.SANDSTONE);sBlock(x,y,zb,B.SANDSTONE);}
+      else{
+        // North eave row slopes up toward the ridge (high step on the +z side → facing N/0);
+        // South eave row mirrors it (high step on the -z side → facing S/2).
+        sBlock(x,y,za,B.STAIRS_N);
+        if(zb!==za)sBlock(x,y,zb,B.STAIRS_S);
+      }
     }
-    if(za>=zb-1){ // ridge
+    if(za>=zb-1){ // ridge beam
       for(let x=x0-1;x<=x1+1;x++)sBlock(x,y,Math.round(midZ),B.LOG);
     }
   }
