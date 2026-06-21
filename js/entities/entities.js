@@ -765,6 +765,91 @@ function tryPlayerAttack(){
 }
 function updateAttackCooldown(dt){if(_attackCooldown>0)_attackCooldown-=dt;}
 
+// ===========================================================================
+//  WINDMILL SAILS  (回転羽根)
+// ===========================================================================
+// Each village windmill (recorded in `villageWindmills` by the structure
+// builder) gets a set of four big rotating sails bolted to its tower. The block
+// world can't animate, so the spinning blades are lightweight Babylon meshes:
+//   • a central hub box (the axle cap),
+//   • four arms radiating out at 90° on a single pivot node,
+//   • a fabric "sail" panel on each arm.
+// A pivot TransformNode is rotated every frame so the whole cross turns slowly,
+// just like a real mill catching the wind. Sails are spawned lazily when the
+// player is near (and disposed when far) so distant villages cost nothing.
+const windmillBlades=[];          // active blade rigs: {pivot,group,axis,phase,wm}
+const WINDMILL_SPAWN_DIST=120;    // spawn sails within this many blocks
+const WINDMILL_DESPAWN_DIST=160;  // dispose once well beyond view
+const WINDMILL_SPIN_SPEED=0.6;    // radians / second (a gentle, scenic turn)
+
+// Build one blade rig (hub + 4 arms + sails) centred on a windmill's hub point.
+function buildWindmillBladeRig(wm){
+  if(typeof BABYLON==='undefined'||typeof scene==='undefined')return null;
+  const group=new BABYLON.TransformNode('windmill_'+(wm.hub.x|0)+'_'+(wm.hub.z|0),scene);
+  group.position.set(wm.hub.x,wm.hub.y,wm.hub.z);
+  // Orient the whole rig so the blade plane faces along the mounting wall normal.
+  // axis 'x' → sails mounted on an X-facing wall, so they spin in the Y/Z plane;
+  // we yaw the group 90° so the pivot's local Z spin sweeps across that wall.
+  if(wm.axis==='x')group.rotation.y=Math.PI/2;
+  // Pivot that actually rotates. Children hang off it so the cross turns as one.
+  const pivot=new BABYLON.TransformNode('windmillPivot',scene);
+  pivot.parent=group;pivot.position.set(0,0,0);
+  // Central hub cap (slightly proud of the wall).
+  const hub=BABYLON.MeshBuilder.CreateBox('windmillHub',{width:0.5,height:0.5,depth:0.5},scene);
+  hub.material=mobMat('#5a3a1e');hub.isPickable=false;hub.parent=pivot;hub.position.set(0,0,0.35);
+  // Four arms + sail panels at 0/90/180/270°.
+  const armLen=3.4, armW=0.18;
+  const woodMat=mobMat('#6b4a2a'), sailMat=mobMat('#efe7d2');
+  for(let i=0;i<4;i++){
+    const ang=i*Math.PI/2;
+    const arm=new BABYLON.TransformNode('arm'+i,scene);arm.parent=pivot;arm.position.set(0,0,0.35);arm.rotation.z=ang;
+    // The wooden spar.
+    const spar=BABYLON.MeshBuilder.CreateBox('spar'+i,{width:armW,height:armLen,depth:armW},scene);
+    spar.material=woodMat;spar.isPickable=false;spar.parent=arm;spar.position.set(0,armLen/2,0);
+    // The cloth/lattice sail offset to one side of the spar (gives the classic
+    // four-sail "X with fabric" silhouette).
+    const sail=BABYLON.MeshBuilder.CreateBox('sail'+i,{width:1.0,height:armLen*0.78,depth:0.06},scene);
+    sail.material=sailMat;sail.isPickable=false;sail.parent=arm;sail.position.set(0.62,armLen*0.52,0.02);
+  }
+  const rig={pivot,group,axis:wm.axis,phase:Math.random()*Math.PI*2,wm};
+  pivot.rotation.z=rig.phase;
+  return rig;
+}
+
+// Remove every active blade rig (used on world regen / reset).
+function clearWindmillBlades(){
+  for(const r of windmillBlades){if(r.group&&r.group.dispose)r.group.dispose(true,true);}
+  windmillBlades.length=0;
+}
+
+// Spawn / despawn rigs based on distance to the player, then spin the live ones.
+function updateWindmills(dt){
+  if(typeof villageWindmills==='undefined'||typeof player==='undefined')return;
+  if(!worldReady||!started)return;
+  // Lazy spawn for nearby windmills.
+  for(const wm of villageWindmills){
+    const dx=wm.hub.x-player.pos.x, dz=wm.hub.z-player.pos.z;
+    const distSq=dx*dx+dz*dz;
+    if(!wm.spawned&&distSq<WINDMILL_SPAWN_DIST*WINDMILL_SPAWN_DIST){
+      const rig=buildWindmillBladeRig(wm);
+      if(rig){windmillBlades.push(rig);wm.spawned=true;wm._rig=rig;}
+    }
+  }
+  // Despawn far rigs + spin the rest.
+  for(let i=windmillBlades.length-1;i>=0;i--){
+    const r=windmillBlades[i];
+    const dx=r.group.position.x-player.pos.x, dz=r.group.position.z-player.pos.z;
+    if(dx*dx+dz*dz>WINDMILL_DESPAWN_DIST*WINDMILL_DESPAWN_DIST){
+      r.group.dispose(true,true);
+      if(r.wm){r.wm.spawned=false;r.wm._rig=null;}
+      windmillBlades.splice(i,1);
+      continue;
+    }
+    r.phase+=WINDMILL_SPIN_SPEED*dt;
+    r.pivot.rotation.z=r.phase;
+  }
+}
+
 let playerModel=null;
 function buildPlayerModel(){const root=new BABYLON.TransformNode('playerModel',scene);
   const skin='#c98e63',shirt='#3aa0c0',pants='#384a8c',hair='#3a2a18';

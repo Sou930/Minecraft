@@ -26,10 +26,27 @@ function fillBox(x0,y0,z0,x1,y1,z1,id){for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1
 // A village is allowed on broadly flat, dry-ish, land biomes only.
 function isVillageBiome(b){return b===BIOME.PLAINS||b===BIOME.FOREST||b===BIOME.SNOWY||b===BIOME.DESERT;}
 
+// ---------------------------------------------------------------------------
+//  WINDMILL REGISTRY
+//  Each windmill mill-house records where its blade hub sits and which way the
+//  hub faces, so the entity layer (js/entities/entities.js) can attach a set of
+//  animated rotating blade meshes once the scene/Babylon are ready. Block
+//  generation runs during world-gen (before the renderer is up), so we only
+//  remember the hub here and spawn the spinning sails later/lazily.
+//    hub : {x,y,z}  world-space centre of the blade hub (block coords + 0.5)
+//    axis: 'x' | 'z'  the wall the sails are mounted on; blades spin in the
+//                     plane perpendicular to this axis.
+// ---------------------------------------------------------------------------
+const villageWindmills=[];
+
 // ===========================================================================
 //  VILLAGES
 // ===========================================================================
 function placeVillages(){
+  // Fresh windmill registry for this generation pass (avoids duplicate spinning
+  // sails if villages are ever rebuilt within the same session).
+  villageWindmills.length=0;
+  if(typeof clearWindmillBlades==='function')clearWindmillBlades();
   const rng=mulberry32((SEED^0x5bd1e995)>>>0);
   // Aim for a handful of villages on a big map; scale with area.
   const target=Math.max(3,Math.floor((WORLD_W*WORLD_D)/90000));
@@ -109,21 +126,36 @@ function tryBuildVillage(cx,cz,rng){
     [-22,-22],[22,-22],[-22,22],[22,22],
     [0,-24],[0,24],[-24,0],[24,0],
   ];
-  let farms=0,builtMarket=false;
+  let farms=0,builtMarket=false,builtWindmill=false;
   const FARM_TARGET=3;          // multiple crop fields per village
+  // Remember the last farm we placed so the windmill can be raised right beside
+  // a crop field — a classic "風車のある農場" (farm with a windmill) scene.
+  let lastFarm=null;
   for(let i=0;i<houseSpots.length;i++){
     const hx=cx+houseSpots[i][0],hz=cz+houseSpots[i][1];
     if(hx<R+2||hx>=WORLD_W-R-2||hz<R+2||hz>=WORLD_D-R-2)continue;
     const r=rng();
     // Farms prefer the roomier outer ring (i>=8).
-    if(farms<FARM_TARGET&&i>=8&&r<0.45){buildFarm(hx,hz,ground,desert);farms++;continue;}
+    if(farms<FARM_TARGET&&i>=8&&r<0.45){buildFarm(hx,hz,ground,desert);lastFarm=[hx,hz];farms++;continue;}
     if(!builtMarket&&i>=4&&r<0.3){buildMarket(hx,hz,ground,desert);builtMarket=true;continue;}
     buildHouse(hx,hz,ground,rng,desert,snowy,cx,cz);
     // a lamp post beside most houses
     if(rng()<0.7)buildLampPost(hx+(houseSpots[i][0]<0?3:-3),hz+2,ground);
   }
   // Guarantee at least one farm even if the random rolls skipped them.
-  if(farms===0){buildFarm(cx-22,cz+10,ground,desert);farms++;}
+  if(farms===0){buildFarm(cx-22,cz+10,ground,desert);lastFarm=[cx-22,cz+10];farms++;}
+  // Every village gets one windmill mill-house, raised on the village fringe
+  // next to a farm field so its turning sails overlook the crops.
+  if(!builtWindmill&&lastFarm){
+    // Offset the windmill a few blocks outward from the farm centre toward the
+    // village edge so its tall tower & sails have clear sky around them.
+    const ox=lastFarm[0]+(lastFarm[0]>=cx?7:-7);
+    const oz=lastFarm[1]+(lastFarm[1]>=cz?2:-2);
+    if(ox>=R+3&&ox<WORLD_W-R-3&&oz>=R+3&&oz<WORLD_D-R-3){
+      buildWindmill(ox,oz,ground,rng,desert,snowy,cx,cz);
+      builtWindmill=true;
+    }
+  }
   // lamp posts lining the main cross road for an evenly-lit town centre
   for(let d=6;d<=R-6;d+=8){
     buildLampPost(cx+d,cz+2,ground);buildLampPost(cx-d,cz-2,ground);
@@ -319,6 +351,96 @@ function buildFarm(cx,cz,gy,desert){
   sBlock(cx-RX+1,gy+2,cz-RZ+1,B.HAY);
   sBlock(cx+RX-1,gy+1,cz+RZ-1,B.LOG);
   sBlock(cx+RX-1,gy+2,cz+RZ-1,B.LANTERN);
+}
+
+// ===========================================================================
+//  WINDMILL MILL-HOUSE  (風車小屋)
+// ===========================================================================
+// A tall, tapering stone-and-timber mill tower topped with a plank cap, ringed
+// by glass windows, with a working interior (millstone hint = hay/log + a chest
+// of "flour" and a lantern). A set of four big rotating sails is mounted on the
+// wall facing away from the village centre; the blades themselves are animated
+// Babylon meshes created by the entity layer from `villageWindmills`. The block
+// build here only frames the tower + a flush "hub" block the sails pivot on.
+function buildWindmill(cx,cz,gy,rng,desert,snowy,villageX,villageZ){
+  const wallMat=desert?B.SANDSTONE:B.COBBLE;       // sturdy lower mill body
+  const trimMat=desert?B.SANDSTONE:B.LOG;          // timber corner posts
+  const H=8+(rng()<0.5?0:1);                        // tower body height
+  const R0=3;                                       // base radius (footprint ~7x7)
+  // 1) clear the column and lay a stone foundation ring.
+  for(let dx=-R0-1;dx<=R0+1;dx++)for(let dz=-R0-1;dz<=R0+1;dz++){
+    const x=cx+dx,z=cz+dz;
+    for(let y=gy+1;y<=gy+H+6;y++)sBlock(x,y,z,B.AIR);
+  }
+  // 2) build the tapering round-ish tower out of stacked rings. The radius
+  //    shrinks slightly toward the top so the mill reads as a proper windmill
+  //    body rather than a plain box tower.
+  for(let layer=0;layer<H;layer++){
+    const y=gy+1+layer;
+    const rad=R0-(layer/H)*1.1;          // taper from R0 down to ~R0-1.1
+    const rr=rad*rad;
+    for(let dx=-R0;dx<=R0;dx++)for(let dz=-R0;dz<=R0;dz++){
+      const d=dx*dx+dz*dz;
+      // ring shell: within the radius band → wall; inside → hollow.
+      if(d<=rr&&d>(rad-1)*(rad-1)){
+        // timber bands every few layers for that half-timbered look.
+        const band=(layer%3===2);
+        sBlock(cx+dx,y,cz+dz,band?trimMat:wallMat);
+      }
+    }
+  }
+  // 3) solid stone floor + hollow interior.
+  for(let dx=-R0;dx<=R0;dx++)for(let dz=-R0;dz<=R0;dz++){
+    if(dx*dx+dz*dz<=R0*R0)sBlock(cx+dx,gy,cz+dz,desert?B.SANDSTONE:B.COBBLE);
+  }
+  // 4) glass windows around the upper body for the look of a lit mill at night.
+  const wy=gy+H-2;
+  for(const [dx,dz] of [[R0,0],[-R0,0],[0,R0],[0,-R0],[R0-1,R0-1],[-(R0-1),R0-1],[R0-1,-(R0-1)],[-(R0-1),-(R0-1)]]){
+    sBlock(cx+dx,wy,cz+dz,B.GLASS);
+  }
+  // 5) a doorway facing the village centre.
+  let dDX=0,dDZ=1;
+  const toCx=(villageX!==undefined)?villageX-cx:0, toCz=(villageZ!==undefined)?villageZ-cz:1;
+  let doorBottom,doorTop,doorX=cx,doorZ=cz;
+  if(Math.abs(toCz)>=Math.abs(toCx)){
+    if(toCz>=0){doorZ=cz+R0;doorBottom=B.DOOR_BOTTOM_S_CLOSED;doorTop=B.DOOR_TOP_S_CLOSED;dDX=0;dDZ=1;}
+    else        {doorZ=cz-R0;doorBottom=B.DOOR_BOTTOM_N_CLOSED;doorTop=B.DOOR_TOP_N_CLOSED;dDX=0;dDZ=-1;}
+  }else{
+    if(toCx>=0){doorX=cx+R0;doorBottom=B.DOOR_BOTTOM_E_CLOSED;doorTop=B.DOOR_TOP_E_CLOSED;dDX=1;dDZ=0;}
+    else        {doorX=cx-R0;doorBottom=B.DOOR_BOTTOM_W_CLOSED;doorTop=B.DOOR_TOP_W_CLOSED;dDX=-1;dDZ=0;}
+  }
+  sBlock(doorX,gy+1,doorZ,doorBottom);
+  sBlock(doorX,gy+2,doorZ,doorTop);
+  sBlock(doorX+dDX,gy+1,doorZ+dDZ,B.AIR);
+  sBlock(doorX+dDX,gy+2,doorZ+dDZ,B.AIR);
+  // 6) conical plank cap (the mill "roof") rising above the tower body.
+  const capBase=gy+1+H;
+  for(let layer=0;layer<=R0+1;layer++){
+    const y=capBase+layer;
+    const rad=(R0+1)-layer;
+    const rr=rad*rad;
+    for(let dx=-R0-1;dx<=R0+1;dx++)for(let dz=-R0-1;dz<=R0+1;dz++){
+      if(dx*dx+dz*dz<=rr)sBlock(cx+dx,y,cz+dz,B.PLANKS);
+    }
+  }
+  // 7) interior fittings: a millstone hint (hay + log "shaft"), a flour chest
+  //    and a lantern for warmth.
+  sBlock(cx,gy+1,cz,B.LOG);                 // central grinding shaft
+  sBlock(cx+1,gy+1,cz,B.HAY);               // sacks of grain
+  sBlock(cx-1,gy+1,cz,B.CHEST);             // flour store
+  sBlock(cx,gy+H-1,cz,B.LANTERN);           // hanging lantern lights the mill
+  fillContainerNearby(cx-1,gy+1,cz);
+  // 8) mount the blade hub flush on the wall that faces AWAY from the village
+  //    (the "windward" side), so the sweeping sails have open sky/field in front.
+  //    axis = the wall normal direction; blades spin in the perpendicular plane.
+  let hdx=-dDX, hdz=-dDZ;                    // opposite the door = open field side
+  if(hdx===0&&hdz===0){hdx=0;hdz=-1;}
+  const hubAxis=(hdx!==0)?'x':'z';
+  const hubY=gy+H-1;                         // hub sits high on the upper body
+  const hubX=cx+hdx*(R0+0.6), hubZ=cz+hdz*(R0+0.6);
+  // a small protruding "hub" block (log) on the wall the sails bolt onto.
+  sBlock(cx+hdx*R0,hubY,cz+hdz*R0,B.LOG);
+  villageWindmills.push({hub:{x:hubX+0.0,y:hubY+0.5,z:hubZ+0.0},axis:hubAxis,spawned:false});
 }
 
 // A little market stall: planks counter under a wool awning on log posts.
