@@ -17,15 +17,22 @@ function fbm2(x,z,salt,octaves,baseFreq,persistence,lacunarity){
   return sum/norm;
 }
 // Three climate fields: temperature, moisture, continental
-function climateAt(x,z){
-  const temperature  = fbm2(x,z,41,4,1/520,0.55,2.0);
-  const moisture     = fbm2(x,z,47,4,1/470,0.55,2.0);
-  const continental  = fbm2(x,z,59,3,1/300,0.50,2.1);
-  const weirdness    = fbm2(x,z,67,2,1/180,0.50,2.0);
-  return {temperature,moisture,continental,weirdness};
+// Fill a reusable climate object in place. The 4 fbm2 fields are the single
+// most expensive part of terrain generation; computing them once and sharing
+// the result (via the optional `c` arg on heightAtRaw/biomeAt/craterLavaLevelAt)
+// roughly halves the generation cost and avoids per-column allocation.
+function climateAtInto(x,z,o){
+  o.temperature =fbm2(x,z,41,4,1/520,0.55,2.0);
+  o.moisture    =fbm2(x,z,47,4,1/470,0.55,2.0);
+  o.continental =fbm2(x,z,59,3,1/300,0.50,2.1);
+  o.weirdness   =fbm2(x,z,67,2,1/180,0.50,2.0);
+  return o;
 }
-function biomeAt(x,z){
-  const c=climateAt(x,z);
+function climateAt(x,z){return climateAtInto(x,z,{});}
+// `c` is an optional precomputed climate object so the generation pass can share
+// a single climateAt evaluation with heightAtRaw/craterLavaLevelAt.
+function biomeAt(x,z,c){
+  if(!c)c=climateAt(x,z);
   const t=c.temperature,m=c.moisture,e=c.continental,w=c.weirdness;
   // Oceans
   if(e<0.32) return BIOME.OCEAN;

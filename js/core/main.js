@@ -111,12 +111,14 @@ async function bootstrap(){
   setLoadProgress(1.0,'Rendering terrain...');
   await new Promise(r=>requestAnimationFrame(()=>r()));
   // Mesh only the chunks the player can immediately see (the full view box is
-  // (2*VIEW_DIST+1)^2 chunks). Build a few per frame so the loading screen
-  // stays smooth; remaining far chunks stream in lazily during play.
+  // (2*VIEW_DIST+1)^2 chunks). Build several per frame so the loading screen
+  // stays smooth; remaining far chunks stream in lazily during play. The budget
+  // is larger here than during play because the loading overlay is shown and a
+  // hidden scene can absorb more meshing work without dropping visible frames.
     const need=(INITIAL_LOAD_CHUNKS*2+1)*(INITIAL_LOAD_CHUNKS*2+1);
   let metaBuilt=0,guard=0;
   while(guard++<600){
-    const n=updateChunkStreaming(5,INITIAL_LOAD_CHUNKS);
+    const n=updateChunkStreaming(8,INITIAL_LOAD_CHUNKS);
     metaBuilt+=n;
     setLoadProgress(Math.min(1,metaBuilt/need),'Rendering terrain...');
     await new Promise(r=>requestAnimationFrame(()=>r()));
