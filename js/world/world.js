@@ -89,8 +89,10 @@ function lakeMaskAt(x,z){
   if(n>=0.30)return 0;                         // only deep dips become lakes
   return (0.30-n)/0.30;                        // 0..1, 1 at the basin centre
 }
-function heightAtRaw(x,z){
-  const c=climateAt(x,z);
+// `c` is an optional precomputed climate object so the generation pass can
+// share a single climateAt evaluation with biomeAt/craterLavaLevelAt.
+function heightAtRaw(x,z,c){
+  if(!c)c=climateAt(x,z);
   // multi-octave rolling base around sea level
   const base=SEA_LEVEL+2+fbm2(x,z,11,4,1/40,0.5,2.0)*26-10+fbm2(x,z,77,2,1/12,0.5,2.0)*8-4;
   // Two layers of fine detail give the surface a more eroded, natural look:
@@ -192,8 +194,8 @@ function heightAt(x,z){return Math.floor(Math.max(2,Math.min(WORLD_H-6,heightAtR
 // Lava level inside a volcano crater. Returns the height the molten pool fills
 // up to (the crater rim), or -1 when this column is not a flooded crater.
 // Mirrors the VOLCANO branch of heightAt() but keeps the un-dipped rim height.
-function craterLavaLevelAt(x,z){
-  const c=climateAt(x,z);
+function craterLavaLevelAt(x,z,c){
+  if(!c)c=climateAt(x,z);
   const e=c.continental,t=c.temperature,m=c.moisture,w=c.weirdness;
   if(!(e>0.72&&t>0.55&&m<0.50))return -1;
   const base=SEA_LEVEL+2+fbm2(x,z,11,4,1/40,0.5,2.0)*26-10+fbm2(x,z,77,2,1/12,0.5,2.0)*8-4;
@@ -207,13 +209,33 @@ function craterLavaLevelAt(x,z){
   if(level<SEA_LEVEL+40)return -1;
   return Math.min(WORLD_H-6,level);
 }
-const heightMap=new Int16Array(WORLD_W*WORLD_D);const biomeMap=new Uint8Array(WORLD_W*WORLD_D);function colIndex(x,z){return z*WORLD_W+x;}
+const heightMap=new Int16Array(WORLD_W*WORLD_D);const biomeMap=new Uint8Array(WORLD_W*WORLD_D);
+// Volcano crater lava level per column (or -1). Precomputed during the climate
+// pass (while the climate object is already hot) so generateTerrainColumns can
+// read it from the map instead of recomputing climateAt for every volcano column.
+const lavaLevelMap=new Int16Array(WORLD_W*WORLD_D);
+function colIndex(x,z){return z*WORLD_W+x;}
 // Synchronous full generation (kept for reference / fallback).
 function generateWorld(){generateClimateAndHeight();generateTerrainColumns(0,WORLD_W);carveCaves();carveLargeCaves();carveCaveFeatures();placeAmethystGeodes();placeOresAndGravel();placeVegetation();if(typeof placeStructures==='function')placeStructures();}
 // --- Split phases so generation can be driven asynchronously --------------
 function generateClimateAndHeight(){
   const tmp=new Float32Array(WORLD_W*WORLD_D);
-  for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){tmp[colIndex(x,z)]=heightAtRaw(x,z);biomeMap[colIndex(x,z)]=biomeAt(x,z);}}
+  // Compute the climate fields ONCE per column and feed the single object to
+  // heightAtRaw, biomeAt AND craterLavaLevelAt. Previously each of those three
+  // recomputed climateAt() (13 valueNoise evals) independently for the same
+  // (x,z), so the climate was evaluated up to 3x per column. Sharing it removes
+  // ~2/3 of the most expensive work in the whole generation pass.
+  // We also precompute the volcano crater lava level here (the climate object is
+  // already hot) so generateTerrainColumns can read it from lavaLevelMap instead
+  // of recomputing climateAt for every volcano column.
+  const cl={temperature:0,moisture:0,continental:0,weirdness:0};
+  for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){
+    const i=colIndex(x,z);
+    climateAtInto(x,z,cl);
+    tmp[i]=heightAtRaw(x,z,cl);
+    biomeMap[i]=biomeAt(x,z,cl);
+    lavaLevelMap[i]=craterLavaLevelAt(x,z,cl);
+  }}
   // --- Pass 1: weighted 3x3 box blur -----------------------------------
   // Previously the blur was *weakened* where neighbours differed a lot, which
   // left the very places that needed it (cliff edges) almost untouched. We now
@@ -307,7 +329,7 @@ world[blockIndex(x,y,z)]=id;}
 for(let y=h+1;y<=SEA_LEVEL;y++)world[blockIndex(x,y,z)]=B.WATER;
 if(biome===BIOME.SNOWY&&h<SEA_LEVEL)world[blockIndex(x,SEA_LEVEL,z)]=B.ICE;
 // VOLCANO crater lava lake: flood the summit bowl up to the rim with lava.
-if(biome===BIOME.VOLCANO){const lv=craterLavaLevelAt(x,z);if(lv>h){for(let y=h+1;y<=lv&&y<WORLD_H;y++)world[blockIndex(x,y,z)]=B.LAVA;}}}}}
+if(biome===BIOME.VOLCANO){const lv=lavaLevelMap[colIndex(x,z)];if(lv>h){for(let y=h+1;y<=lv&&y<WORLD_H;y++)world[blockIndex(x,y,z)]=B.LAVA;}}}}}
 function carveCaves(){for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];const yMax=Math.min(h-4,WORLD_H-1);for(let y=2;y<=yMax;y++){const n1=valueNoise3(x/11,y/7,z/11,71);if(n1<=0.54)continue;if(n1>0.70){world[blockIndex(x,y,z)]=B.AIR;continue;}
 const n2=valueNoise3(x/23,y/13,z/23,73);if(n1>0.565&&n2>0.575)world[blockIndex(x,y,z)]=B.AIR;
 // secondary spaghetti cave layer for denser interconnected tunnels
