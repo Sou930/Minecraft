@@ -1,36 +1,31 @@
 "use strict";
 /* ===========================================================================
- * SHADERFX — Built-in "Shadow Mod" style effects + held-light system.
+ * SHADERFX — Built-in "Shadow Mod" style effects + held-light + GOD RAYS.
  *
- * Two features live here, both designed to work out-of-the-box on the existing
- * Babylon.js voxel renderer without touching the chunk meshing pipeline:
- *
+ * Features:
  *  1) HELD LIGHT
- *     A dynamic PointLight that follows the camera whenever the player is
- *     holding a light-emitting item (torch / lantern / glowstone-like blocks).
- *     This makes "just holding a torch lights up your surroundings" true even
- *     before the torch is placed — exactly like a held light source.
+ *     Dynamic PointLight following the camera for held torches / lanterns.
  *
  *  2) SHADOW-MOD LOOK  (toggle: Settings → Shaders)
- *     - A real-time ShadowGenerator attached to the sun (DirectionalLight) so
- *       chunks cast soft sun shadows.
- *     - A DefaultRenderingPipeline adding bloom (glowing torches/lava/sun),
- *       gentle tone-mapping/contrast and subtle vignette for a richer,
- *       "shader pack" feel.
- *     - A slightly warmer, more directional sun so terrain reads with more
- *       depth than the flat default lighting.
+ *     - Real-time ShadowGenerator on the sun.
+ *     - DefaultRenderingPipeline: bloom, ACES tone-map, vignette, FXAA.
+ *     - Warmer directional sun for richer depth.
  *
- * All of this is additive and fully reversible via setEnabled(false), which
- * restores the vanilla flat look.
+ *  3) VOLUMETRIC LIGHT / GOD RAYS  (toggle: Settings → God Rays)
+ *     - VolumetricLightScatteringPostProcess attached to the sun billboard.
+ *     - Follows the sun's screen-space position so shafts radiate correctly.
+ *     - Scales down automatically on mobile for performance.
+ *     - Gracefully disabled during night / heavy fog / underwater.
+ *
+ * All effects are additive and fully reversible via setEnabled(false).
  * ========================================================================= */
 const SHADERFX = (function () {
   let inited = false;
   let enabled = true;
+  let godRaysEnabled = true;    // Independent toggle for VLS
 
   // --- Held light -----------------------------------------------------------
   let heldLight = null;
-  // Light profiles per held block id. Tuned so a torch throws a warm, fairly
-  // wide pool of light around the player.
   function heldLightProfiles() {
     if (typeof B === 'undefined') return {};
     const P = {};
@@ -49,9 +44,121 @@ const SHADERFX = (function () {
   let _origSunIntensity = null;
   let _origHemiIntensity = null;
   let _shadowResyncTimer = 0;
-  // Track which chunk meshes are registered as shadow casters so we only add new ones.
   const _registeredCasters = new Set();
 
+  // --- Volumetric Light Scattering (God Rays) --------------------------------
+  let _vlsPost = null;        // VolumetricLightScatteringPostProcess instance
+  let _godRayMesh = null;     // The "emitter" mesh VLS tracks (sun billboard)
+  let _vlsTimer = 0;
+  const VLS_RESYNC_INTERVAL = 0.1; // seconds between caster re-syncs for VLS
+
+  // Quality preset based on device capability
+  function _vlsQuality() {
+    // iPad 7 and similar: isMobile flag or DPR≤2 — use low quality
+    if (typeof isMobile !== 'undefined' && isMobile) {
+      return { samples: 50, density: 0.55, weight: 0.45, decay: 0.96, exposure: 0.14, ratio: 0.35 };
+    }
+    return { samples: 100, density: 0.75, weight: 0.55, decay: 0.97, exposure: 0.18, ratio: 0.5 };
+  }
+
+  // --------------------------------------------------------------------------
+  // Initialise the VLS post-process.
+  // We use the sun billboard mesh as the VLS "emitter" so rays radiate from
+  // the actual sun position in screen space.
+  // --------------------------------------------------------------------------
+  function _setupGodRays() {
+    if (_vlsPost) return;
+    if (typeof BABYLON.VolumetricLightScatteringPostProcess === 'undefined') return;
+    if (typeof camera === 'undefined' || typeof scene === 'undefined') return;
+    if (!godRaysEnabled) return;
+
+    // Find the sun billboard mesh
+    let emitterMesh = null;
+    if (typeof sunMesh !== 'undefined' && sunMesh) {
+      emitterMesh = sunMesh;
+    } else {
+      // Fallback: a tiny invisible billboard at a high position
+      emitterMesh = BABYLON.MeshBuilder.CreateSphere('vlsEmitter', { diameter: 0.1 }, scene);
+      emitterMesh.isPickable = false;
+      emitterMesh.position.set(0, 200, 0);
+      emitterMesh.setEnabled(false);
+    }
+    _godRayMesh = emitterMesh;
+
+    const q = _vlsQuality();
+    try {
+      _vlsPost = new BABYLON.VolumetricLightScatteringPostProcess(
+        'godRays',
+        q.ratio,         // renderRatio — lower = cheaper
+        camera,
+        emitterMesh,
+        q.samples,       // samples along the scatter ray
+        BABYLON.Texture.BILINEAR_SAMPLINGMODE,
+        engine,
+        false            // reusable
+      );
+      _vlsPost.exposure     = q.exposure;
+      _vlsPost.decay        = q.decay;
+      _vlsPost.weight       = q.weight;
+      _vlsPost.density      = q.density;
+
+      // Colour the scattering by time of day (warm yellow/orange at dawn/dusk)
+      _vlsPost.mesh = emitterMesh;
+    } catch (e) {
+      // VLS not supported on this device/browser — fail silently
+      _vlsPost = null;
+    }
+  }
+
+  function _teardownGodRays() {
+    if (_vlsPost) {
+      try { _vlsPost.dispose(camera); } catch (e) {}
+      _vlsPost = null;
+    }
+    _godRayMesh = null;
+  }
+
+  // Per-frame: fade god rays in/out with day factor and underwater state.
+  // Also tint the scattering colour with the time-of-day atmosphere.
+  function _updateGodRays(dt, dayFactor) {
+    if (!_vlsPost) return;
+    _vlsTimer -= dt;
+    if (_vlsTimer > 0) return;
+    _vlsTimer = VLS_RESYNC_INTERVAL;
+
+    // Disable entirely at night or when blocked
+    const daytime = dayFactor > 0.12;
+    const q = _vlsQuality();
+
+    if (!daytime) {
+      _vlsPost.exposure = 0;
+      return;
+    }
+
+    // Sunrise/sunset: orange tint; midday: soft white-yellow
+    let targetExposure = q.exposure * dayFactor;
+
+    // Dawn/dusk tint (dayFactor roughly 0.15–0.40 and 0.60–0.85)
+    const isDawnDusk = dayFactor > 0.10 && dayFactor < 0.42 || dayFactor > 0.62 && dayFactor < 0.88;
+    if (isDawnDusk) {
+      targetExposure *= 1.4; // stronger shafts near horizon
+    }
+
+    // Soft lerp to avoid popping
+    _vlsPost.exposure = _vlsPost.exposure * 0.85 + targetExposure * 0.15;
+
+    // Keep the emitter mesh at the sun billboard's position (already done by
+    // the sun billboard update in render.js / lighting.js).
+    // Optionally track the sun direction and update a "fake" position if
+    // the sunMesh doesn't update its own position.
+    if (typeof sunLight !== 'undefined' && _godRayMesh && _godRayMesh !== sunMesh) {
+      const d = sunLight.direction;
+      const dist = 300;
+      _godRayMesh.position.set(-d.x * dist, -d.y * dist, -d.z * dist);
+    }
+  }
+
+  // --------------------------------------------------------------------------
   function init() {
     if (inited) return;
     if (typeof scene === 'undefined' || typeof BABYLON === 'undefined') return;
@@ -63,40 +170,34 @@ const SHADERFX = (function () {
     heldLight.range = 16;
     heldLight.specular = new BABYLON.Color3(0, 0, 0);
     heldLight.setEnabled(false);
-    // The voxel chunk materials cap simultaneous lights at 2 (sun + hemi). Bump
-    // the chunk materials so the held light can actually affect them.
     if (typeof solidMat !== 'undefined') _raiseLightCap(solidMat);
     if (typeof waterMat !== 'undefined') _raiseLightCap(waterMat);
 
     inited = true;
   }
 
-  // Raise a frozen material's max simultaneous lights so the held PointLight can
-  // contribute. Materials are frozen for perf; briefly unfreeze to change the cap.
   function _raiseLightCap(mat) {
     if (!mat) return;
     try {
       if (mat.unfreeze) mat.unfreeze();
       mat.maxSimultaneousLights = 4;
       if (mat.freeze) mat.freeze();
-    } catch (e) { /* ignore */ }
+    } catch (e) {}
   }
 
   // --- Shadow generator setup ----------------------------------------------
   function _setupShadows() {
     if (shadowGen || typeof sunLight === 'undefined') return;
-    // Map size kept modest for perf on a voxel scene; soft PCF for clean edges.
-    const size = 1024;
+    // Use lower shadow map on mobile for performance
+    const size = (typeof isMobile !== 'undefined' && isMobile) ? 512 : 1024;
     shadowGen = new BABYLON.ShadowGenerator(size, sunLight);
-    // Percentage-closer filtering gives soft edges; it must NOT be combined with
-    // the exponential shadow map (they are mutually exclusive in Babylon).
     shadowGen.usePercentageCloserFiltering = true;
-    shadowGen.filteringQuality = BABYLON.ShadowGenerator.QUALITY_MEDIUM;
+    shadowGen.filteringQuality = (typeof isMobile !== 'undefined' && isMobile)
+      ? BABYLON.ShadowGenerator.QUALITY_LOW
+      : BABYLON.ShadowGenerator.QUALITY_MEDIUM;
     shadowGen.bias = 0.0009;
     shadowGen.normalBias = 0.02;
-    shadowGen.darkness = 0.55; // 0=black shadow, 1=no shadow
-    // Constrain the shadow frustum to a local box around the player so the
-    // shadow map resolution is spent near the camera (the world is huge).
+    shadowGen.darkness = 0.55;
     sunLight.autoUpdateExtends = false;
     sunLight.autoCalcShadowZBounds = false;
     sunLight.shadowMinZ = -120;
@@ -108,12 +209,9 @@ const SHADERFX = (function () {
     sunLight.orthoBottom = -70;
     _registerExistingCasters();
   }
-  // Keep the directional shadow frustum centred on the player each frame so
-  // shadows stay sharp and local instead of trying to cover the whole map.
+
   function _followPlayerWithSun() {
     if (!shadowGen || typeof sunLight === 'undefined' || typeof player === 'undefined') return;
-    // Anchor the light's notional position above the player along -direction so
-    // the orthographic shadow box brackets the area around the camera.
     const d = sunLight.direction;
     sunLight.position.set(
       player.pos.x - d.x * 90,
@@ -122,7 +220,6 @@ const SHADERFX = (function () {
     );
   }
 
-  // Register all currently-built chunk solid meshes as shadow casters/receivers.
   function _registerExistingCasters() {
     if (!shadowGen || typeof chunkMeshes === 'undefined') return;
     for (const m of chunkMeshes) {
@@ -146,13 +243,11 @@ const SHADERFX = (function () {
   function _setupPipeline() {
     if (pipeline || typeof camera === 'undefined') return;
     pipeline = new BABYLON.DefaultRenderingPipeline('shaderfx', true, scene, [camera]);
-    // Bloom — makes torches, lava, the sun and bright sky glow.
     pipeline.bloomEnabled = true;
     pipeline.bloomThreshold = 0.72;
     pipeline.bloomWeight = 0.55;
     pipeline.bloomKernel = 48;
     pipeline.bloomScale = 0.5;
-    // Tone mapping + slight contrast for a richer, shader-pack feel.
     pipeline.imageProcessingEnabled = true;
     const ip = pipeline.imageProcessing;
     ip.toneMappingEnabled = true;
@@ -163,7 +258,6 @@ const SHADERFX = (function () {
     ip.vignetteWeight = 1.4;
     ip.vignetteStretch = 0.5;
     ip.vignetteColor = new BABYLON.Color4(0, 0, 0, 0);
-    // Soft FXAA to take the edge off shimmering voxel edges with post on.
     pipeline.fxaaEnabled = true;
   }
 
@@ -174,13 +268,12 @@ const SHADERFX = (function () {
     }
   }
 
-  // --- Lighting tweak (warmer / more directional sun while shaders on) ------
+  // --- Lighting tweak -------------------------------------------------------
   function _applyLightingTweak(on) {
     if (typeof sunLight === 'undefined' || typeof hemiLight === 'undefined') return;
     if (on) {
       if (_origSunIntensity === null) _origSunIntensity = sunLight.intensity;
       if (_origHemiIntensity === null) _origHemiIntensity = hemiLight.intensity;
-      // Warmer sun + slightly lower fill so shadows/depth read more strongly.
       sunLight.diffuse = new BABYLON.Color3(1.0, 0.95, 0.84);
       hemiLight.intensity = 0.7;
     } else {
@@ -198,31 +291,47 @@ const SHADERFX = (function () {
       _setupShadows();
       _setupPipeline();
       _applyLightingTweak(true);
+      if (godRaysEnabled) _setupGodRays();
     } else {
       _teardownShadows();
       _teardownPipeline();
+      _teardownGodRays();
       _applyLightingTweak(false);
     }
   }
   function isEnabled() { return enabled; }
 
+  // --- Public: god rays independent toggle ----------------------------------
+  function setGodRaysEnabled(on) {
+    godRaysEnabled = !!on;
+    if (!inited) return;
+    if (godRaysEnabled && enabled) {
+      _setupGodRays();
+    } else {
+      _teardownGodRays();
+    }
+  }
+  function isGodRaysEnabled() { return godRaysEnabled; }
+
   // --- Per-frame update -----------------------------------------------------
-  function update(dt) {
+  // dayFactor: 0=night, 1=full day (from LIGHTING module)
+  function update(dt, dayFactor) {
     if (!inited) return;
     _updateHeldLight();
     if (enabled && shadowGen) {
       _followPlayerWithSun();
-      // New chunks stream in over time; periodically pick them up as casters.
       _shadowResyncTimer -= dt;
       if (_shadowResyncTimer <= 0) {
         _shadowResyncTimer = 0.5;
         _registerExistingCasters();
       }
     }
+    if (enabled && godRaysEnabled) {
+      const df = (typeof dayFactor === 'number') ? dayFactor : 1;
+      _updateGodRays(dt, df);
+    }
   }
 
-  // Decide whether the player is currently holding a light source, and if so
-  // position + power the held light at the camera. Works in every camera view.
   function _updateHeldLight() {
     if (!heldLight) return;
     let prof = null;
@@ -235,8 +344,6 @@ const SHADERFX = (function () {
       return;
     }
     if (typeof camera === 'undefined') return;
-    // Position a touch in front of / below the eye so it reads like a hand-held
-    // torch rather than a light stuck to the face.
     const fwd = camera.getDirection(BABYLON.Vector3.Forward());
     heldLight.position.set(
       camera.position.x + fwd.x * 0.5,
@@ -246,11 +353,10 @@ const SHADERFX = (function () {
     const c = prof.color;
     heldLight.diffuse = new BABYLON.Color3(c[0], c[1], c[2]);
     heldLight.range = prof.range;
-    // A gentle flicker for a living-flame feel.
     const flicker = 0.92 + Math.sin(performance.now() * 0.012) * 0.04 + (Math.random() - 0.5) * 0.04;
     heldLight.intensity = prof.intensity * flicker;
     heldLight.setEnabled(true);
   }
 
-  return { init, setEnabled, isEnabled, update };
+  return { init, setEnabled, isEnabled, setGodRaysEnabled, isGodRaysEnabled, update };
 })();

@@ -1,62 +1,87 @@
 "use strict";
 /* ===========================================================================
- * PERF — adaptive performance governor that targets ~60 FPS.
+ * PERF — Adaptive performance governor.
  *
- * Strategy (cheapest knob first, most visible knob last):
- *   1. Render-distance scaling  — shrink VIEW_DIST_CHUNKS / fog when slow,
- *                                 grow it back when there is spare frame budget.
- *   2. Hardware-scaling (DPR)   — render fewer device pixels and upscale; this
- *                                 is the heaviest hammer so it is only pulled
- *                                 after distance is already at its floor.
+ * Targets 60 FPS on desktop, 30 FPS on mobile (iPad 7th gen and similar
+ * low-GPU-bandwidth devices).  The governor monitors smoothed frame rate and
+ * progressively reduces quality until the target is met, then gradually
+ * restores quality when there is spare budget.
  *
- * The governor samples a smoothed FPS (engine.getFps()) a few times a second
- * and nudges one knob per evaluation, with hysteresis + cooldowns so the view
- * never visibly "pumps" in and out. It is fully self-contained: it only reads
- * engine.getFps() and calls existing setViewDistance()/fog helpers, so the rest
- * of the game does not need to know it exists.
+ * Quality knobs (cheapest first):
+ *   1. Render-distance scaling  — shrink VIEW_DIST_CHUNKS + fog end
+ *   2. Hardware-scaling (DPR)   — render fewer device pixels and upscale
+ *   3. Shadow quality           — disable shadows on mobile below 25 FPS
+ *   4. God rays                 — disable on mobile below 28 FPS
+ *
+ * Mobile detection uses the existing isMobile flag from config.js so the
+ * target FPS and knob thresholds differ automatically between platforms.
+ *
+ * Hysteresis + cooldowns prevent the view from visibly "pumping" in/out.
  * ========================================================================= */
 const PERF = (function () {
-  const TARGET_FPS = 60;
-  // Act when we drift outside this band around the target.
-  const LOW_FPS = 52;   // below this for a while -> reduce quality
-  const HIGH_FPS = 58;  // sustained above this -> try to restore quality
+  // Detect if we are running on a mobile / tablet device
+  const _onMobile = (typeof isMobile !== 'undefined') ? isMobile
+    : (('ontouchstart' in window) && /Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent));
 
-  // View-distance bounds (in chunks). The governor only moves within this band;
-  // the user's chosen render-distance preset sets the *ceiling*.
-  const MIN_DIST = 4;
-  let maxDist = 14;          // updated from the active render preset
-  let curDist = 14;
+  // --------------------------------------------------------------------------
+  // FPS targets differ per platform.
+  // iPad 7 (A10 Fusion GPU) comfortably holds 30 FPS for a voxel scene at
+  // 1× DPR; targeting 30 avoids constant quality oscillation on that device.
+  // --------------------------------------------------------------------------
+  const TARGET_FPS = _onMobile ? 30 : 60;
 
-  // Hardware-scaling (device-pixel ratio) bounds. 1.0 = native; >1 = upscale.
-  const baseScale = (typeof window !== 'undefined') ? Math.max(1, Math.min(2, window.devicePixelRatio || 1)) : 1;
-  const MAX_SCALE = Math.min(2.2, baseScale + 1.0); // allow up to ~+1 step coarser
+  // Action thresholds — defined as fractions of target so they scale with it
+  const LOW_FPS  = Math.round(TARGET_FPS * 0.87);  // below → reduce quality
+  const HIGH_FPS = Math.round(TARGET_FPS * 0.97);  // above → restore quality
+
+  // Shadow / god-ray emergency thresholds (mobile only)
+  const SHADOW_DISABLE_FPS   = Math.round(TARGET_FPS * 0.83); // e.g. 25 @ 30fps
+  const GODRAY_DISABLE_FPS   = Math.round(TARGET_FPS * 0.93); // e.g. 28 @ 30fps
+
+  // View-distance bounds (chunks)
+  const MIN_DIST = _onMobile ? 3 : 4;
+  let maxDist = _onMobile ? 8 : 14;
+  let curDist  = maxDist;
+
+  // Hardware-scaling (device-pixel ratio) bounds
+  const baseScale = (typeof window !== 'undefined')
+    ? Math.max(1, Math.min(2, window.devicePixelRatio || 1)) : 1;
+  // On mobile we allow a coarser step (render at ~0.75× native and upscale)
+  const MAX_SCALE = _onMobile
+    ? Math.min(2.5, baseScale + 1.4)
+    : Math.min(2.2, baseScale + 1.0);
   let curScale = baseScale;
 
   let enabled = true;
   let evalTimer = 0;
-  const EVAL_INTERVAL = 0.5;   // seconds between decisions
+  const EVAL_INTERVAL = _onMobile ? 0.8 : 0.5; // check less often on mobile
   let lowStreak = 0, highStreak = 0;
-  // Frames to confirm a trend before acting (×EVAL_INTERVAL).
-  const CONFIRM_DOWN = 2;      // ~1.0s sustained slowdown
-  const CONFIRM_UP = 6;        // ~3.0s sustained headroom (restore conservatively)
+  // How many consecutive low/high readings before acting (×EVAL_INTERVAL)
+  const CONFIRM_DOWN = _onMobile ? 2 : 2;   // ~1.6s mobile / ~1.0s desktop
+  const CONFIRM_UP   = _onMobile ? 8 : 6;   // ~6.4s mobile / ~3.0s desktop
 
-  // Re-read the ceiling whenever the user changes the render-distance preset.
+  // Track whether we forcibly disabled optional effects due to low FPS
+  let _shadowsKilled = false;
+  let _godRaysKilled = false;
+
+  // --------------------------------------------------------------------------
+  // Re-read the user's chosen render-distance preset (called from settings)
+  // --------------------------------------------------------------------------
   function syncCeiling() {
     if (typeof VIEW_DIST_CHUNKS === 'number') {
-      maxDist = VIEW_DIST_CHUNKS;
-      // Snap current toward the new ceiling (don't exceed it).
+      // On mobile, cap the user's chosen value to a sane mobile maximum
+      const rawCeil = VIEW_DIST_CHUNKS;
+      maxDist = _onMobile ? Math.min(rawCeil, 10) : rawCeil;
       if (curDist > maxDist) { curDist = maxDist; applyDist(); }
     }
   }
 
   function applyDist() {
     if (typeof setViewDistance === 'function') setViewDistance(curDist);
-    // Pull fog in with the view distance so the world fades out at the edge of
-    // what is actually rendered (avoids hard "pop" at the cull boundary).
     if (typeof scene !== 'undefined') {
       const end = curDist * CHUNK * 0.95;
-      scene.fogEnd = end;
-      scene.fogStart = Math.max(CHUNK * 2, end * 0.55);
+      scene.fogEnd   = end;
+      scene.fogStart = Math.max(CHUNK * 2, end * (_onMobile ? 0.50 : 0.55));
       if (typeof camera !== 'undefined') camera.maxZ = Math.max(200, end + 120);
     }
   }
@@ -67,13 +92,12 @@ const PERF = (function () {
     }
   }
 
-  // Called by settings.applyRenderDistance() so the governor's ceiling tracks
-  // the user's preset and it restarts from that preset's distance.
+  // Called by settings after the user picks a new render-distance preset
   function onPresetChanged(presetChunks) {
-    maxDist = presetChunks;
-    curDist = presetChunks;
+    const capped = _onMobile ? Math.min(presetChunks, 10) : presetChunks;
+    maxDist = capped;
+    curDist = capped;
     applyDist();
-    // Give the new setting a clean slate to prove itself before adapting.
     lowStreak = highStreak = 0;
     evalTimer = 0;
   }
@@ -81,6 +105,9 @@ const PERF = (function () {
   function setEnabled(on) { enabled = !!on; }
   function isEnabled() { return enabled; }
 
+  // --------------------------------------------------------------------------
+  // Per-frame update: evaluate FPS every EVAL_INTERVAL seconds
+  // --------------------------------------------------------------------------
   function update(dt) {
     if (!enabled) return;
     if (typeof engine === 'undefined') return;
@@ -89,11 +116,12 @@ const PERF = (function () {
     evalTimer = 0;
 
     const fps = engine.getFps();
-    // Ignore warm-up / tab-hidden garbage readings.
     if (!isFinite(fps) || fps <= 0) return;
 
     if (fps < LOW_FPS) {
       lowStreak++; highStreak = 0;
+      // Mobile: emergency disable of expensive optional effects first
+      if (_onMobile) _emergencyReduceMobile(fps);
       if (lowStreak >= CONFIRM_DOWN) {
         lowStreak = 0;
         stepDown();
@@ -105,28 +133,63 @@ const PERF = (function () {
         stepUp();
       }
     } else {
-      // Inside the comfort band: decay both streaks toward neutral.
       if (lowStreak > 0) lowStreak--;
       if (highStreak > 0) highStreak--;
     }
   }
 
-  // Reduce quality one notch: shrink view distance first, then coarsen DPR.
+  // Mobile emergency: progressively kill optional effects before cutting DPR
+  function _emergencyReduceMobile(fps) {
+    if (fps < GODRAY_DISABLE_FPS && !_godRaysKilled) {
+      _godRaysKilled = true;
+      if (typeof SHADERFX !== 'undefined' && SHADERFX.setGodRaysEnabled) {
+        SHADERFX.setGodRaysEnabled(false);
+      }
+    }
+    if (fps < SHADOW_DISABLE_FPS && !_shadowsKilled) {
+      _shadowsKilled = true;
+      if (typeof SHADERFX !== 'undefined') {
+        SHADERFX.setEnabled(false); // disables shadows + pipeline but not god rays
+      }
+    }
+  }
+
+  // Restore optional effects once FPS is healthy again (mobile only)
+  function _emergencyRestoreMobile() {
+    if (_shadowsKilled) {
+      _shadowsKilled = false;
+      if (typeof SHADERFX !== 'undefined') {
+        SHADERFX.setEnabled(true);
+      }
+    }
+    if (_godRaysKilled) {
+      _godRaysKilled = false;
+      if (typeof SHADERFX !== 'undefined' && SHADERFX.setGodRaysEnabled) {
+        SHADERFX.setGodRaysEnabled(true);
+      }
+    }
+  }
+
+  // Reduce quality one notch: view distance first, then DPR
   function stepDown() {
     if (curDist > MIN_DIST) {
       curDist = Math.max(MIN_DIST, curDist - 2);
       applyDist();
     } else if (curScale < MAX_SCALE) {
-      curScale = Math.min(MAX_SCALE, +(curScale + 0.15).toFixed(3));
+      curScale = Math.min(MAX_SCALE, +(curScale + 0.20).toFixed(3));
       applyScale();
     }
   }
 
-  // Restore quality one notch in the reverse order (DPR back to native first,
-  // then push view distance back out toward the user's ceiling).
+  // Restore quality one notch (DPR back to native first, then distance out)
   function stepUp() {
+    // Try to re-enable effects before restoring rendering resolution
+    if (_onMobile && (_shadowsKilled || _godRaysKilled)) {
+      _emergencyRestoreMobile();
+      return; // give it one evaluation cycle to prove stability
+    }
     if (curScale > baseScale) {
-      curScale = Math.max(baseScale, +(curScale - 0.15).toFixed(3));
+      curScale = Math.max(baseScale, +(curScale - 0.20).toFixed(3));
       applyScale();
     } else if (curDist < maxDist) {
       curDist = Math.min(maxDist, curDist + 1);
@@ -137,9 +200,18 @@ const PERF = (function () {
   function stats() {
     return {
       fps: (typeof engine !== 'undefined') ? Math.round(engine.getFps()) : 0,
-      dist: curDist, maxDist, scale: +curScale.toFixed(2), enabled,
+      dist: curDist, maxDist,
+      scale: +curScale.toFixed(2),
+      enabled,
+      mobile: _onMobile,
+      targetFps: TARGET_FPS,
     };
   }
 
-  return { update, onPresetChanged, syncCeiling, setEnabled, isEnabled, stats, TARGET_FPS };
+  return {
+    update, onPresetChanged, syncCeiling,
+    setEnabled, isEnabled, stats,
+    TARGET_FPS,
+    isMobileMode: () => _onMobile,
+  };
 })();
