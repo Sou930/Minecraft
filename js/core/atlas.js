@@ -326,6 +326,12 @@ function doorBase(t,seed){const[ox,oy]=tileOrigin(t);const rnd=mulberry32(seed);
  ctx.fillStyle='#6f4a24';ctx.fillRect(ox,oy+7,TILE_PX,2);
  // little legs
  ctx.fillStyle='#5e3f1e';ctx.fillRect(ox+2,oy+25,5,7);ctx.fillRect(ox+TILE_PX-7,oy+25,5,7);}
+// ---- Copper blocks (4 oxidation stages: raw → exposed → weathered → oxidized) ----
+// T.COPPER=120, T.COPPER_EXPOSED=121, T.COPPER_WEATHERED=122, T.COPPER_OXIDIZED=123
+{const rnd=mulberry32(8001);noisy(T.COPPER,'#c8773a',['#b86c32','#d98442','#bf7030','#d17c3c'],0.65);const[ox,oy]=tileOrigin(T.COPPER);ctx.fillStyle='#e8a060';for(let i=0;i<8;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);ctx.fillStyle='#9a5520';for(let i=0;i<6;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+{const rnd=mulberry32(8002);noisy(T.COPPER_EXPOSED,'#b87a4a',['#a86e40','#c48452','#9c6438','#be7e4a'],0.65);const[ox,oy]=tileOrigin(T.COPPER_EXPOSED);ctx.fillStyle='#7aab78';for(let i=0;i<14;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);ctx.fillStyle='#8abc88';for(let i=0;i<8;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+{const rnd=mulberry32(8003);noisy(T.COPPER_WEATHERED,'#5a9c72',['#4e8c66','#66aa80','#458460','#5aa070'],0.7);const[ox,oy]=tileOrigin(T.COPPER_WEATHERED);ctx.fillStyle='#7abf90';for(let i=0;i<10;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);ctx.fillStyle='#3a7c56';for(let i=0;i<8;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+{const rnd=mulberry32(8004);noisy(T.COPPER_OXIDIZED,'#4a9c88',['#3e8c7a','#58aa94','#368478','#4e9e8c'],0.7);const[ox,oy]=tileOrigin(T.COPPER_OXIDIZED);ctx.fillStyle='#6abcaa';for(let i=0;i<10;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);ctx.fillStyle='#2e7462';for(let i=0;i<8;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
 })();function tileUV(t){const col=t%ATLAS_TILES,row=Math.floor(t/ATLAS_TILES);const padU=0.5/ATLAS_W,padV=0.5/ATLAS_H;return{u1:col/ATLAS_TILES+padU,u2:(col+1)/ATLAS_TILES-padU,v1:1-(row+1)/ATLAS_ROWS+padV,v2:1-row/ATLAS_ROWS-padV,};}
 /* ---------------------------------------------------------------------------
  * Per-material tool textures (pickaxe / axe / shovel / hoe + stick).
