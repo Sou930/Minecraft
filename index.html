@@ -35,6 +35,16 @@ Place a crafting table and right-click to open 3×3 crafting
       </div>
       <p class="set-hint" id="set-shaders-hint">Built-in shadow-mod look: dynamic shadows, bloom &amp; richer lighting</p>
       <div class="set-row">
+        <span class="set-label" id="set-pbr-label">HD Textures (PBR)</span>
+        <button class="set-toggle" id="set-pbr-toggle">On</button>
+      </div>
+      <p class="set-hint" id="set-pbr-hint">Physically-based shading: AO edges, specular micro-detail &amp; normal-map look</p>
+      <div class="set-row">
+        <span class="set-label" id="set-godrays-label">God Rays (Volumetric Light)</span>
+        <button class="set-toggle" id="set-godrays-toggle">On</button>
+      </div>
+      <p class="set-hint" id="set-godrays-hint">Sunlight shafts &amp; atmospheric fog. May reduce FPS on older devices.</p>
+      <div class="set-row">
         <span class="set-label" id="set-fly-label">Flight Mode</span>
         <button class="set-toggle" id="set-fly-toggle">Off</button>
       </div>
@@ -107,7 +117,9 @@ Place a crafting table and right-click to open 3×3 crafting
   <script src="js/systems/fishing.js"></script>
   <!-- Visual effects -->
   <script src="js/effects/particles.js"></script>
-  <!-- Built-in shadow-mod shaders + held-light system -->
+  <!-- PBR material: atlas AO enhancement + normal-map-style shading -->
+  <script src="js/effects/pbr.js"></script>
+  <!-- Built-in shadow-mod shaders + held-light + volumetric god rays -->
   <script src="js/effects/shaderfx.js"></script>
   <!-- UI screens -->
   <script src="js/ui/home.js"></script>

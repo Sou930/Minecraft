@@ -4,7 +4,8 @@ const canvas=document.getElementById('game-canvas');const engine=new BABYLON.Eng
 // drain. Rendering at ~1× DPR and letting the browser upscale is far cheaper
 // and barely noticeable on a blocky voxel art style. (Adaptive renderer below
 // nudges this further when the frame budget is missed.)
-engine.setHardwareScalingLevel(Math.max(1,Math.min(2,(window.devicePixelRatio||1))));
+// Mobile (iPad 7 = A10, 264 ppi): force 1× DPR so we target 30 FPS at safe GPU load.
+{const _isMob=(typeof isMobile!=='undefined')?isMobile:(('ontouchstart'in window)&&/Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent));const dpr=window.devicePixelRatio||1;engine.setHardwareScalingLevel(_isMob?Math.max(1,dpr):Math.max(1,Math.min(2,dpr)));}
 const scene=new BABYLON.Scene(engine);scene.clearColor=new BABYLON.Color4(0.53,0.81,0.92,1);scene.ambientColor=new BABYLON.Color3(0,0,0);
 // Performance: voxel chunks are non-pickable static meshes, so skip the
 // per-frame pointer-move picking and collision passes Babylon runs by default.
@@ -340,10 +341,12 @@ function makeMesh(name,b,mat){if(b.idx.length===0)return null;const mesh=new BAB
 mesh.freezeWorldMatrix();mesh.doNotSyncBoundingInfo=true;mesh.cullingStrategy=BABYLON.AbstractMesh.CULLINGSTRATEGY_BOUNDINGSPHERE_ONLY;mesh.alwaysSelectAsActiveMesh=false;return mesh;}
 chunkMeshes[cz*CHUNKS_X+cx]={solid:makeMesh(`chunk_s_${cx}_${cz}`,buf,solidMat),water:makeMesh(`chunk_w_${cx}_${cz}`,wbuf,waterMat),lava:makeMesh(`chunk_l_${cx}_${cz}`,lbuf,lavaMat),};chunkBuilt[cz*CHUNKS_X+cx]=1;}
 const chunkBuilt=new Uint8Array(CHUNKS_X*CHUNKS_Z);
-// View distance in chunks. Fog ends at ~120 units (≈7.5 chunks) so anything
-// beyond ~7 chunks is invisible — meshing/keeping it enabled is wasted work.
-let VIEW_DIST_CHUNKS=14;
-const INITIAL_LOAD_CHUNKS=7;
+// View distance in chunks. On mobile (iPad/phone) we start at a lower default
+// so the frame budget is preserved for 30 FPS from the first frame.
+// The PERF governor and Settings panel can adjust this at runtime.
+const _mobileDefault=(typeof isMobile!=='undefined'&&isMobile);
+let VIEW_DIST_CHUNKS=_mobileDefault?7:14;
+const INITIAL_LOAD_CHUNKS=_mobileDefault?5:7;
 // Allow the settings menu to change render distance at runtime.
 function setViewDistance(chunks){const c=Math.max(2,Math.min(28,chunks|0));VIEW_DIST_CHUNKS=c;}
 function updateChunkStreaming(budget,maxRadius){const maxR=(maxRadius===undefined)?VIEW_DIST_CHUNKS:maxRadius;const pcx=Math.floor(player.pos.x/CHUNK),pcz=Math.floor(player.pos.z/CHUNK);let built=0;for(let r=0;r<=maxR&&built<budget;r++){for(let dz=-r;dz<=r&&built<budget;dz++){for(let dx=-r;dx<=r&&built<budget;dx++){if(Math.max(Math.abs(dx),Math.abs(dz))!==r)continue;const cx=pcx+dx,cz=pcz+dz;if(cx<0||cx>=CHUNKS_X||cz<0||cz>=CHUNKS_Z)continue;if(chunkBuilt[cz*CHUNKS_X+cx])continue;buildChunk(cx,cz);built++;}}}

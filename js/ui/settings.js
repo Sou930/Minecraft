@@ -20,6 +20,10 @@ const I18N = {
     lowQualityHint:'Blurs/down-samples textures for better performance',
     shaders:'Shaders (Shadow Mod)',
     shadersHint:'Built-in shadow-mod look: dynamic shadows, bloom & richer lighting',
+    pbr:'HD Textures (PBR)',
+    pbrHint:'Physically-based shading: AO edges, specular micro-detail & normal-map look',
+    godRays:'God Rays (Volumetric Light)',
+    godRaysHint:'Sunlight shafts & atmospheric fog. May reduce FPS on older devices.',
     flight:'Flight Mode',
     flightHint:'Password-protected. While ON: Space = up, C = down',
     flightPrompt:'Enter password to enable Flight Mode:',
@@ -55,6 +59,10 @@ const I18N = {
     lowQualityHint:'テクスチャを低画質化して動作を軽くします',
     shaders:'シェーダー（影MOD）',
     shadersHint:'影MOD風の見た目を内蔵：動的な影・ブルーム・リッチな光',
+    pbr:'HDテクスチャ（PBR）',
+    pbrHint:'物理ベースシェーディング：AOエッジ・スペキュラ・法線マップ風の質感',
+    godRays:'ゴッドレイ（体積光）',
+    godRaysHint:'太陽光の筋と大気の霧。古い端末ではFPSが低下する場合があります。',
     flight:'飛行モード',
     flightHint:'パスワードで保護。ON中：スペース=上昇、C=下降',
     flightPrompt:'飛行モードを有効にするパスワードを入力：',
@@ -95,12 +103,20 @@ const RENDER_PRESETS=[
 // Password that unlocks the Flight Mode toggle in the Settings panel.
 const FLIGHT_PASSWORD = 'hikou';
 
+// On mobile default to 'medium' render distance to protect 30 FPS on iPad 7 etc.
+const _settingsMobile=(('ontouchstart'in window)&&/Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent))||(navigator.maxTouchPoints>1&&/Mac|iPad/i.test(navigator.userAgent));
 const SETTINGS = {
   lang: localStorage.getItem('bw_lang') || (navigator.language||'en').slice(0,2),
-  renderPreset: localStorage.getItem('bw_render') || 'far',
+  renderPreset: localStorage.getItem('bw_render') || (_settingsMobile ? 'medium' : 'far'),
   lowQualityTex: localStorage.getItem('bw_lowqual') === '1',
-  // Shader / shadow-mod look. On by default so the built-in look shows out of the box.
+  // Shader / shadow-mod look. On by default.
   shaders: localStorage.getItem('bw_shaders') === null ? true : localStorage.getItem('bw_shaders') === '1',
+  // PBR (HD textures + AO + specular). On by default.
+  pbr: localStorage.getItem('bw_pbr') === null ? true : localStorage.getItem('bw_pbr') === '1',
+  // God rays / volumetric light. On by default on desktop, off on mobile.
+  godRays: localStorage.getItem('bw_godrays') === null
+    ? !(('ontouchstart' in window) && /Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent))
+    : localStorage.getItem('bw_godrays') === '1',
   // Flight is OFF by default and only enabled after passing the password gate.
   flying: localStorage.getItem('bw_flying') === '1',
 };
@@ -115,6 +131,8 @@ function saveSettings(){
   localStorage.setItem('bw_render',SETTINGS.renderPreset);
   localStorage.setItem('bw_lowqual',SETTINGS.lowQualityTex?'1':'0');
   localStorage.setItem('bw_shaders',SETTINGS.shaders?'1':'0');
+  localStorage.setItem('bw_pbr',SETTINGS.pbr?'1':'0');
+  localStorage.setItem('bw_godrays',SETTINGS.godRays?'1':'0');
   localStorage.setItem('bw_flying',SETTINGS.flying?'1':'0');
 }
 
@@ -129,6 +147,10 @@ function applyLanguageToUI(){
     '#set-lowqual-hint':'lowQualityHint',
     '#set-shaders-label':'shaders',
     '#set-shaders-hint':'shadersHint',
+    '#set-pbr-label':'pbr',
+    '#set-pbr-hint':'pbrHint',
+    '#set-godrays-label':'godRays',
+    '#set-godrays-hint':'godRaysHint',
     '#set-fly-label':'flight',
     '#set-fly-hint':'flightHint',
   };
@@ -173,6 +195,14 @@ function applyLowQuality(){
 function applyShaders(){
   if(typeof SHADERFX!=='undefined'&&SHADERFX.setEnabled)SHADERFX.setEnabled(SETTINGS.shaders);
 }
+// Toggle PBR (HD textures + AO).
+function applyPBR(){
+  if(typeof PBR!=='undefined'&&PBR.setEnabled)PBR.setEnabled(SETTINGS.pbr);
+}
+// Toggle god rays / volumetric light.
+function applyGodRays(){
+  if(typeof SHADERFX!=='undefined'&&SHADERFX.setGodRaysEnabled)SHADERFX.setGodRaysEnabled(SETTINGS.godRays);
+}
 // Sync flight enable/disable down to the player. Always reflects SETTINGS.flying.
 function applyFlying(){
   if(typeof setFlyingEnabled==='function')setFlyingEnabled(SETTINGS.flying);
@@ -193,6 +223,12 @@ function renderSettingsOptions(){
   // Shaders (shadow mod) toggle
   const sh=document.getElementById('set-shaders-toggle');
   if(sh){sh.textContent=SETTINGS.shaders?t('on'):t('off');sh.classList.toggle('on',SETTINGS.shaders);}
+  // PBR (HD textures) toggle
+  const pb=document.getElementById('set-pbr-toggle');
+  if(pb){pb.textContent=SETTINGS.pbr?t('on'):t('off');pb.classList.toggle('on',SETTINGS.pbr);}
+  // God Rays toggle
+  const gr=document.getElementById('set-godrays-toggle');
+  if(gr){gr.textContent=SETTINGS.godRays?t('on'):t('off');gr.classList.toggle('on',SETTINGS.godRays);}
   // Flight toggle (reflects current unlocked/on state)
   const fl=document.getElementById('set-fly-toggle');
   if(fl){fl.textContent=SETTINGS.flying?t('on'):t('off');fl.classList.toggle('on',SETTINGS.flying);}
@@ -214,6 +250,10 @@ function initSettingsUI(){
   const tg=document.getElementById('set-lowqual-toggle');if(tg)tg.addEventListener('click',()=>{SETTINGS.lowQualityTex=!SETTINGS.lowQualityTex;saveSettings();renderSettingsOptions();applyLowQuality();});
   // Shaders (shadow mod) toggle
   const sh=document.getElementById('set-shaders-toggle');if(sh)sh.addEventListener('click',()=>{SETTINGS.shaders=!SETTINGS.shaders;saveSettings();renderSettingsOptions();applyShaders();});
+  // PBR (HD textures) toggle
+  const pb=document.getElementById('set-pbr-toggle');if(pb)pb.addEventListener('click',()=>{SETTINGS.pbr=!SETTINGS.pbr;saveSettings();renderSettingsOptions();applyPBR();});
+  // God Rays toggle
+  const gr=document.getElementById('set-godrays-toggle');if(gr)gr.addEventListener('click',()=>{SETTINGS.godRays=!SETTINGS.godRays;saveSettings();renderSettingsOptions();applyGodRays();});
   // Flight toggle — turning it ON requires the password; turning it OFF is free.
   const fl=document.getElementById('set-fly-toggle');if(fl)fl.addEventListener('click',()=>{
     if(SETTINGS.flying){

@@ -131,9 +131,13 @@ async function bootstrap(){
   if(typeof initSettingsUI==='function')initSettingsUI();
   if(typeof applyRenderDistance==='function')applyRenderDistance();
   if(typeof applyLowQuality==='function')applyLowQuality();
-  // Built-in shadow-mod shader stack + restore any saved flight state.
+  // PBR (HD textures + AO enhancement) — init after atlas is fully drawn.
+  if(typeof PBR!=='undefined'&&PBR.init)PBR.init();
+  if(typeof applyPBR==='function')applyPBR();
+  // Built-in shadow-mod shader stack + god rays + restore any saved flight state.
   if(typeof SHADERFX!=='undefined'&&SHADERFX.init)SHADERFX.init();
   if(typeof applyShaders==='function')applyShaders();
+  if(typeof applyGodRays==='function')applyGodRays();
   if(typeof applyFlying==='function')applyFlying();
   worldReady=true;
   const lo=document.getElementById('loading-overlay');if(lo){lo.classList.add('hidden');setTimeout(()=>lo.remove(),450);}
@@ -156,7 +160,7 @@ document.getElementById('btn-start').addEventListener('click',(e)=>{e.stopPropag
 // world always resumes where it was left off.
 window.addEventListener('beforeunload',()=>{if(typeof savePlayerState==='function')savePlayerState();});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&typeof savePlayerState==='function')savePlayerState();});
-document.getElementById('btn-reset-world').addEventListener('click',(e)=>{e.stopPropagation();if(confirm(typeof t==='function'?t('resetConfirm'):'Reset the world? All builds will be lost.')){if(typeof WORLDS!=='undefined'){WORLDS.removeItem('edits');WORLDS.removeItem('inventory');WORLDS.removeItem('crops');WORLDS.removeItem('ach_stats');WORLDS.removeItem('ach_done');WORLDS.removeItem('player');}if(typeof ACH!=='undefined')ACH.reset();location.reload();}});let _posSaveAcc=0;engine.runRenderLoop(()=>{const dt=Math.min(0.05,engine.getDeltaTime()/1000);update(dt);if(typeof FLUID!=='undefined')FLUID.update(dt);if(typeof FARM!=='undefined'&&worldReady&&started){FARM.update(dt);FARM.updateFarmlandWetness(dt);}if(worldReady&&started&&typeof updateCopperOxidation!=='undefined')updateCopperOxidation(dt);updateDayNight(dt);if(worldReady){if(typeof processRelightQueue!=='undefined')processRelightQueue(3);if(typeof LIGHTING!=='undefined')LIGHTING.update(dt);if(typeof SHADERFX!=='undefined')SHADERFX.update(dt);updateAudioEnvironment(dt);if(typeof updatePetals==='function')updatePetals(dt);if(typeof updateWindmills==='function')updateWindmills(dt);if(typeof PERF!=='undefined')PERF.update(dt);}
+document.getElementById('btn-reset-world').addEventListener('click',(e)=>{e.stopPropagation();if(confirm(typeof t==='function'?t('resetConfirm'):'Reset the world? All builds will be lost.')){if(typeof WORLDS!=='undefined'){WORLDS.removeItem('edits');WORLDS.removeItem('inventory');WORLDS.removeItem('crops');WORLDS.removeItem('ach_stats');WORLDS.removeItem('ach_done');WORLDS.removeItem('player');}if(typeof ACH!=='undefined')ACH.reset();location.reload();}});let _posSaveAcc=0;engine.runRenderLoop(()=>{const dt=Math.min(0.05,engine.getDeltaTime()/1000);update(dt);if(typeof FLUID!=='undefined')FLUID.update(dt);if(typeof FARM!=='undefined'&&worldReady&&started){FARM.update(dt);FARM.updateFarmlandWetness(dt);}if(worldReady&&started&&typeof updateCopperOxidation!=='undefined')updateCopperOxidation(dt);updateDayNight(dt);if(worldReady){if(typeof processRelightQueue!=='undefined')processRelightQueue(3);if(typeof LIGHTING!=='undefined')LIGHTING.update(dt);if(typeof SHADERFX!=='undefined'){const dayF=(typeof LIGHTING!=='undefined')?LIGHTING.getNightFactor():1;SHADERFX.update(dt,dayF);}updateAudioEnvironment(dt);if(typeof updatePetals==='function')updatePetals(dt);if(typeof updateWindmills==='function')updateWindmills(dt);if(typeof PERF!=='undefined')PERF.update(dt);}
 // Periodically persist player position (every ~5s of play) so an unexpected
 // crash / close still resumes near where the player was.
 if(worldReady&&started&&!paused){_posSaveAcc+=dt;if(_posSaveAcc>=5){_posSaveAcc=0;if(typeof savePlayerState==='function')savePlayerState();}}
