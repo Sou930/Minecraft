@@ -6,6 +6,9 @@ function isBamboo(id){const d=BLOCKS[id];return!!(d&&d.bamboo);}
 function isDoor(id){const d=BLOCKS[id];return!!(d&&d.door);}
 function isDoorOpen(id){const d=BLOCKS[id];return!!(d&&d.door&&d.doorOpen);}
 // Open doors are non-solid (walk-through); closed doors block movement like a wall.
+function isSlab(id){const d=BLOCKS[id];return!!(d&&d.slab);}
+function isFence(id){const d=BLOCKS[id];return!!(d&&(d.fence||d.fenceGate));}
+function isWall(id){const d=BLOCKS[id];return!!(d&&d.wall);}
 function isSolid(id){return id!==B.AIR&&id!==B.WATER&&id!==B.LAVA&&id!==B.SEAWEED&&!isCrossPlant(id)&&!isCrop(id)&&!isBamboo(id)&&!isDoorOpen(id);}
 // Crops, cross-shaped plants (grass/flowers) and thin bamboo stalks are
 // targetable even though non-solid (so they can be broken / passed through).
@@ -29,7 +32,7 @@ function blockLightEmission(id){
   BLOCKLIGHT_DEFS_CACHE[id]=v;return v;
 }
 // Returns true if light can pass through this block
-function lightPasses(id){if(id===B.AIR)return true;const d=BLOCKS[id];if(!d)return true;if(d.transparent||d.crop||d.crossPlant||d.cross||d.fluid||d.torch||d.lanternBox||d.flat||d.bamboo)return true;return false;}
+function lightPasses(id){if(id===B.AIR)return true;const d=BLOCKS[id];if(!d)return true;if(d.transparent||d.crop||d.crossPlant||d.cross||d.fluid||d.torch||d.lanternBox||d.flat||d.bamboo||d.slab||d.fence||d.fenceGate||d.wall)return true;return false;}
 
 // Compute block light for a region using BFS flood-fill
 function computeBlockLight(bx0,by0,bz0,sx,sy,sz){
@@ -898,3 +901,28 @@ let worldEdits={};function loadEdits(){try{worldEdits=JSON.parse(WORLDS.getItem(
 for(const key in worldEdits){const[x,y,z]=key.split(',').map(Number);if(x>=0&&x<WORLD_W&&y>=0&&y<WORLD_H&&z>=0&&z<WORLD_D)
 world[blockIndex(x,y,z)]=worldEdits[key];}}
 let saveTimer=null;function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>{try{WORLDS.setItem('edits',JSON.stringify(worldEdits));}catch(e){}},800);}
+// Copper oxidation: every ~5 in-game minutes (300 real seconds) a random
+// exposed copper block advances one oxidation stage. Checks a small sample
+// each frame for performance.
+const COPPER_STAGES=[B.COPPER,B.COPPER_EXPOSED,B.COPPER_WEATHERED,B.COPPER_OXIDIZED];
+let _copperTimer=0;
+function updateCopperOxidation(dt){
+  _copperTimer+=dt;
+  // Check ~once every 60 seconds of real time
+  if(_copperTimer<60)return;
+  _copperTimer=0;
+  // Sample a handful of worldEdits entries (player-placed copper blocks only)
+  const keys=Object.keys(worldEdits);
+  const checked=Math.min(keys.length,30);
+  for(let i=0;i<checked;i++){
+    const key=keys[Math.floor(Math.random()*keys.length)];
+    const id=worldEdits[key];
+    const stageIdx=COPPER_STAGES.indexOf(id);
+    if(stageIdx<0||stageIdx>=3)continue; // not copper or already max oxidized
+    // 25% chance per 60-second tick to advance one stage
+    if(Math.random()>0.25)continue;
+    const[x,y,z]=key.split(',').map(Number);
+    const newId=COPPER_STAGES[stageIdx+1];
+    setBlock(x,y,z,newId);
+  }
+}

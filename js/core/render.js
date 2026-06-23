@@ -191,6 +191,84 @@ function pushBox(b,x,y,z,x0,y0,z0,x1,y1,z1,tile,shade){const{u1,u2,v1,v2}=tileUV
     {n:[0,-1,0],q:[[x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1]]},
   ];
   for(const f of faces){const base=b.pos.length/3;for(let i=0;i<4;i++){b.pos.push(x+f.q[i][0],y+f.q[i][1],z+f.q[i][2]);b.nrm.push(f.n[0],f.n[1],f.n[2]);b.uv.push(uvs[i][0],uvs[i][1]);b.col.push(shade,shade,shade,1);}b.idx.push(base,base+1,base+2,base,base+2,base+3);}}
+// Slab: a half-height full-footprint block (lower half of the cell).
+function pushSlab(b,x,y,z,def,shade){
+  // Use tileForFace to pick top/side/bottom from block def
+  const topTile=def.top!==undefined?def.top:(def.all!==undefined?def.all:0);
+  const sideTile=def.side!==undefined?def.side:(def.all!==undefined?def.all:0);
+  const{u1,u2,v1,v2}=tileUV(sideTile);
+  const{u1:tu1,u2:tu2,v1:tv1,v2:tv2}=tileUV(topTile);
+  // Clamp UV vertically for side faces: only lower half (v1..mid)
+  const vmid=(v1+v2)/2;
+  const uvs=[[u1,vmid],[u2,vmid],[u2,v2],[u1,v2]];
+  const topUVs=[[tu1,tv1],[tu2,tv1],[tu2,tv2],[tu1,tv2]];
+  const faces=[
+    {n:[0,0,1], q:[[0,0,1],[1,0,1],[1,0.5,1],[0,0.5,1]],uvs:uvs,shade:0.65},
+    {n:[0,0,-1],q:[[1,0,0],[0,0,0],[0,0.5,0],[1,0.5,0]],uvs:uvs,shade:0.65},
+    {n:[1,0,0], q:[[1,0,1],[1,0,0],[1,0.5,0],[1,0.5,1]],uvs:uvs,shade:0.80},
+    {n:[-1,0,0],q:[[0,0,0],[0,0,1],[0,0.5,1],[0,0.5,0]],uvs:uvs,shade:0.80},
+    {n:[0,1,0], q:[[0,0.5,1],[1,0.5,1],[1,0.5,0],[0,0.5,0]],uvs:topUVs,shade:1.0},
+    {n:[0,-1,0],q:[[0,0,0],[1,0,0],[1,0,1],[0,0,1]],uvs:topUVs,shade:0.5},
+  ];
+  for(const f of faces){const base=b.pos.length/3;for(let i=0;i<4;i++){b.pos.push(x+f.q[i][0],y+f.q[i][1],z+f.q[i][2]);b.nrm.push(f.n[0],f.n[1],f.n[2]);b.uv.push(f.uvs[i][0],f.uvs[i][1]);b.col.push(shade*f.shade,shade*f.shade,shade*f.shade,1);}b.idx.push(base,base+1,base+2,base,base+2,base+3);}
+}
+// Fence: two horizontal rails at y=0.375 and y=0.75, plus a central post.
+// Connects to adjacent fences/walls/solid blocks on N/S/E/W sides.
+function pushFence(b,x,y,z,def,shade){
+  const tile=def.all!==undefined?def.all:T.PLANKS;
+  const POST_HW=0.08; // half-width of center post
+  // Center post: full height
+  pushBox(b,x,y,z,0.5-POST_HW,0,0.5-POST_HW,0.5+POST_HW,1,0.5+POST_HW,tile,shade*0.85);
+  // Rails connecting to neighbours
+  const N=getBlock(x,y,z-1),S=getBlock(x,y,z+1),E=getBlock(x+1,y,z),W=getBlock(x-1,y,z);
+  function connects(id){if(id===B.AIR)return false;const d=BLOCKS[id];return d&&(d.fence||d.fenceGate||d.wall||(!d.transparent&&!d.crossPlant&&!d.cross&&!d.bamboo&&!d.torch&&!d.flat));}
+  const RH=0.15; // rail half-height
+  const RW=0.08; // rail half-width
+  const RY1=0.375-RH, RY2=0.375+RH;
+  const UY1=0.75-RH, UY2=0.75+RH;
+  if(connects(N)){// north rail (toward z-)
+    pushBox(b,x,y,z,0.5-RW,RY1,0,0.5+RW,RY2,0.5-POST_HW,tile,shade*0.80);
+    pushBox(b,x,y,z,0.5-RW,UY1,0,0.5+RW,UY2,0.5-POST_HW,tile,shade*0.80);}
+  if(connects(S)){// south rail (toward z+)
+    pushBox(b,x,y,z,0.5-RW,RY1,0.5+POST_HW,0.5+RW,RY2,1,tile,shade*0.80);
+    pushBox(b,x,y,z,0.5-RW,UY1,0.5+POST_HW,0.5+RW,UY2,1,tile,shade*0.80);}
+  if(connects(E)){// east rail (toward x+)
+    pushBox(b,x,y,z,0.5+POST_HW,RY1,0.5-RW,1,RY2,0.5+RW,tile,shade*0.65);
+    pushBox(b,x,y,z,0.5+POST_HW,UY1,0.5-RW,1,UY2,0.5+RW,tile,shade*0.65);}
+  if(connects(W)){// west rail (toward x-)
+    pushBox(b,x,y,z,0,RY1,0.5-RW,0.5-POST_HW,RY2,0.5+RW,tile,shade*0.65);
+    pushBox(b,x,y,z,0,UY1,0.5-RW,0.5-POST_HW,UY2,0.5+RW,tile,shade*0.65);}
+}
+// Fence gate: when open, a pair of panels swing 90° to the side.
+function pushFenceGate(b,x,y,z,def,shade){
+  const tile=def.all!==undefined?def.all:T.PLANKS;
+  const open=def.fenceGateOpen||false;
+  const RH=0.15,UH=0.15;
+  const PH=0.08; // panel half-width
+  if(!open){// closed: two horizontal bars spanning the full width
+    pushBox(b,x,y,z,0,0.375-RH,0.5-PH,1,0.375+RH,0.5+PH,tile,shade*0.80);
+    pushBox(b,x,y,z,0,0.75-UH, 0.5-PH,1,0.75+UH, 0.5+PH,tile,shade*0.80);
+    // vertical frame pieces on each end
+    pushBox(b,x,y,z,0,0.375-RH,0.5-PH,0.1,0.75+UH,0.5+PH,tile,shade*0.85);
+    pushBox(b,x,y,z,0.9,0.375-RH,0.5-PH,1,0.75+UH,0.5+PH,tile,shade*0.85);
+  }else{// open: panels fold to the sides (90° rotation)
+    pushBox(b,x,y,z,0,0.375-RH,0,0.1,0.75+UH,0.5-PH+0.1,tile,shade*0.85);
+    pushBox(b,x,y,z,0.9,0.375-RH,0,1,0.75+UH,0.5-PH+0.1,tile,shade*0.85);}
+}
+// Wall: a thick central column plus connecting arms toward adjacent walls/solid.
+function pushWall(b,x,y,z,def,shade){
+  const tile=def.all!==undefined?def.all:T.STONE_BRICK;
+  const POST_HW=0.22; // half-width of center pillar (wider than fence)
+  // Center pillar (slightly less than full height — classic MC wall look)
+  pushBox(b,x,y,z,0.5-POST_HW,0,0.5-POST_HW,0.5+POST_HW,0.9,0.5+POST_HW,tile,shade*0.90);
+  const N=getBlock(x,y,z-1),S=getBlock(x,y,z+1),E=getBlock(x+1,y,z),W=getBlock(x-1,y,z);
+  function connects(id){if(id===B.AIR)return false;const d=BLOCKS[id];return d&&(d.wall||d.fence||(!d.transparent&&!d.crossPlant&&!d.cross&&!d.bamboo&&!d.torch&&!d.flat));}
+  const ARM_W=0.28; // width of connecting arm
+  if(connects(N))pushBox(b,x,y,z,0.5-ARM_W/2,0,0,0.5+ARM_W/2,0.875,0.5-POST_HW,tile,shade*0.75);
+  if(connects(S))pushBox(b,x,y,z,0.5-ARM_W/2,0,0.5+POST_HW,0.5+ARM_W/2,0.875,1,tile,shade*0.75);
+  if(connects(E))pushBox(b,x,y,z,0.5+POST_HW,0,0.5-ARM_W/2,1,0.875,0.5+ARM_W/2,tile,shade*0.65);
+  if(connects(W))pushBox(b,x,y,z,0,0,0.5-ARM_W/2,0.5-POST_HW,0.875,0.5+ARM_W/2,tile,shade*0.65);
+}
 function pushStairs(b,x,y,z,tile,facing,shade){
   // Bottom slab: the full footprint, half height.
   pushBox(b,x,y,z,0,0,0,1,0.5,1,tile,shade);
@@ -239,6 +317,14 @@ if(def&&def.door){const tile=(def.doorHalf==='top')?T.DOOR_TOP:T.DOOR_BOTTOM;pus
 // Wooden stairs: two-box stepped shape oriented by stairFacing.
 if(def&&def.stairs){pushStairs(buf,x,y,z,def.all,def.stairFacing,0.95*cellMul);continue;}
 if(def&&def.flat){pushFlat(buf,x,y,z,def.all,0.95*cellMul);continue;}
+// Slab: lower half-height block
+if(def&&def.slab){pushSlab(buf,x,y,z,def,0.95*cellMul);continue;}
+// Fence: post + connecting rails
+if(def&&def.fence){pushFence(buf,x,y,z,def,0.95*cellMul);continue;}
+// Fence gate
+if(def&&def.fenceGate){pushFenceGate(buf,x,y,z,def,0.95*cellMul);continue;}
+// Wall: thick pillar with connecting arms
+if(def&&def.wall){pushWall(buf,x,y,z,def,0.95*cellMul);continue;}
 const isFluidCell=(id===B.WATER||id===B.LAVA);const topH=isFluidCell&&typeof FLUID!=='undefined'?FLUID.surfaceHeight(x,y,z):1;
 for(const f of FACES){const nx=x+f.dir[0],ny=y+f.dir[1],nz=z+f.dir[2];const n=getBlock(nx,ny,nz);
 const faceMul=litMulAt(x,y,z,def,nx,ny,nz);
