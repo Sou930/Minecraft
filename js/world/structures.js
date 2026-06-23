@@ -960,5 +960,425 @@ function carveStrongholdSlice(x,y,z){
   }
 }
 
+// ===========================================================================
+//  DESERT PYRAMID (砂漠の神殿)
+//  A 21×21 sandstone pyramid with an underground TNT-trap chamber and loot.
+// ===========================================================================
+function placeDesertPyramids(){
+  const rng=mulberry32((SEED^0xdeadbeef)>>>0);
+  const count=Math.max(2,Math.floor((WORLD_W*WORLD_D)/160000));
+  const placed=[];
+  let attempts=0;
+  while(placed.length<count&&attempts<count*15){
+    attempts++;
+    const cx=30+Math.floor(rng()*(WORLD_W-60));
+    const cz=30+Math.floor(rng()*(WORLD_D-60));
+    let tooClose=false;
+    for(const p of placed){if(Math.abs(p.x-cx)<80&&Math.abs(p.z-cz)<80){tooClose=true;break;}}
+    if(tooClose)continue;
+    const biome=biomeMap[colIndex(cx,cz)];
+    if(biome!==BIOME.DESERT&&biome!==BIOME.MESA)continue;
+    const h=heightMap[colIndex(cx,cz)];
+    if(h<=SEA_LEVEL)continue;
+    buildDesertPyramid(cx,h,cz);
+    placed.push({x:cx,z:cz});
+  }
+}
+
+function buildDesertPyramid(cx,gy,cz){
+  const W=10; // half-width (21×21 total)
+  // Clear area above ground
+  for(let dx=-W-1;dx<=W+1;dx++)for(let dz=-W-1;dz<=W+1;dz++)
+    for(let y=gy+1;y<=gy+16;y++)sBlock(cx+dx,y,cz+dz,B.AIR);
+  // Build stepped pyramid: 5 layers, each 2 blocks tall, shrinking by 2 each side
+  for(let layer=0;layer<5;layer++){
+    const r=W-layer*2;
+    const y0=gy+1+layer*2;
+    for(let dx=-r;dx<=r;dx++)for(let dz=-r;dz<=r;dz++){
+      const edge=(Math.abs(dx)===r||Math.abs(dz)===r);
+      if(edge){
+        sBlock(cx+dx,y0,cz+dz,B.SANDSTONE);
+        sBlock(cx+dx,y0+1,cz+dz,B.SANDSTONE);
+      } else {
+        // hollow interior of lower layers (only solid at the outer ring)
+        if(layer===0){
+          // ground floor – always solid for foundation
+          sBlock(cx+dx,y0,cz+dz,B.SAND);
+        }
+      }
+    }
+  }
+  // Tip: chiseled sandstone top block
+  sBlock(cx,gy+11,cz,B.SANDSTONE);
+
+  // Colour accent: orange/blue terracotta cross on ground floor
+  for(let d=-W+1;d<=W-1;d++){
+    sBlock(cx+d,gy+1,cz,B.TERRACOTTA_ORANGE);
+    sBlock(cx,gy+1,cz+d,B.TERRACOTTA_BLUE);
+  }
+  sBlock(cx,gy+1,cz,B.TERRACOTTA_ORANGE);
+
+  // Entrance on the north face (z = cz - W)
+  sBlock(cx,gy+1,cz-W,B.AIR);
+  sBlock(cx,gy+2,cz-W,B.AIR);
+  sBlock(cx-1,gy+1,cz-W,B.AIR);
+  sBlock(cx+1,gy+1,cz-W,B.AIR);
+
+  // Underground chamber: 9×9, 4 deep under center
+  const cy=gy-4;
+  for(let dx=-4;dx<=4;dx++)for(let dy=0;dy<=3;dy++)for(let dz=-4;dz<=4;dz++)
+    sBlock(cx+dx,cy+dy,cz+dz,B.AIR);
+  // Stone floor
+  for(let dx=-4;dx<=4;dx++)for(let dz=-4;dz<=4;dz++)
+    sBlock(cx+dx,cy-1,cz+dz,B.SANDSTONE);
+  // 4 loot chests in the corners
+  sBlock(cx-3,cy,cz-3,B.CHEST); sBlock(cx+3,cy,cz-3,B.CHEST);
+  sBlock(cx-3,cy,cz+3,B.CHEST); sBlock(cx+3,cy,cz+3,B.CHEST);
+  // TNT trap in the very center (3×3 grid, 2 layers)
+  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){
+    sBlock(cx+dx,cy,cz+dz,B.TNT);
+    sBlock(cx+dx,cy+1,cz+dz,B.SAND); // pressure plate hides TNT
+  }
+  // Pressure plates on top of sand to trigger trap
+  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)
+    sBlock(cx+dx,cy+2,cz+dz,B.PRESSURE_PLATE_STONE);
+  // Torches on chamber walls
+  sBlock(cx-4,cy+2,cz,B.TORCH); sBlock(cx+4,cy+2,cz,B.TORCH);
+  sBlock(cx,cy+2,cz-4,B.TORCH); sBlock(cx,cy+2,cz+4,B.TORCH);
+  // Staircase down from surface to chamber
+  let sx=cx,sz=cz-W+1,sy=gy;
+  while(sy>cy+3){
+    sBlock(sx,sy,sz,B.AIR); sBlock(sx,sy+1,sz,B.AIR);
+    sBlock(sx,sy-1,sz,B.SANDSTONE);
+    sy--;sz++;
+    if(sz>cz-1)break;
+  }
+  // fill down to chamber
+  for(let y=sy;y>=cy+3;y--)sBlock(sx,y,sz,B.AIR);
+}
+
+// ===========================================================================
+//  JUNGLE TEMPLE (ジャングルの神殿)
+//  A 13×13 mossy-cobblestone temple hidden in the jungle with lever traps.
+// ===========================================================================
+function placeJungleTemples(){
+  const rng=mulberry32((SEED^0x5e7c3a11)>>>0);
+  const count=Math.max(2,Math.floor((WORLD_W*WORLD_D)/200000));
+  const placed=[];
+  let attempts=0;
+  while(placed.length<count&&attempts<count*15){
+    attempts++;
+    const cx=30+Math.floor(rng()*(WORLD_W-60));
+    const cz=30+Math.floor(rng()*(WORLD_D-60));
+    let tooClose=false;
+    for(const p of placed){if(Math.abs(p.x-cx)<90&&Math.abs(p.z-cz)<90){tooClose=true;break;}}
+    if(tooClose)continue;
+    const biome=biomeMap[colIndex(cx,cz)];
+    if(biome!==BIOME.JUNGLE)continue;
+    const h=heightMap[colIndex(cx,cz)];
+    if(h<=SEA_LEVEL)continue;
+    buildJungleTemple(cx,h,cz,rng);
+    placed.push({x:cx,z:cz});
+  }
+}
+
+function buildJungleTemple(cx,gy,cz,rng){
+  const W=6; // half-width = 13×13
+  // Clear vegetation above
+  for(let dx=-W-1;dx<=W+1;dx++)for(let dz=-W-1;dz<=W+1;dz++)
+    for(let y=gy+1;y<=gy+15;y++)sBlock(cx+dx,y,cz+dz,B.AIR);
+  // Foundation on uneven jungle floor
+  for(let dx=-W;dx<=W;dx++)for(let dz=-W;dz<=W;dz++){
+    sBlock(cx+dx,gy,cz+dz,B.MOSSY_COBBLE);
+    // fill down a bit for uneven terrain
+    for(let y=gy-1;y>=gy-3;y--){const cur=world[blockIndex(cx+dx,y,cz+dz)];if(cur===B.AIR||cur===B.WATER)sBlock(cx+dx,y,cz+dz,B.COBBLE);}
+  }
+  // Walls (3 thick, 3 tall external, inner hollow)
+  for(let y=gy+1;y<=gy+3;y++){
+    for(let dx=-W;dx<=W;dx++){
+      const onEdge=(Math.abs(dx)===W);
+      sBlock(cx+dx,y,cz-W,onEdge?B.STONE_BRICK:B.MOSSY_COBBLE);
+      sBlock(cx+dx,y,cz+W,onEdge?B.STONE_BRICK:B.MOSSY_COBBLE);
+    }
+    for(let dz=-W;dz<=W;dz++){
+      const onEdge=(Math.abs(dz)===W);
+      sBlock(cx-W,y,cz+dz,onEdge?B.STONE_BRICK:B.MOSSY_COBBLE);
+      sBlock(cx+W,y,cz+dz,onEdge?B.STONE_BRICK:B.MOSSY_COBBLE);
+    }
+  }
+  // Roof
+  for(let dx=-W;dx<=W;dx++)for(let dz=-W;dz<=W;dz++)
+    sBlock(cx+dx,gy+4,cz+dz,B.MOSSY_COBBLE);
+  // Second tier (smaller)
+  for(let dx=-3;dx<=3;dx++)for(let dz=-3;dz<=3;dz++){
+    const edge=(Math.abs(dx)===3||Math.abs(dz)===3);
+    if(edge){sBlock(cx+dx,gy+5,cz+dz,B.STONE_BRICK);sBlock(cx+dx,gy+6,cz+dz,B.MOSSY_COBBLE);}
+  }
+  sBlock(cx,gy+7,cz,B.MOSSY_COBBLE);
+  // Entrance (south)
+  sBlock(cx,gy+1,cz+W,B.AIR); sBlock(cx,gy+2,cz+W,B.AIR);
+  sBlock(cx-1,gy+1,cz+W,B.AIR); sBlock(cx+1,gy+1,cz+W,B.AIR);
+  // Interior
+  for(let dx=-W+1;dx<=W-1;dx++)for(let dy=1;dy<=3;dy++)for(let dz=-W+1;dz<=W-1;dz++)
+    sBlock(cx+dx,gy+dy,cz+dz,B.AIR);
+  // Loot chests
+  sBlock(cx-W+2,gy+1,cz-W+2,B.CHEST);
+  sBlock(cx+W-2,gy+1,cz-W+2,B.CHEST);
+  // Lever trap wires: 3 levers on the north wall
+  for(let dx=-2;dx<=2;dx+=2){
+    sBlock(cx+dx,gy+2,cz-W+1,B.BUTTON_STONE); // button triggers arrow trap
+  }
+  // Cobweb decoration (vines grown in)
+  const rng2=mulberry32((cx*17+cz*31)>>>0);
+  for(let i=0;i<8;i++){
+    const rx=cx-W+1+Math.floor(rng2()*((W-1)*2));
+    const rz=cz-W+1+Math.floor(rng2()*((W-1)*2));
+    const ry=gy+1+Math.floor(rng2()*2);
+    sBlockSoft(rx,ry+3,rz,B.COBWEB);
+  }
+  // Torches inside
+  sBlock(cx-3,gy+3,cz-3,B.TORCH); sBlock(cx+3,gy+3,cz-3,B.TORCH);
+  sBlock(cx-3,gy+3,cz+3,B.TORCH); sBlock(cx+3,gy+3,cz+3,B.TORCH);
+  // Glazed terracotta pattern on the floor
+  for(let dx=-W+1;dx<=W-1;dx++)for(let dz=-W+1;dz<=W-1;dz++){
+    const pat=(Math.abs(dx)+Math.abs(dz))%3;
+    const id=pat===0?B.GLAZED_TERRACOTTA_CYAN:(pat===1?B.GLAZED_TERRACOTTA_LIME:B.MOSSY_COBBLE);
+    sBlock(cx+dx,gy,cz+dz,id);
+  }
+}
+
+// ===========================================================================
+//  RUINED PORTAL (廃れたネザーポータル)
+//  A partially broken obsidian portal frame scattered on the surface.
+// ===========================================================================
+function placeRuinedPortals(){
+  const rng=mulberry32((SEED^0x6f34a8c2)>>>0);
+  const count=Math.max(3,Math.floor((WORLD_W*WORLD_D)/130000));
+  const placed=[];
+  let attempts=0;
+  while(placed.length<count&&attempts<count*15){
+    attempts++;
+    const cx=20+Math.floor(rng()*(WORLD_W-40));
+    const cz=20+Math.floor(rng()*(WORLD_D-40));
+    let tooClose=false;
+    for(const p of placed){if(Math.abs(p.x-cx)<60&&Math.abs(p.z-cz)<60){tooClose=true;break;}}
+    if(tooClose)continue;
+    const biome=biomeMap[colIndex(cx,cz)];
+    if(biome===BIOME.OCEAN)continue;
+    const h=heightMap[colIndex(cx,cz)];
+    if(h<=SEA_LEVEL-2)continue;
+    const buried=rng()<0.3; // 30% chance: half-buried underground portal
+    buildRuinedPortal(cx,h,cz,rng,buried);
+    placed.push({x:cx,z:cz});
+  }
+}
+
+function buildRuinedPortal(cx,gy,cz,rng,buried){
+  // Standard portal frame: 4×5 obsidian frame (standing up along x-axis)
+  // Frame positions relative to (cx,gy,cz) in the xz plane, portal in z-direction
+  const frameY=buried?gy-2:gy;
+  // If buried, sink it
+  if(buried){
+    // clear space
+    for(let dx=-3;dx<=3;dx++)for(let dy=0;dy<=6;dy++)for(let dz=-1;dz<=1;dz++)
+      sBlock(cx+dx,frameY+dy,cz+dz,B.AIR);
+  }
+  // Portal frame pieces (some missing = broken look)
+  const frame=[
+    // bottom bar
+    [0,0,0],[1,0,0],[2,0,0],[3,0,0],
+    // left side
+    [0,1,0],[0,2,0],[0,3,0],
+    // right side
+    [3,1,0],[3,2,0],[3,3,0],
+    // top bar (partly missing)
+    [1,4,0],[2,4,0],
+  ];
+  // Randomly remove some blocks to make it ruined
+  const keepChance=0.65+rng()*0.20;
+  for(const[dx,dy,dz] of frame){
+    if(rng()<keepChance){
+      const isCrying=rng()<0.2;
+      sBlock(cx+dx,frameY+dy,cz+dz,isCrying?B.CRYING_OBSIDIAN:B.OBSIDIAN);
+    }
+  }
+  // Scattered netherrack and crying obsidian rubble around the base
+  const rng2=mulberry32((cx*43+cz*7)>>>0);
+  for(let i=0;i<8;i++){
+    const rx=cx-3+Math.floor(rng2()*9);
+    const rz=cz-2+Math.floor(rng2()*5);
+    const ry=heightMap[colIndex(Math.max(0,Math.min(WORLD_W-1,rx)),Math.max(0,Math.min(WORLD_D-1,rz)))];
+    const id=rng2()<0.4?B.NETHERRACK:(rng2()<0.5?B.CRYING_OBSIDIAN:B.OBSIDIAN);
+    sBlockSoft(rx,ry+1,rz,id);
+  }
+  // Gold block on top (loot hint)
+  if(rng()<0.7)sBlock(cx+1,frameY+1,cz,B.GOLD_ORE);
+  // Loot chest nearby
+  sBlock(cx-1,frameY,cz,B.CHEST);
+  // Nether brick base fragments
+  for(let dx=-1;dx<=4;dx++)for(let dz=-1;dz<=1;dz++){
+    if(rng()<0.5)sBlock(cx+dx,frameY-1,cz+dz,B.NETHER_BRICK);
+  }
+}
+
+// ===========================================================================
+//  IGLOO (イグルー)
+//  A snow-dome igloo in snowy biomes with a hidden basement.
+// ===========================================================================
+function placeIgloos(){
+  const rng=mulberry32((SEED^0xabc12345)>>>0);
+  const count=Math.max(2,Math.floor((WORLD_W*WORLD_D)/180000));
+  const placed=[];
+  let attempts=0;
+  while(placed.length<count&&attempts<count*15){
+    attempts++;
+    const cx=20+Math.floor(rng()*(WORLD_W-40));
+    const cz=20+Math.floor(rng()*(WORLD_D-40));
+    let tooClose=false;
+    for(const p of placed){if(Math.abs(p.x-cx)<70&&Math.abs(p.z-cz)<70){tooClose=true;break;}}
+    if(tooClose)continue;
+    const biome=biomeMap[colIndex(cx,cz)];
+    if(biome!==BIOME.SNOWY)continue;
+    const h=heightMap[colIndex(cx,cz)];
+    if(h<=SEA_LEVEL)continue;
+    buildIgloo(cx,h,cz);
+    placed.push({x:cx,z:cz});
+  }
+}
+
+function buildIgloo(cx,gy,cz){
+  const R=4; // radius
+  // Build a snow dome using distance-based voxels
+  for(let dx=-R;dx<=R;dx++)for(let dy=0;dy<=R+1;dy++)for(let dz=-R;dz<=R;dz++){
+    const d=Math.sqrt(dx*dx+dy*dy*0.8+dz*dz);
+    if(d<=R&&d>=R-1.5){
+      sBlock(cx+dx,gy+dy,cz+dz,B.SNOW);
+    }
+  }
+  // Hollow interior
+  for(let dx=-R+1;dx<=R-1;dx++)for(let dy=1;dy<=R;dy++)for(let dz=-R+1;dz<=R-1;dz++){
+    const d=Math.sqrt(dx*dx+dy*dy*0.8+dz*dz);
+    if(d<R-1)sBlock(cx+dx,gy+dy,cz+dz,B.AIR);
+  }
+  // Snow block floor
+  for(let dx=-R+1;dx<=R-1;dx++)for(let dz=-R+1;dz<=R-1;dz++)
+    sBlock(cx+dx,gy,cz+dz,B.SNOW_BLOCK);
+  // Entrance tunnel (south)
+  sBlock(cx,gy+1,cz+R,B.AIR); sBlock(cx,gy+2,cz+R,B.AIR);
+  sBlock(cx-1,gy+1,cz+R,B.AIR); sBlock(cx+1,gy+1,cz+R,B.AIR);
+  // entrance cover
+  sBlock(cx,gy+3,cz+R,B.SNOW); sBlock(cx-1,gy+3,cz+R,B.SNOW); sBlock(cx+1,gy+3,cz+R,B.SNOW);
+  // Interior furnishings
+  sBlock(cx-1,gy+1,cz-1,B.CHEST);     // supply chest
+  sBlock(cx+1,gy+1,cz-1,B.FURNACE);   // furnace for warmth
+  sBlock(cx,gy+1,cz+1,B.CRAFTING);    // crafting table
+  sBlock(cx-2,gy+2,cz,B.TORCH);       // torch lighting
+  sBlock(cx+2,gy+2,cz,B.TORCH);
+  // Bed (wool)
+  sBlock(cx,gy+1,cz-2,B.WOOL_WHITE); sBlock(cx,gy+1,cz-3,B.WOOL_LIGHT_BLUE);
+  // Hidden basement: ladder-accessible room below the floor
+  // Trapdoor hint: remove one floor block
+  sBlock(cx,gy,cz,B.AIR);
+  // Dig basement
+  for(let dx=-2;dx<=2;dx++)for(let dy=-4;dy<=-1;dy++)for(let dz=-2;dz<=2;dz++)
+    sBlock(cx+dx,gy+dy,cz+dz,B.AIR);
+  // Basement floor (stone brick)
+  for(let dx=-2;dx<=2;dx++)for(let dz=-2;dz<=2;dz++)
+    sBlock(cx+dx,gy-5,cz+dz,B.STONE_BRICK);
+  // Basement walls
+  for(let dx=-2;dx<=2;dx++)for(let dz=-2;dz<=2;dz++){
+    const edge=(Math.abs(dx)===2||Math.abs(dz)===2);
+    if(edge)for(let dy=-4;dy<=-1;dy++)sBlockSoft(cx+dx,gy+dy,cz+dz,B.STONE_BRICK);
+  }
+  // Basement furnishings: loot chest, brewing stand hint (hay), lantern
+  sBlock(cx-1,gy-4,cz-1,B.CHEST);
+  sBlock(cx+1,gy-4,cz-1,B.HAY);
+  sBlock(cx,gy-2,cz,B.LANTERN);
+  // "Captive" occupant hint: extra chest
+  sBlock(cx,gy-4,cz+1,B.CHEST);
+  // Blue ice floor accent
+  sBlock(cx-1,gy-5,cz-1,B.BLUE_ICE); sBlock(cx+1,gy-5,cz+1,B.BLUE_ICE);
+}
+
+// ===========================================================================
+//  WITCH HUT (魔女の小屋)
+//  A dark-wood hut on stilts in swamp biomes.
+// ===========================================================================
+function placeWitchHuts(){
+  const rng=mulberry32((SEED^0x13579bdf)>>>0);
+  const count=Math.max(2,Math.floor((WORLD_W*WORLD_D)/200000));
+  const placed=[];
+  let attempts=0;
+  while(placed.length<count&&attempts<count*15){
+    attempts++;
+    const cx=20+Math.floor(rng()*(WORLD_W-40));
+    const cz=20+Math.floor(rng()*(WORLD_D-40));
+    let tooClose=false;
+    for(const p of placed){if(Math.abs(p.x-cx)<80&&Math.abs(p.z-cz)<80){tooClose=true;break;}}
+    if(tooClose)continue;
+    const biome=biomeMap[colIndex(cx,cz)];
+    if(biome!==BIOME.SWAMP&&biome!==BIOME.MANGROVE)continue;
+    const h=heightMap[colIndex(cx,cz)];
+    buildWitchHut(cx,h,cz);
+    placed.push({x:cx,z:cz});
+  }
+}
+
+function buildWitchHut(cx,gy,cz){
+  const W=3, D=3; // hut interior 7×7
+  const stilts=3; // stilt height
+  const gy2=gy+stilts; // floor level
+  // 4 corner stilts (dark wood)
+  for(const [dx,dz] of [[-W,-D],[W,-D],[-W,D],[W,D]]){
+    for(let y=gy+1;y<=gy2;y++)sBlock(cx+dx,y,cz+dz,B.DEAD_LOG);
+  }
+  // Floor platform
+  for(let dx=-W;dx<=W;dx++)for(let dz=-D;dz<=D;dz++)
+    sBlock(cx+dx,gy2,cz+dz,B.PLANKS);
+  // Walls (3 tall)
+  for(let y=gy2+1;y<=gy2+3;y++){
+    for(let dx=-W;dx<=W;dx++){
+      sBlock(cx+dx,y,cz-D,B.DEAD_LOG);
+      sBlock(cx+dx,y,cz+D,B.DEAD_LOG);
+    }
+    for(let dz=-D;dz<=D;dz++){
+      sBlock(cx-W,y,cz+dz,B.DEAD_LOG);
+      sBlock(cx+W,y,cz+dz,B.DEAD_LOG);
+    }
+  }
+  // Windows (glass)
+  sBlock(cx-1,gy2+2,cz-D,B.GLASS); sBlock(cx+1,gy2+2,cz-D,B.GLASS);
+  sBlock(cx-1,gy2+2,cz+D,B.GLASS); sBlock(cx+1,gy2+2,cz+D,B.GLASS);
+  // Door (south)
+  sBlock(cx,gy2+1,cz+D,B.DOOR_BOTTOM_S_CLOSED); sBlock(cx,gy2+2,cz+D,B.DOOR_TOP_S_CLOSED);
+  // Interior
+  for(let dx=-W+1;dx<=W-1;dx++)for(let dy=1;dy<=3;dy++)for(let dz=-D+1;dz<=D-1;dz++)
+    sBlock(cx+dx,gy2+dy,cz+dz,B.AIR);
+  // Witch-hut furnishings
+  sBlock(cx-1,gy2+1,cz-1,B.CHEST);         // ingredient chest
+  sBlock(cx+1,gy2+1,cz-1,B.FURNACE);       // brewing stand (furnace proxy)
+  sBlock(cx-1,gy2+1,cz+1,B.CRAFTING);      // crafting
+  sBlock(cx,gy2+1,cz-2,B.HAY);             // herb stores (hay bale proxy)
+  sBlock(cx,gy2+3,cz,B.LANTERN);           // hanging lantern
+  // Cobwebs in corners
+  sBlock(cx-W+1,gy2+3,cz-D+1,B.COBWEB); sBlock(cx+W-1,gy2+3,cz-D+1,B.COBWEB);
+  sBlock(cx-W+1,gy2+3,cz+D-1,B.COBWEB); sBlock(cx+W-1,gy2+3,cz+D-1,B.COBWEB);
+  // Roof (black/purple wool = witch aesthetic)
+  buildRoof(cx-W,cz-D,cx+W,cz+D,gy2+4,false);
+  // Banner outside on south wall
+  sBlockSoft(cx,gy2+3,cz+D,B.BANNER_BLACK);
+  // Potion hint: amethyst cluster on the floor (proxy for brewing ingredient)
+  sBlock(cx,gy2+1,cz,B.AMETHYST_CLUSTER);
+}
+
 // ---- top-level driver ------------------------------------------------------
-function placeStructures(){placeStronghold();placeMineshafts();placeVillages();}
+function placeStructures(){
+  placeStronghold();
+  placeMineshafts();
+  placeVillages();
+  placeDesertPyramids();
+  placeJungleTemples();
+  placeRuinedPortals();
+  placeIgloos();
+  placeWitchHuts();
+}
