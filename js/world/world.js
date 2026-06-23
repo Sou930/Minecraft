@@ -96,11 +96,13 @@ function lakeMaskAt(x,z){
 // share a single climateAt evaluation with biomeAt/craterLavaLevelAt.
 function heightAtRaw(x,z,c){
   if(!c)c=climateAt(x,z);
-  // multi-octave rolling base around sea level
-  const base=SEA_LEVEL+2+fbm2(x,z,11,4,1/40,0.5,2.0)*26-10+fbm2(x,z,77,2,1/12,0.5,2.0)*8-4;
+  // multi-octave rolling base around sea level — boosted amplitude & freq for
+  // more dramatic, Minecraft-style rolling hills (was *26, now *36 base + extra
+  // high-freq micro-detail for a rougher, blockier surface feel).
+  const base=SEA_LEVEL+2+fbm2(x,z,11,5,1/48,0.5,2.0)*36-14+fbm2(x,z,77,3,1/14,0.5,2.0)*10-5;
   // Two layers of fine detail give the surface a more eroded, natural look:
   // broad undulation plus a higher-frequency "weathering" ripple.
-  const detail=fbm2(x,z,23,3,1/24,0.5,2.0)*6-3+fbm2(x,z,29,2,1/7,0.5,2.0)*2-1;
+  const detail=fbm2(x,z,23,4,1/28,0.5,2.0)*8-4+fbm2(x,z,29,2,1/7,0.5,2.0)*3-1.5;
   const e=c.continental,t=c.temperature,m=c.moisture,w=c.weirdness;
   let h=base+detail;
   if(e<0.40){
@@ -109,41 +111,41 @@ function heightAtRaw(x,z,c){
     // land height down into the sea. A wide [0.32,0.40] coastal band eases the
     // shoreline so beaches slope gently below the waterline, and the basin only
     // deepens gradually toward the continental lows for a natural sea floor.
-    const oceanFloor=SEA_LEVEL-2-Math.pow((0.32-Math.min(e,0.32))/0.32,1.6)*26;
+    const oceanFloor=SEA_LEVEL-2-Math.pow((0.32-Math.min(e,0.32))/0.32,1.6)*32;
     // coastal blend weight: 0 at e=0.40 (full land) -> 1 at e<=0.32 (full sea)
     const coast=smoothstep(Math.max(0,Math.min(1,(0.40-e)/0.08)));
     h=h*(1-coast)+oceanFloor*coast;
   }else if(e>0.72){
-    // MOUNTAINS / VOLCANO: strong uplift with ridged detail
+    // MOUNTAINS / VOLCANO: very strong uplift with ridged detail for towering,
+    // Minecraft-style mountain ranges. Peaks now soar much higher than before.
     const up=(e-0.72)/0.28;                // 0..1
-    const ridge=Math.abs(fbm2(x,z,83,4,1/30,0.5,2.0)*2-1);
-    // Towering peaks: a steeper uplift curve plus a stronger ridge contribution
-    // pushes summits well above the old ceiling so mountains genuinely soar.
-    h=base+up*up*78+ridge*26;
+    const ridge=1-Math.abs(fbm2(x,z,83,5,1/32,0.55,2.1)*2-1); // ridged noise
+    // Towering peaks: steeper curve + ridged noise pushes summits very high.
+    h=base+up*up*up*110+ridge*ridge*34;
     if(t>0.55&&m<0.50){
       // VOLCANO cone: a MASSIVE, broad shield-and-cone that climbs far higher
       // than the surrounding mountains, with a wide, pronounced crater bowl at
       // the apex that we later flood with a large lava lake.
       const cone=fbm2(x,z,95,4,1/45,0.5,2.0);     // broad flank undulation
-      h=base+46+up*up*72+cone*10;
+      h=base+52+up*up*84+cone*12;
       // Wide crater: the dip begins lower on the cone (0.70) and plunges deep,
       // carving a large summit caldera rather than a tiny pit.
-      const crater=Math.max(0,(up-0.70))/0.30;
-      h-=crater*crater*40;
+      const crater=Math.max(0,(up-0.68))/0.32;
+      h-=crater*crater*48;
     }else{
       // MOUNTAIN CANYONS: a ridged-noise "river" channel carves deep, steep
       // valleys through the high terrain. Where the channel mask is near its
       // ridge line we subtract a large amount of height, producing gorges.
-      const cn=fbm2(x,z,131,3,1/90,0.5,2.0);
+      const cn=fbm2(x,z,131,4,1/100,0.5,2.0);
       const canyon=1-Math.abs(cn*2-1);      // 0..1, peaks along winding lines
-      if(canyon>0.78){
-        const depth=(canyon-0.78)/0.22;     // 0..1 inside the gorge
-        h-=depth*depth*42;
+      if(canyon>0.76){
+        const depth=(canyon-0.76)/0.24;     // 0..1 inside the gorge
+        h-=depth*depth*54;                  // deeper mountain gorges
       }
     }
   }else if(t>0.60&&m<0.40&&w>0.55){
-    // MESA: flat-topped plateaus (quantised height bands)
-    const plat=base+18+fbm2(x,z,89,2,1/55,0.5,2.0)*16;
+    // MESA: flat-topped plateaus with taller, more dramatic banding
+    const plat=base+22+fbm2(x,z,89,2,1/55,0.5,2.0)*20;
     h=Math.round(plat/4)*4;
   }else if((m>0.60&&e<0.46)){
     // SWAMP / MANGROVE: very flat, just around / slightly below sea level so
@@ -219,7 +221,7 @@ const heightMap=new Int16Array(WORLD_W*WORLD_D);const biomeMap=new Uint8Array(WO
 const lavaLevelMap=new Int16Array(WORLD_W*WORLD_D);
 function colIndex(x,z){return z*WORLD_W+x;}
 // Synchronous full generation (kept for reference / fallback).
-function generateWorld(){generateClimateAndHeight();generateTerrainColumns(0,WORLD_W);carveCaves();carveLargeCaves();carveCaveFeatures();placeAmethystGeodes();placeOresAndGravel();placeVegetation();if(typeof placeStructures==='function')placeStructures();}
+function generateWorld(){generateClimateAndHeight();generateTerrainColumns(0,WORLD_W);carveCaves();carveLargeCaves();carveCaveFeatures();carveRavines();placeCaveBiomes();placeAmethystGeodes();placeOresAndGravel();placeVegetation();if(typeof placeStructures==='function')placeStructures();}
 // --- Split phases so generation can be driven asynchronously --------------
 function generateClimateAndHeight(){
   const tmp=new Float32Array(WORLD_W*WORLD_D);
@@ -264,9 +266,9 @@ function generateClimateAndHeight(){
   // cliffs collapse into walkable, gently terraced hillsides while leaving
   // already-gentle terrain essentially untouched.
   const h2=new Float32Array(WORLD_W*WORLD_D);h2.set(cur);
-  const MAX_STEP=2.2;        // largest allowed height difference per block
-  const TALUS=0.5;           // fraction of the excess moved each iteration
-  const ITER=6;
+  const MAX_STEP=2.8;        // largest allowed height difference per block (raised for steeper terrain)
+  const TALUS=0.45;          // fraction of the excess moved each iteration
+  const ITER=5;
   const NB=[[1,0],[-1,0],[0,1],[0,-1]];
   for(let it=0;it<ITER;it++){
     for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){
@@ -293,11 +295,11 @@ function generateClimateAndHeight(){
 }
 // Build terrain blocks for columns in the x-range [x0,x1).
 function generateTerrainColumns(x0,x1){for(let x=x0;x<x1;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];const biome=biomeMap[colIndex(x,z)];const beach=h<=SEA_LEVEL+1;
-const highRock=h>=SEA_LEVEL+34;            // bare stone above this on mountains
+const highRock=h>=SEA_LEVEL+38;            // bare stone above this on mountains (raised for taller terrain)
 const soilDepth=3+Math.floor(valueNoise(x/6,z/6,301)*3);   // 3..5
-// Snow caps the loftiest peaks. With the taller terrain the snow line sits
-// higher so only genuine summits stay white year-round.
-const snowLine=SEA_LEVEL+52+Math.floor(valueNoise(x/5,z/5,303)*8);
+// Snow caps the loftiest peaks. With taller terrain, the snow line is higher
+// so only genuine summits stay white year-round.
+const snowLine=SEA_LEVEL+64+Math.floor(valueNoise(x/5,z/5,303)*10);
 for(let y=0;y<=h&&y<WORLD_H;y++){let id;
 if(y===0)id=B.BEDROCK;
 else if(y<=2&&hash3(x,y,z,305)<0.6)id=B.BEDROCK;
@@ -346,49 +348,121 @@ function caveDig(x,y,z){if(x<1||x>=WORLD_W-1||z<1||z>=WORLD_D-1||y<=1||y>=WORLD_
 //   3) SHAFTS   – near-vertical circular shafts dropping deep underground
 function carveLargeCaves(){
   const rng=mulberry32((SEED^0x9e3779b9)>>>0);
-  // --- 1) CAVERNS: large ellipsoidal chambers --------------------------
-  const cavernCount=Math.floor((WORLD_W*WORLD_D)/55000)+10;
+  // --- 1) CAVERNS: large ellipsoidal chambers — bigger and deeper than before
+  const cavernCount=Math.floor((WORLD_W*WORLD_D)/45000)+14;
   for(let i=0;i<cavernCount;i++){
     const cx=2+Math.floor(rng()*(WORLD_W-4));
     const cz=2+Math.floor(rng()*(WORLD_D-4));
-    const cy=8+Math.floor(rng()*26);
-    const rx=8+Math.floor(rng()*9),ry=5+Math.floor(rng()*5),rz=8+Math.floor(rng()*9);
+    const cy=6+Math.floor(rng()*34);                         // deeper range
+    const rx=10+Math.floor(rng()*12),ry=6+Math.floor(rng()*7),rz=10+Math.floor(rng()*12);
     for(let dx=-rx;dx<=rx;dx++)for(let dy=-ry;dy<=ry;dy++)for(let dz=-rz;dz<=rz;dz++){
-      const wob=valueNoise3((cx+dx)/9,(cy+dy)/9,(cz+dz)/9,201)*0.4;
+      const wob=valueNoise3((cx+dx)/9,(cy+dy)/9,(cz+dz)/9,201)*0.45;
       const d=(dx*dx)/(rx*rx)+(dy*dy)/(ry*ry)+(dz*dz)/(rz*rz);
-      if(d<=1-wob+0.25)caveDig(cx+dx,cy+dy,cz+dz);
+      if(d<=1-wob+0.28)caveDig(cx+dx,cy+dy,cz+dz);
     }
   }
-  // --- 2) TUNNELS: meandering worm tunnels -----------------------------
-  const tunnelCount=Math.floor((WORLD_W*WORLD_D)/40000)+14;
+  // --- 2) TUNNELS: meandering worm tunnels — longer and wider than before ---
+  const tunnelCount=Math.floor((WORLD_W*WORLD_D)/32000)+18;
   for(let i=0;i<tunnelCount;i++){
-    let x=2+rng()*(WORLD_W-4),z=2+rng()*(WORLD_D-4),y=10+rng()*36;
-    let yaw=rng()*Math.PI*2,pitch=(rng()-0.5)*0.5;
-    const steps=120+Math.floor(rng()*180);
+    let x=2+rng()*(WORLD_W-4),z=2+rng()*(WORLD_D-4),y=8+rng()*46;
+    let yaw=rng()*Math.PI*2,pitch=(rng()-0.5)*0.45;
+    const steps=160+Math.floor(rng()*240);                   // longer tunnels
     for(let s=0;s<steps;s++){
-      yaw+=(rng()-0.5)*0.5;pitch+=(rng()-0.5)*0.25;pitch=Math.max(-0.7,Math.min(0.7,pitch));
-      x+=Math.cos(yaw)*Math.cos(pitch)*1.4;z+=Math.sin(yaw)*Math.cos(pitch)*1.4;y+=Math.sin(pitch)*1.0;
+      yaw+=(rng()-0.5)*0.55;pitch+=(rng()-0.5)*0.28;pitch=Math.max(-0.75,Math.min(0.75,pitch));
+      x+=Math.cos(yaw)*Math.cos(pitch)*1.5;z+=Math.sin(yaw)*Math.cos(pitch)*1.5;y+=Math.sin(pitch)*1.1;
       if(x<2||x>=WORLD_W-2||z<2||z>=WORLD_D-2||y<3||y>WORLD_H-6)break;
-      const r=2+Math.floor(rng()*2);const ix=Math.round(x),iy=Math.round(y),iz=Math.round(z);
+      const r=2+Math.floor(rng()*3);const ix=Math.round(x),iy=Math.round(y),iz=Math.round(z);
       for(let dx=-r;dx<=r;dx++)for(let dy=-r;dy<=r;dy++)for(let dz=-r;dz<=r;dz++)
         if(dx*dx+dy*dy+dz*dz<=r*r+1)caveDig(ix+dx,iy+dy,iz+dz);
     }
   }
   // --- 3) SHAFTS: deep vertical wells -----------------------------------
-  const shaftCount=Math.floor((WORLD_W*WORLD_D)/80000)+8;
+  const shaftCount=Math.floor((WORLD_W*WORLD_D)/65000)+10;
   for(let i=0;i<shaftCount;i++){
     const cx=3+Math.floor(rng()*(WORLD_W-6));
     const cz=3+Math.floor(rng()*(WORLD_D-6));
-    const top=heightMap[colIndex(cx,cz)]-4;const bottom=3+Math.floor(rng()*6);
-    if(top<=bottom+6)continue;
-    const r=2+Math.floor(rng()*2);
+    const top=heightMap[colIndex(cx,cz)]-4;const bottom=3+Math.floor(rng()*8);
+    if(top<=bottom+8)continue;
+    const r=2+Math.floor(rng()*3);
     for(let y=bottom;y<=top;y++){
-      const ox=Math.round(Math.sin(y*0.3)*1.2),oz=Math.round(Math.cos(y*0.27)*1.2);
+      const ox=Math.round(Math.sin(y*0.3)*1.5),oz=Math.round(Math.cos(y*0.27)*1.5);
       for(let dx=-r;dx<=r;dx++)for(let dz=-r;dz<=r;dz++)
         if(dx*dx+dz*dz<=r*r)caveDig(cx+ox+dx,y,cz+oz+dz);
     }
   }
 }
+// ===========================================================================
+// RAVINES — giant surface-to-deep gashes that slice through the terrain,
+// exposing the underground layers to open air. Each ravine is a long,
+// sinuous trench carved from near the surface down toward bedrock: the
+// walls are nearly vertical, the floor is jagged, and the sky is visible
+// from deep inside — the Minecraft 1.17+ ravine aesthetic.
+// ===========================================================================
+function carveRavines(){
+  const rng=mulberry32((SEED^0x19a4c387)>>>0);
+  const area=WORLD_W*WORLD_D;
+  // One ravine per ~160 000 blocks of surface area; a 2416×2416 world gets ~36
+  const count=Math.floor(area/160000)+14;
+  for(let i=0;i<count;i++){
+    // Seed the ravine on a random surface column
+    const sx=8+Math.floor(rng()*(WORLD_W-16));
+    const sz=8+Math.floor(rng()*(WORLD_D-16));
+    const surfY=heightMap[colIndex(sx,sz)];
+    // Ravines start ~6..12 blocks below the surface so the surface crust
+    // stays intact (you discover them at the rim of the crack).
+    const topY=surfY-4-Math.floor(rng()*8);
+    // Floor near bedrock level (y 3..8) with a slight random variation
+    const botY=3+Math.floor(rng()*6);
+    if(topY-botY<18)continue;          // skip shallow spots
+
+    // Width profile: the ravine is widest at mid-depth and tapers toward
+    // both top and bottom, giving the iconic narrowed-crack silhouette.
+    const maxW=4+Math.floor(rng()*5);  // half-width at widest point: 4..8
+
+    // Direction the ravine runs horizontally. A gentle yaw drift makes it
+    // meander naturally rather than going perfectly straight.
+    let yaw=rng()*Math.PI*2;
+    const segLen=2+Math.floor(rng()*2); // step size along the path
+    // Total path length determines how long the ravine is
+    const steps=60+Math.floor(rng()*80); // 120..300 blocks long
+
+    let cx=sx,cz=sz;
+    for(let s=0;s<steps;s++){
+      // Gentle curve
+      yaw+=(rng()-0.5)*0.18;
+      cx+=Math.cos(yaw)*segLen;
+      cz+=Math.sin(yaw)*segLen;
+      const ix=Math.round(cx),iz=Math.round(cz);
+      if(ix<4||ix>=WORLD_W-4||iz<4||iz>=WORLD_D-4)break;
+
+      // Vertical noise offsets the effective top/bottom at each segment so
+      // the floor and ceiling are uneven and organic-looking.
+      const nTop=Math.round(valueNoise3(cx/22,0,cz/22,317)*8-4);
+      const nBot=Math.round(valueNoise3(cx/18,1,cz/18,319)*6-3);
+      const segTop=Math.min(surfY-3,topY+nTop);
+      const segBot=Math.max(2,botY+nBot);
+
+      // Width also varies per segment using noise for organic edges
+      const wNoise=valueNoise3(cx/16,2,cz/16,321)*0.6+0.4; // 0.4..1.0
+
+      for(let y=segBot;y<=segTop;y++){
+        // Width tapers: widest at 40% up from the floor, narrow at top & bottom
+        const frac=(y-segBot)/(segTop-segBot);           // 0=floor, 1=top
+        const profile=Math.sin(frac*Math.PI);            // bell curve 0→1→0
+        const w=Math.max(1,Math.round(maxW*profile*wNoise));
+
+        // Horizontal cross-section is an ellipse on x/z, with noise wobble
+        for(let dx=-w;dx<=w;dx++)for(let dz=-w;dz<=w;dz++){
+          const wob=valueNoise3((ix+dx)/8,(y)/12,(iz+dz)/8,323)*0.35;
+          const dd=(dx*dx+dz*dz)/(w*w);
+          if(dd>1+wob-0.1)continue;
+          caveDig(ix+dx,y,iz+dz);
+        }
+      }
+    }
+  }
+}
+
 // ===========================================================================
 // ===========================================================================
 
@@ -437,47 +511,291 @@ function decorateChamber(cx,cy,cz,rx,ry,rz,opts){
 function carveCaveFeatures(){
   const rng=mulberry32((SEED^0x68bc21ab)>>>0);
   const area=WORLD_W*WORLD_D;
-  const limeCount=Math.floor(area/75000)+6;
+  // --- Generic lime-decorated chambers (moss, glow lichen, dripstone) ------
+  const limeCount=Math.floor(area/65000)+8;
   for(let i=0;i<limeCount;i++){
     const cx=6+Math.floor(rng()*(WORLD_W-12));
     const cz=6+Math.floor(rng()*(WORLD_D-12));
-    const cy=12+Math.floor(rng()*24);
-    const rx=9+Math.floor(rng()*8),ry=5+Math.floor(rng()*4),rz=9+Math.floor(rng()*8);
+    const cy=10+Math.floor(rng()*30);
+    const rx=10+Math.floor(rng()*10),ry=6+Math.floor(rng()*5),rz=10+Math.floor(rng()*10);
     if(heightMap[colIndex(cx,cz)]<cy+ry+4)continue;
     for(let dx=-rx;dx<=rx;dx++)for(let dy=-ry;dy<=ry;dy++)for(let dz=-rz;dz<=rz;dz++){
       const wob=valueNoise3((cx+dx)/8,(cy+dy)/8,(cz+dz)/8,211)*0.4;
       const d=(dx*dx)/(rx*rx)+(dy*dy)/(ry*ry)+(dz*dz)/(rz*rz);
-      if(d<=1-wob+0.2)caveDig(cx+dx,cy+dy,cz+dz);
+      if(d<=1-wob+0.22)caveDig(cx+dx,cy+dy,cz+dz);
     }
-    decorateChamber(cx,cy,cz,rx,ry,rz,{rng,dripP:0.30,dripLen:5,moss:true,mossP:0.18,lichen:true,lichenP:0.10});
+    decorateChamber(cx,cy,cz,rx,ry,rz,{rng,dripP:0.30,dripLen:6,moss:true,mossP:0.18,lichen:true,lichenP:0.10});
   }
-  const lavaCount=Math.floor(area/130000)+4;
+  // --- Deep lava chambers ---------------------------------------------------
+  const lavaCount=Math.floor(area/110000)+5;
   for(let i=0;i<lavaCount;i++){
     const cx=6+Math.floor(rng()*(WORLD_W-12));
     const cz=6+Math.floor(rng()*(WORLD_D-12));
-    const cy=6+Math.floor(rng()*9);
-    const rx=10+Math.floor(rng()*9),ry=4+Math.floor(rng()*3),rz=10+Math.floor(rng()*9);
+    const cy=5+Math.floor(rng()*10);
+    const rx=12+Math.floor(rng()*10),ry=5+Math.floor(rng()*4),rz=12+Math.floor(rng()*10);
     if(heightMap[colIndex(cx,cz)]<cy+ry+6)continue;
     for(let dx=-rx;dx<=rx;dx++)for(let dy=-ry;dy<=ry;dy++)for(let dz=-rz;dz<=rz;dz++){
       const wob=valueNoise3((cx+dx)/9,(cy+dy)/9,(cz+dz)/9,221)*0.4;
       const d=(dx*dx)/(rx*rx)+(dy*dy)/(ry*ry)+(dz*dz)/(rz*rz);
-      if(d<=1-wob+0.25)caveDig(cx+dx,cy+dy,cz+dz);
+      if(d<=1-wob+0.28)caveDig(cx+dx,cy+dy,cz+dz);
     }
-    decorateChamber(cx,cy,cz,rx,ry,rz,{rng,dripP:0.16,dripLen:4,moss:false,mossP:0,lichen:false,lichenP:0,lake:B.LAVA});
+    decorateChamber(cx,cy,cz,rx,ry,rz,{rng,dripP:0.14,dripLen:4,moss:false,mossP:0,lichen:false,lichenP:0,lake:B.LAVA});
   }
-  const waterCount=Math.floor(area/130000)+4;
+  // --- Underground lakes (water chambers) ----------------------------------
+  const waterCount=Math.floor(area/110000)+5;
   for(let i=0;i<waterCount;i++){
     const cx=6+Math.floor(rng()*(WORLD_W-12));
     const cz=6+Math.floor(rng()*(WORLD_D-12));
-    const cy=18+Math.floor(rng()*18);
-    const rx=10+Math.floor(rng()*9),ry=4+Math.floor(rng()*3),rz=10+Math.floor(rng()*9);
+    const cy=16+Math.floor(rng()*22);
+    const rx=12+Math.floor(rng()*10),ry=5+Math.floor(rng()*4),rz=12+Math.floor(rng()*10);
     if(heightMap[colIndex(cx,cz)]<cy+ry+6)continue;
     for(let dx=-rx;dx<=rx;dx++)for(let dy=-ry;dy<=ry;dy++)for(let dz=-rz;dz<=rz;dz++){
       const wob=valueNoise3((cx+dx)/9,(cy+dy)/9,(cz+dz)/9,231)*0.4;
       const d=(dx*dx)/(rx*rx)+(dy*dy)/(ry*ry)+(dz*dz)/(rz*rz);
-      if(d<=1-wob+0.25)caveDig(cx+dx,cy+dy,cz+dz);
+      if(d<=1-wob+0.28)caveDig(cx+dx,cy+dy,cz+dz);
     }
-    decorateChamber(cx,cy,cz,rx,ry,rz,{rng,dripP:0.18,dripLen:4,moss:true,mossP:0.22,lichen:true,lichenP:0.12,lake:B.WATER});
+    decorateChamber(cx,cy,cz,rx,ry,rz,{rng,dripP:0.18,dripLen:5,moss:true,mossP:0.22,lichen:true,lichenP:0.12,lake:B.WATER});
+  }
+}
+
+// ===========================================================================
+// LUSH CAVES — warm, damp underground biome filled with azalea roots above,
+// spore blossoms on the ceiling, hanging vines, lush green moss on every
+// surface, and a tranquil underground pool. Lit gently by glow lichen.
+// DRIPSTONE CAVES — cold limestone chambers decorated with massive pointed
+// stalactites hanging from the ceiling and stalagmites rising from the floor,
+// calcite-banded walls, and occasional underground streams.
+// Both cave biomes carve their own large chambers and fill them with their
+// signature decorations.
+// ===========================================================================
+
+// Place a block safely, only overwriting stone/dirt/gravel/air
+function cavePlaceFloor(x,y,z,id){
+  if(x<1||x>=WORLD_W-1||z<1||z>=WORLD_D-1||y<1||y>=WORLD_H-1)return;
+  const cur=world[blockIndex(x,y,z)];
+  if(cur===B.AIR||cur===B.STONE||cur===B.DIRT||cur===B.GRAVEL)world[blockIndex(x,y,z)]=id;
+}
+// Hang vines down from a ceiling block — reuse GLOW_LICHEN for spore blossoms
+// and TALL_GRASS texture already cross-shaped for vines
+function hangVines(x,ceilY,z,len){
+  for(let i=1;i<=len;i++){
+    const yy=ceilY-i;
+    if(yy<2)break;
+    const cur=getBlock(x,yy,z);
+    if(cur!==B.AIR)break;
+    // alternate glow lichen (luminescent) and moss for the vine strip
+    world[blockIndex(x,yy,z)]=(i===1)?B.GLOW_LICHEN:B.MOSS;
+  }
+}
+
+function placeCaveBiomes(){
+  const rng=mulberry32((SEED^0x5d2bc3f1)>>>0);
+  const area=WORLD_W*WORLD_D;
+
+  // ---- LUSH CAVE chambers -------------------------------------------------
+  // Wider, taller chambers, mid-depth (y 14..40), decorated with moss,
+  // glow lichen ceiling, hanging vine strips, and small water pools.
+  const lushCount=Math.floor(area/90000)+8;
+  for(let i=0;i<lushCount;i++){
+    const cx=8+Math.floor(rng()*(WORLD_W-16));
+    const cz=8+Math.floor(rng()*(WORLD_D-16));
+    const cy=14+Math.floor(rng()*26);
+    const rx=12+Math.floor(rng()*10),ry=7+Math.floor(rng()*6),rz=12+Math.floor(rng()*10);
+    if(heightMap[colIndex(cx,cz)]<cy+ry+5)continue;
+
+    // Carve the chamber
+    for(let dx=-rx;dx<=rx;dx++)for(let dy=-ry;dy<=ry;dy++)for(let dz=-rz;dz<=rz;dz++){
+      const wob=valueNoise3((cx+dx)/9,(cy+dy)/9,(cz+dz)/9,411)*0.42;
+      const d=(dx*dx)/(rx*rx)+(dy*dy)/(ry*ry)+(dz*dz)/(rz*rz);
+      if(d<=1-wob+0.24)caveDig(cx+dx,cy+dy,cz+dz);
+    }
+
+    // Decorate: moss floors/walls, glow lichen ceiling, hanging vines, water pool
+    const x0=Math.max(2,cx-rx-1),x1=Math.min(WORLD_W-3,cx+rx+1);
+    const z0=Math.max(2,cz-rz-1),z1=Math.min(WORLD_D-3,cz+rz+1);
+    const yTop=Math.min(WORLD_H-2,cy+ry+1),yBot=Math.max(2,cy-ry-1);
+
+    // Water pool level: ~40% up from the floor
+    const poolLevel=Math.floor(yBot+(cy-yBot)*0.55);
+
+    for(let x=x0;x<=x1;x++)for(let z=z0;z<=z1;z++){
+      const dd=((x-cx)*(x-cx))/(rx*rx)+((z-cz)*(z-cz))/(rz*rz);
+      if(dd>1.05)continue;
+
+      // Find floor and ceiling inside the chamber
+      let floorY=-1,ceilY=-1;
+      for(let y=yBot;y<=yTop;y++){
+        if(getBlock(x,y,z)===B.AIR&&getBlock(x,y-1,z)!==B.AIR&&floorY<0)floorY=y;
+      }
+      for(let y=yTop;y>=yBot;y--){
+        if(getBlock(x,y,z)===B.AIR&&getBlock(x,y+1,z)!==B.AIR&&ceilY<0)ceilY=y;
+      }
+
+      // Floor: moss carpet covering stone/dirt floor
+      if(floorY>0){
+        const below=getBlock(x,floorY-1,z);
+        if(below!==B.AIR&&below!==B.WATER&&below!==B.LAVA&&below!==B.BEDROCK){
+          // Replace stone/dirt/gravel floor with moss
+          if(below===B.STONE||below===B.DIRT||below===B.GRAVEL)
+            world[blockIndex(x,floorY-1,z)]=B.MOSS;
+          // Small water pool at the centre depression
+          const poolDist=((x-cx)*(x-cx))/(rx*rx*0.25)+((z-cz)*(z-cz))/(rz*rz*0.25);
+          if(poolDist<0.9&&floorY<=poolLevel&&getBlock(x,floorY,z)===B.AIR)
+            world[blockIndex(x,floorY,z)]=B.WATER;
+          // Occasional glow lichen on the floor surface
+          else if(rng()<0.12&&getBlock(x,floorY,z)===B.AIR)
+            world[blockIndex(x,floorY,z)]=B.GLOW_LICHEN;
+        }
+      }
+
+      // Ceiling: dense glow lichen (spore blossom stand-in) + hanging vines
+      if(ceilY>0){
+        const ceilBlock=getBlock(x,ceilY+1,z);
+        if(ceilBlock!==B.AIR&&ceilBlock!==B.WATER&&ceilBlock!==B.BEDROCK){
+          // Replace ceiling stone with moss
+          if(ceilBlock===B.STONE||ceilBlock===B.DIRT)
+            world[blockIndex(x,ceilY+1,z)]=B.MOSS;
+          // Spore blossoms (glow lichen) hang from the ceiling
+          if(rng()<0.35&&getBlock(x,ceilY,z)===B.AIR)
+            world[blockIndex(x,ceilY,z)]=B.GLOW_LICHEN;
+          // Hanging vines (moss chains) dropping down
+          else if(rng()<0.18&&getBlock(x,ceilY,z)===B.AIR)
+            hangVines(x,ceilY,z,1+Math.floor(rng()*5));
+        }
+      }
+    }
+
+    // Azalea bush surface: replace surface blocks directly above lush caves
+    // with grass/leaves to hint at the cave below (surface azalea indicator)
+    const surfX=Math.max(3,cx-3),surfX1=Math.min(WORLD_W-4,cx+3);
+    const surfZ=Math.max(3,cz-3),surfZ1=Math.min(WORLD_D-4,cz+3);
+    for(let x=surfX;x<=surfX1;x++)for(let z=surfZ;z<=surfZ1;z++){
+      const sh=heightMap[colIndex(x,z)];
+      if(sh<SEA_LEVEL+1)continue;
+      const sb=world[blockIndex(x,sh,z)];
+      // Plant azalea (cherry leaves = pinkish-green stand-in) on surface
+      if((sb===B.GRASS||sb===B.DIRT)&&getBlock(x,sh+1,z)===B.AIR&&rng()<0.25)
+        world[blockIndex(x,sh+1,z)]=B.CHERRY_LEAVES;
+    }
+  }
+
+  // ---- DRIPSTONE CAVE chambers -------------------------------------------
+  // Large, jagged chambers with abundant massive stalactites and stalagmites,
+  // calcite-banded walls, and a limestone (calcite) floor/ceiling treatment.
+  const dripCount=Math.floor(area/80000)+10;
+  for(let i=0;i<dripCount;i++){
+    const cx=8+Math.floor(rng()*(WORLD_W-16));
+    const cz=8+Math.floor(rng()*(WORLD_D-16));
+    const cy=8+Math.floor(rng()*28);
+    const rx=13+Math.floor(rng()*12),ry=8+Math.floor(rng()*7),rz=13+Math.floor(rng()*12);
+    if(heightMap[colIndex(cx,cz)]<cy+ry+5)continue;
+
+    // Carve the chamber — more irregular (higher wobble) for the jagged look
+    for(let dx=-rx;dx<=rx;dx++)for(let dy=-ry;dy<=ry;dy++)for(let dz=-rz;dz<=rz;dz++){
+      const wob=valueNoise3((cx+dx)/7,(cy+dy)/7,(cz+dz)/7,511)*0.50;
+      const d=(dx*dx)/(rx*rx)+(dy*dy)/(ry*ry)+(dz*dz)/(rz*rz);
+      if(d<=1-wob+0.28)caveDig(cx+dx,cy+dy,cz+dz);
+    }
+
+    // Line chamber walls/ceiling/floor with calcite (limestone banding)
+    for(let dx=-rx-1;dx<=rx+1;dx++)for(let dy=-ry-1;dy<=ry+1;dy++)for(let dz=-rz-1;dz<=rz+1;dz++){
+      const wob=valueNoise3((cx+dx)/7,(cy+dy)/7,(cz+dz)/7,511)*0.50;
+      const d=(dx*dx)/(rx*rx)+(dy*dy)/(ry*ry)+(dz*dz)/(rz*rz);
+      const onWall=d>1-wob+0.28&&d<=1-wob+0.55;
+      if(!onWall)continue;
+      const xx=cx+dx,yy=cy+dy,zz=cz+dz;
+      if(xx<1||xx>=WORLD_W-1||yy<1||yy>=WORLD_H-1||zz<1||zz>=WORLD_D-1)continue;
+      const cur=world[blockIndex(xx,yy,zz)];
+      if(cur===B.STONE)world[blockIndex(xx,yy,zz)]=B.CALCITE;
+    }
+
+    // Massive stalactites from ceiling + stalagmites from floor
+    const x0=Math.max(2,cx-rx-1),x1=Math.min(WORLD_W-3,cx+rx+1);
+    const z0=Math.max(2,cz-rz-1),z1=Math.min(WORLD_D-3,cz+rz+1);
+    const yTop=Math.min(WORLD_H-2,cy+ry+1),yBot=Math.max(2,cy-ry-1);
+
+    for(let x=x0;x<=x1;x++)for(let z=z0;z<=z1;z++){
+      const dd=((x-cx)*(x-cx))/(rx*rx)+((z-cz)*(z-cz))/(rz*rz);
+      if(dd>1.0)continue;
+
+      let floorY=-1,ceilY=-1;
+      for(let y=yBot;y<=yTop;y++){
+        if(getBlock(x,y,z)===B.AIR&&getBlock(x,y-1,z)!==B.AIR&&floorY<0)floorY=y;
+      }
+      for(let y=yTop;y>=yBot;y--){
+        if(getBlock(x,y,z)===B.AIR&&getBlock(x,y+1,z)!==B.AIR&&ceilY<0)ceilY=y;
+      }
+
+      // Ceiling stalactites — large, varied lengths, clusters
+      if(ceilY>0&&rng()<0.55){
+        const ceilBlock=getBlock(x,ceilY+1,z);
+        if(ceilBlock===B.STONE||ceilBlock===B.CALCITE){
+          // Replace ceiling with calcite for limestone look
+          world[blockIndex(x,ceilY+1,z)]=B.CALCITE;
+          // Large stalactite: up to 14 blocks long with wider base
+          const len=3+Math.floor(rng()*12);
+          for(let j=0;j<len;j++){
+            const yy=ceilY-j;if(yy<2)break;
+            if(getBlock(x,yy,z)!==B.AIR)break;
+            world[blockIndex(x,yy,z)]=B.DRIPSTONE;
+            // Widen the base: first few blocks get flanking stones
+            if(j<2){
+              const sides=[[1,0],[-1,0],[0,1],[0,-1]];
+              for(const[ax,az]of sides){
+                const sx=x+ax,sz=z+az;
+                if(sx<1||sx>=WORLD_W-1||sz<1||sz>=WORLD_D-1)continue;
+                if(j===0&&rng()<0.55&&getBlock(sx,yy,sz)===B.AIR)
+                  world[blockIndex(sx,yy,sz)]=B.DRIPSTONE;
+              }
+            }
+          }
+        }
+      }
+
+      // Floor stalagmites — rising pillars, sometimes meeting stalactites
+      if(floorY>0&&rng()<0.50){
+        const floorBlock=getBlock(x,floorY-1,z);
+        if(floorBlock===B.STONE||floorBlock===B.CALCITE||floorBlock===B.DIRT){
+          world[blockIndex(x,floorY-1,z)]=B.CALCITE;
+          const len=2+Math.floor(rng()*10);
+          for(let j=0;j<len;j++){
+            const yy=floorY+j;if(yy>=WORLD_H-1)break;
+            if(getBlock(x,yy,z)!==B.AIR)break;
+            world[blockIndex(x,yy,z)]=B.DRIPSTONE;
+            // Widen the base
+            if(j<2){
+              const sides=[[1,0],[-1,0],[0,1],[0,-1]];
+              for(const[ax,az]of sides){
+                const sx=x+ax,sz=z+az;
+                if(sx<1||sx>=WORLD_W-1||sz<1||sz>=WORLD_D-1)continue;
+                if(j===0&&rng()<0.45&&getBlock(sx,yy,sz)===B.AIR)
+                  world[blockIndex(sx,yy,sz)]=B.DRIPSTONE;
+              }
+            }
+          }
+        }
+      }
+
+      // Glow lichen patches on chamber walls for soft illumination
+      if(rng()<0.08&&ceilY>0&&getBlock(x,ceilY,z)===B.AIR)
+        world[blockIndex(x,ceilY,z)]=B.GLOW_LICHEN;
+    }
+
+    // Occasional underground water drip pool at the centre
+    if(rng()<0.45){
+      const poolR=3+Math.floor(rng()*4);
+      for(let dx=-poolR;dx<=poolR;dx++)for(let dz=-poolR;dz<=poolR;dz++){
+        if(dx*dx+dz*dz>poolR*poolR)continue;
+        const px=cx+dx,pz=cz+dz;
+        if(px<2||px>=WORLD_W-2||pz<2||pz>=WORLD_D-2)continue;
+        // Find floor
+        for(let y=yBot+1;y<=cy;y++){
+          if(getBlock(px,y,pz)===B.AIR&&getBlock(px,y-1,pz)!==B.AIR){
+            world[blockIndex(px,y,pz)]=B.WATER;break;
+          }
+        }
+      }
+    }
   }
 }
 
@@ -875,13 +1193,19 @@ function generateWorldAsync(onProgress){
     report(0.78,'Generating caverns & lava lakes...');
     await nextFrame();
     carveCaveFeatures();
-    report(0.82,'Generating amethyst geodes...');
+    report(0.80,'Carving ravines...');
+    await nextFrame();
+    carveRavines();
+    report(0.82,'Generating lush & dripstone caves...');
+    await nextFrame();
+    placeCaveBiomes();
+    report(0.84,'Generating amethyst geodes...');
     await nextFrame();
     placeAmethystGeodes();
-    report(0.84,'Placing ores...');
+    report(0.86,'Placing ores...');
     await nextFrame();
     placeOresAndGravel();
-    report(0.88,'Placing vegetation...');
+    report(0.89,'Placing vegetation...');
     await nextFrame();
     placeVegetation();
     report(0.93,'Building villages...');

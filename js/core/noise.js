@@ -5,8 +5,8 @@ function valueNoise(x,z,salt){const xi=Math.floor(x),zi=Math.floor(z);const xf=x
 function hash3(x,y,z,salt){let n=(Math.imul(x,374761393)+Math.imul(y,217645177)+Math.imul(z,668265263)+Math.imul(SEED+(salt|0),987654071))|0;n=Math.imul(n^(n>>>13),1274126177);n^=n>>>16;return(n>>>0)/4294967296;}
 function lerp(a,b,t){return a+(b-a)*t;}
 function valueNoise3(x,y,z,salt){const xi=Math.floor(x),yi=Math.floor(y),zi=Math.floor(z);const u=smoothstep(x-xi),v=smoothstep(y-yi),w=smoothstep(z-zi);const c000=hash3(xi,yi,zi,salt),c100=hash3(xi+1,yi,zi,salt);const c010=hash3(xi,yi+1,zi,salt),c110=hash3(xi+1,yi+1,zi,salt);const c001=hash3(xi,yi,zi+1,salt),c101=hash3(xi+1,yi,zi+1,salt);const c011=hash3(xi,yi+1,zi+1,salt),c111=hash3(xi+1,yi+1,zi+1,salt);return lerp(lerp(lerp(c000,c100,u),lerp(c010,c110,u),v),lerp(lerp(c001,c101,u),lerp(c011,c111,u),v),w);}
-const BIOME={PLAINS:0,FOREST:1,DESERT:2,SNOWY:3,MOUNTAINS:4,OCEAN:5,JUNGLE:6,SWAMP:7,MESA:8,VOLCANO:9,SAVANNA:10,TAIGA:11,GIANT_FOREST:12,CHERRY:13,MANGROVE:14,OASIS:15,AUTUMN:16,FLOWER_FIELD:17};
-const BIOME_NAME=['🌾 Plains','🌲 Forest','🏜 Desert','⛄ Snowy','⛰ Mountains','🌊 Ocean','🌴 Jungle','🐊 Swamp','🏔 Mesa','🌋 Volcano','🦒 Savanna','🌲 Taiga','🌳 Giant Forest','🌸 Cherry Grove','🌿 Mangrove Swamp','🏝 Oasis','🍁 Autumn Forest','🌷 Flower Field'];
+const BIOME={PLAINS:0,FOREST:1,DESERT:2,SNOWY:3,MOUNTAINS:4,OCEAN:5,JUNGLE:6,SWAMP:7,MESA:8,VOLCANO:9,SAVANNA:10,TAIGA:11,GIANT_FOREST:12,CHERRY:13,MANGROVE:14,OASIS:15,AUTUMN:16,FLOWER_FIELD:17,LUSH_CAVES:18,DRIPSTONE_CAVES:19};
+const BIOME_NAME=['🌾 Plains','🌲 Forest','🏜 Desert','⛄ Snowy','⛰ Mountains','🌊 Ocean','🌴 Jungle','🐊 Swamp','🏔 Mesa','🌋 Volcano','🦒 Savanna','🌲 Taiga','🌳 Giant Forest','🌸 Cherry Grove','🌿 Mangrove Swamp','🏝 Oasis','🍁 Autumn Forest','🌷 Flower Field','🌿 Lush Caves','🪨 Dripstone Caves'];
 // Fractal Brownian Motion — multi-octave value noise
 function fbm2(x,z,salt,octaves,baseFreq,persistence,lacunarity){
   let amp=1,freq=baseFreq,sum=0,norm=0;
