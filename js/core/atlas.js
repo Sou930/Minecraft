@@ -332,6 +332,129 @@ function doorBase(t,seed){const[ox,oy]=tileOrigin(t);const rnd=mulberry32(seed);
 {const rnd=mulberry32(8002);noisy(T.COPPER_EXPOSED,'#b87a4a',['#a86e40','#c48452','#9c6438','#be7e4a'],0.65);const[ox,oy]=tileOrigin(T.COPPER_EXPOSED);ctx.fillStyle='#7aab78';for(let i=0;i<14;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);ctx.fillStyle='#8abc88';for(let i=0;i<8;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
 {const rnd=mulberry32(8003);noisy(T.COPPER_WEATHERED,'#5a9c72',['#4e8c66','#66aa80','#458460','#5aa070'],0.7);const[ox,oy]=tileOrigin(T.COPPER_WEATHERED);ctx.fillStyle='#7abf90';for(let i=0;i<10;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);ctx.fillStyle='#3a7c56';for(let i=0;i<8;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
 {const rnd=mulberry32(8004);noisy(T.COPPER_OXIDIZED,'#4a9c88',['#3e8c7a','#58aa94','#368478','#4e9e8c'],0.7);const[ox,oy]=tileOrigin(T.COPPER_OXIDIZED);ctx.fillStyle='#6abcaa';for(let i=0;i<10;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);ctx.fillStyle='#2e7462';for(let i=0;i<8;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+
+// =====================================================================
+//  NEW TILES (rows 15–23 of the expanded atlas)
+// =====================================================================
+
+// ---- TNT ----
+{const[ox,oy]=tileOrigin(T.TNT_SIDE);
+ noisy(T.TNT_SIDE,'#c0392b',['#a93226','#d44636','#b03024'],0.7);
+ // horizontal "TNT" label band in the middle
+ ctx.fillStyle='#f5f5f5';ctx.fillRect(ox+2,oy+11,28,10);
+ ctx.fillStyle='#c0392b';
+ // T
+ ctx.fillRect(ox+4,oy+12,8,2);ctx.fillRect(ox+7,oy+14,2,6);
+ // N
+ ctx.fillRect(ox+14,oy+12,2,8);ctx.fillRect(ox+16,oy+12,2,2);ctx.fillRect(ox+18,oy+14,2,2);ctx.fillRect(ox+20,oy+16,2,2);ctx.fillRect(ox+20,oy+12,2,8);
+ // T (second)
+ ctx.fillRect(ox+24,oy+12,6,2);ctx.fillRect(ox+26,oy+14,2,6);
+ // dark caps top+bottom
+ ctx.fillStyle='#555';ctx.fillRect(ox,oy,TILE_PX,4);ctx.fillRect(ox,oy+28,TILE_PX,4);}
+
+// ---- Wool 14 extra colors ----
+function woolTile(t,base,hi,lo,seed){noisy(t,base,[hi,lo,base],0.85);const[ox,oy]=tileOrigin(t);const rnd=mulberry32(seed);ctx.fillStyle=lo;for(let y=0;y<TILE_PX;y+=6)ctx.fillRect(ox,oy+y,TILE_PX,1);ctx.fillStyle=hi;for(let i=0;i<6;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+woolTile(T.WOOL_ORANGE,'#d4712a','#e8893e','#aa5a1e',9001);
+woolTile(T.WOOL_MAGENTA,'#be3fc4','#d458da','#982fa0',9002);
+woolTile(T.WOOL_LIGHT_BLUE,'#58a0d6','#70b8ec','#3f7eaa',9003);
+woolTile(T.WOOL_YELLOW,'#e8c83a','#f5da5a','#c4a828',9004);
+woolTile(T.WOOL_LIME,'#62c22a','#7ada3c','#4a9c1e',9005);
+woolTile(T.WOOL_PINK,'#e8849a','#f898b0','#c06276',9006);
+woolTile(T.WOOL_GRAY,'#5a5a5a','#6e6e6e','#424242',9007);
+woolTile(T.WOOL_LIGHT_GRAY,'#aaaaaa','#bebebe','#8a8a8a',9008);
+woolTile(T.WOOL_CYAN,'#208c9c','#2aa8b8','#166878',9009);
+woolTile(T.WOOL_PURPLE,'#7c28c0','#9840d8','#5e1e96',9010);
+woolTile(T.WOOL_BLUE,'#2848b0','#3860cc','#1e3490',9011);
+woolTile(T.WOOL_BROWN,'#7a4e2a','#94623a','#5a3a1c',9012);
+woolTile(T.WOOL_GREEN,'#3a7a28','#4a9a34','#2c6018',9013);
+woolTile(T.WOOL_BLACK,'#1a1a1a','#2c2c2c','#0c0c0c',9014);
+
+// ---- Terracotta (17 colors) ----
+function terracottaTile(t,base,hi,lo,seed){noisy(t,base,[hi,lo],0.5);const[ox,oy]=tileOrigin(t);const rnd=mulberry32(seed);ctx.fillStyle=lo;for(let y=4;y<TILE_PX;y+=8)ctx.fillRect(ox,oy+y,TILE_PX,2);ctx.fillStyle=hi;for(let i=0;i<6;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+terracottaTile(T.TERRACOTTA,'#9c6040','#ae7454','#7e4c30',9100);
+terracottaTile(T.TERRACOTTA_RED,'#963828','#ac4838','#742a1e',9101);
+terracottaTile(T.TERRACOTTA_ORANGE,'#c07040','#d48454','#9c5830',9102);
+terracottaTile(T.TERRACOTTA_YELLOW,'#c8a848','#dcc05e','#a88c32',9103);
+terracottaTile(T.TERRACOTTA_LIME,'#62843c','#78a050','#4a6628',9104);
+terracottaTile(T.TERRACOTTA_GREEN,'#3a5a2a','#4a7038','#2a4020',9105);
+terracottaTile(T.TERRACOTTA_CYAN,'#44787c','#589298','#305a60',9106);
+terracottaTile(T.TERRACOTTA_LIGHT_BLUE,'#7098a8','#86b0c0','#547880',9107);
+terracottaTile(T.TERRACOTTA_BLUE,'#344868','#445a7e','#243450',9108);
+terracottaTile(T.TERRACOTTA_PURPLE,'#643c78','#7c5090','#4c2c60',9109);
+terracottaTile(T.TERRACOTTA_MAGENTA,'#98447a','#ae5e94','#7a3060',9110);
+terracottaTile(T.TERRACOTTA_PINK,'#c47888','#d893a0','#9c5866',9111);
+terracottaTile(T.TERRACOTTA_BROWN,'#7a5038','#90664e','#5e3c26',9112);
+terracottaTile(T.TERRACOTTA_GRAY,'#5c5848','#706c5c','#464230',9113);
+terracottaTile(T.TERRACOTTA_LIGHT_GRAY,'#8e897a','#a4a090','#6c685c',9114);
+terracottaTile(T.TERRACOTTA_BLACK,'#282420','#3a3632','#181410',9115);
+terracottaTile(T.TERRACOTTA_WHITE,'#c6bfb4','#d8d2c8','#a49e92',9116);
+
+// ---- Concrete (16 colors) – smooth, solid, slightly shiny ----
+function concreteTile(t,base,hi,lo,seed){const[ox,oy]=tileOrigin(t);ctx.fillStyle=base;ctx.fillRect(ox,oy,TILE_PX,TILE_PX);const rnd=mulberry32(seed);for(let i=0;i<20;i++){ctx.fillStyle=rnd()<0.5?hi:lo;ctx.fillRect(ox+Math.floor(rnd()*16)*2,oy+Math.floor(rnd()*16)*2,2,2);}ctx.fillStyle='rgba(255,255,255,0.08)';ctx.fillRect(ox,oy,TILE_PX,2);ctx.fillRect(ox,oy,2,TILE_PX);}
+concreteTile(T.CONCRETE_RED,'#c03528','#d44838','#962a1e',9200);
+concreteTile(T.CONCRETE_ORANGE,'#d4661e','#e87a30','#b05218',9201);
+concreteTile(T.CONCRETE_YELLOW,'#e8c826','#f8dc40','#c0a01e',9202);
+concreteTile(T.CONCRETE_LIME,'#5aac22','#72c636','#42881a',9203);
+concreteTile(T.CONCRETE_GREEN,'#2e6e1a','#3e8826','#1e5010',9204);
+concreteTile(T.CONCRETE_CYAN,'#158c9c','#22a8b8','#0c6a76',9205);
+concreteTile(T.CONCRETE_LIGHT_BLUE,'#3494d0','#4cb0ec','#2476aa',9206);
+concreteTile(T.CONCRETE_BLUE,'#2638bc','#3650d8','#1a2898',9207);
+concreteTile(T.CONCRETE_PURPLE,'#6c24b4','#8438cc','#501890',9208);
+concreteTile(T.CONCRETE_MAGENTA,'#be30a4','#d646bc','#962282',9209);
+concreteTile(T.CONCRETE_PINK,'#e47088','#f488a2','#bc5268',9210);
+concreteTile(T.CONCRETE_BROWN,'#6e4420','#84582e','#542e12',9211);
+concreteTile(T.CONCRETE_GRAY,'#4a4a4a','#5e5e5e','#363636',9212);
+concreteTile(T.CONCRETE_LIGHT_GRAY,'#8c8c8c','#a0a0a0','#747474',9213);
+concreteTile(T.CONCRETE_BLACK,'#0e0e0e','#1e1e1e','#040404',9214);
+concreteTile(T.CONCRETE_WHITE,'#e8e8e8','#f4f4f4','#d4d4d4',9215);
+
+// ---- Glazed Terracotta (6 patterned colors) ----
+function glazedTile(t,bg,fg,accent,seed){const[ox,oy]=tileOrigin(t);ctx.fillStyle=bg;ctx.fillRect(ox,oy,TILE_PX,TILE_PX);const rnd=mulberry32(seed);// wavy diagonal swipe pattern
+ctx.fillStyle=fg;for(let i=0;i<3;i++){const sx=Math.floor(rnd()*12),sy=Math.floor(rnd()*12);for(let d=0;d<16;d++)ctx.fillRect(ox+sx+d*2,oy+sy+d*2,4,4);}
+ctx.fillStyle=accent;for(let i=0;i<4;i++)ctx.fillRect(ox+Math.floor(rnd()*14)*2,oy+Math.floor(rnd()*14)*2,4,4);
+// border
+ctx.fillStyle=fg;ctx.fillRect(ox,oy,TILE_PX,2);ctx.fillRect(ox,oy+TILE_PX-2,TILE_PX,2);ctx.fillRect(ox,oy,2,TILE_PX);ctx.fillRect(ox+TILE_PX-2,oy,2,TILE_PX);}
+glazedTile(T.GLAZED_WHITE,'#d8d8cc','#b0a890','#f0eee4',9300);
+glazedTile(T.GLAZED_ORANGE,'#d87840','#a05824','#e8b070',9301);
+glazedTile(T.GLAZED_MAGENTA,'#c050a8','#8c2878','#e480cc',9302);
+glazedTile(T.GLAZED_CYAN,'#208090','#145c68','#50b0c0',9303);
+glazedTile(T.GLAZED_BLUE,'#2858b8','#1a3888','#5888e0',9304);
+glazedTile(T.GLAZED_LIME,'#68c030','#4a9018','#9ee060',9305);
+
+// ---- Banners ----
+function bannerTile(t,main,stripe,seed){const[ox,oy]=tileOrigin(t);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);const rnd=mulberry32(seed);// pole
+ctx.fillStyle='#6b4a2a';ctx.fillRect(ox+14,oy,4,TILE_PX);
+// banner cloth (24x26 starting at x+4,y+2)
+ctx.fillStyle=main;ctx.fillRect(ox+4,oy+2,24,26);
+// horizontal stripe pattern
+ctx.fillStyle=stripe;ctx.fillRect(ox+4,oy+12,24,6);
+// decorative dots
+ctx.fillStyle='rgba(255,255,255,0.4)';for(let i=0;i<5;i++)ctx.fillRect(ox+6+i*4,oy+8,2,2);
+ctx.fillStyle=stripe;ctx.fillRect(ox+4,oy+2,24,3);}
+bannerTile(T.BANNER_WHITE,'#e8e4de','#b0ac99',9400);
+bannerTile(T.BANNER_RED,'#b03028','#d44038',9401);
+bannerTile(T.BANNER_BLUE,'#2040a8','#3050cc',9402);
+bannerTile(T.BANNER_GREEN,'#285a18','#38782a',9403);
+bannerTile(T.BANNER_YELLOW,'#d4b820','#eccc30',9404);
+bannerTile(T.BANNER_BLACK,'#1c1c1c','#343434',9405);
+
+// ---- Nether Brick ----
+{noisy(T.NETHER_BRICK,'#2b1220',['#24101a','#361826'],0.5);const[ox,oy]=tileOrigin(T.NETHER_BRICK);ctx.fillStyle='#180a12';ctx.fillRect(ox,oy+15,TILE_PX,2);ctx.fillRect(ox+15,oy,2,16);ctx.fillRect(ox+7,oy+16,2,16);ctx.fillRect(ox+23,oy+16,2,16);}
+
+// ---- Netherrack ----
+{noisy(T.NETHERRACK,'#7c2828',['#6e2020','#8e3030','#642020','#782828'],0.8);const[ox,oy]=tileOrigin(T.NETHERRACK);const rnd=mulberry32(9501);ctx.fillStyle='#4a1414';for(let i=0;i<12;i++){const cx=Math.floor(rnd()*14)*2,cy=Math.floor(rnd()*14)*2;ctx.fillRect(ox+cx,oy+cy,4,2);if(rnd()<0.4)ctx.fillRect(ox+cx,oy+cy+2,2,2);}ctx.fillStyle='#ac4040';for(let i=0;i<6;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+
+// ---- Crying Obsidian ----
+{noisy(T.CRYING_OBSIDIAN,'#1a0a2c',['#140820','#201036','#0c0618','#241438'],0.9);const[ox,oy]=tileOrigin(T.CRYING_OBSIDIAN);const rnd=mulberry32(9502);ctx.fillStyle='#6a30ff';for(let i=0;i<8;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);// drip streaks
+ctx.fillStyle='#9060ff';for(let x=8;x<TILE_PX;x+=7){const startY=Math.floor(rnd()*8)*2;for(let y=startY;y<TILE_PX;y+=2)if(rnd()<0.7)ctx.fillRect(ox+x,oy+y,2,2);}ctx.fillStyle='#b890ff';for(let i=0;i<4;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+
+// ---- Chiseled Stone Brick ----
+{brickMasonry(T.CHISELED_STONE_BRICK,'#8d8d8d',['#7f7f7f','#9a9a9a','#757575','#868686'],9503);const[ox,oy]=tileOrigin(T.CHISELED_STONE_BRICK);// carved circle/flower motif
+ctx.fillStyle='#6a6a6a';ctx.strokeStyle='#6a6a6a';ctx.lineWidth=2;ctx.beginPath();ctx.arc(ox+16,oy+16,8,0,Math.PI*2);ctx.stroke();ctx.fillStyle='#a0a0a0';ctx.fillRect(ox+12,oy+14,8,4);ctx.fillRect(ox+14,oy+12,4,8);}
+
+// ---- Mossy Cobblestone ----
+{noisy(T.MOSSY_COBBLE,'#6c7a62',['#5e6c55','#7a8870','#566050','#70826a'],0.5);const[ox,oy]=tileOrigin(T.MOSSY_COBBLE);const rnd=mulberry32(9504);for(let i=0;i<7;i++){const cx=4+Math.floor(rnd()*12)*2,cy=4+Math.floor(rnd()*12)*2,r=3+Math.floor(rnd()*3)*2;ctx.fillStyle=rnd()<0.5?'#5e6c55':'#606040';ctx.fillRect(ox+cx-r/2,oy+cy-r/2,r,r);ctx.strokeStyle='#404830';ctx.lineWidth=1;ctx.strokeRect(ox+cx-r/2,oy+cy-r/2,r,r);}ctx.fillStyle='#4e7a3a';for(let i=0;i<16;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+
 })();function tileUV(t){const col=t%ATLAS_TILES,row=Math.floor(t/ATLAS_TILES);const padU=0.5/ATLAS_W,padV=0.5/ATLAS_H;return{u1:col/ATLAS_TILES+padU,u2:(col+1)/ATLAS_TILES-padU,v1:1-(row+1)/ATLAS_ROWS+padV,v2:1-row/ATLAS_ROWS-padV,};}
 /* ---------------------------------------------------------------------------
  * Per-material tool textures (pickaxe / axe / shovel / hoe + stick).
