@@ -29,62 +29,87 @@ const MOB_TYPES={
   cow:   {name:'Cow',  emoji:'🐮', body:'#4a3a2c', leg:'#3a2d22', head:'#4a3a2c', snout:'#c9b6a0', bodyH:0.85,legH:0.55, headSize:0.55, speed:1.1, hp:12, patch:'#efeae2', horns:'#e8e0cf', ears:'#3a2d22', udder:'#e7a6ad', drops:[{id:231,min:1,max:3},{id:234,min:0,max:2}]},
   chicken:{name:'Chicken',emoji:'🐔',body:'#f2f2f2', leg:'#e0a23a', head:'#f2f2f2', snout:null,bodyH:0.55,legH:0.25, headSize:0.32, speed:1.6, hp:4, small:true, beak:'#e0a23a', wattle:'#d23b3b', wing:'#e2e2e2', bodyWidthMul:1.05, bodyDepthMul:0.62, drops:[{id:232,min:1,max:1},{id:235,min:0,max:2}]},
   // Wolf: neutral animal. Won't attack unless provoked (or its pack is hit).
-  // Feed it raw meat to tame it; a tamed wolf follows the player and fights
-  // nearby hostile mobs (combat support). Tame/heal hooks live in the AI below.
   wolf:  {name:'Wolf', emoji:'🐺', body:'#9a9a9a', leg:'#8a8a8a', head:'#a6a6a6', snout:'#5a5a5a', bodyH:0.5, legH:0.42, headSize:0.46, speed:2.2, hp:16, ears:'#6e6e6e', tail:'#8a8a8a', wolf:true, neutral:true, attackDamage:3, attackRange:1.5, attackCooldown:0.9, sightRange:20, drops:[]},
   // --- Hostile humanoid mobs (spawn at night, attack the player) ----------
-  // Ghoul (zombie-type): melee attacker that relentlessly chases the player.
   ghoul:  {name:'Ghoul',  emoji:'🧟', humanoid:true, hostile:true, melee:true,
            skin:'#5a8f5a', shirt:'#2f4a78', pants:'#3a2f4a',
            speed:2.0, hp:18, attackDamage:3, attackRange:1.6, attackCooldown:1.0,
            sightRange:24, drops:[{id:230,min:0,max:2}]},
-  // Bone Archer (skeleton-type): ranged attacker that fires arrows from afar.
   bonearcher:{name:'Bone Archer', emoji:'💀', humanoid:true, hostile:true, ranged:true,
            skin:'#e6e6dd', shirt:'#cfcfc4', pants:'#bcbcb2',
            speed:1.7, hp:14, attackDamage:2, sightRange:28,
            shootRange:18, shootCooldown:1.8, keepDist:8, arrowSpeed:22,
            drops:[]},
+  // --- Villager (村人) – passive NPC that lives in villages -------------------
+  // Minecraft-style villager: large nose, brown robe, white apron, wanders
+  // within the village bounds and flees hostile mobs. Right-clicking triggers
+  // a simple trade greeting popup.
+  villager:{name:'Villager', emoji:'🧑‍🌾', humanoid:true, hostile:false, villager:true,
+           skin:'#c8996e',       // tan/olive skin
+           shirt:'#6b4c2a',     // brown robe
+           pants:'#4a3520',     // dark robe bottom
+           speed:1.2, hp:20, sightRange:12, drops:[], wanderRadius:14,
+           professions:['Farmer','Librarian','Blacksmith','Butcher','Priest']},
 };
 
-// Build a bipedal humanoid mesh (zombie / skeleton style): upright torso,
-// cube head, two arms (held forward for the ghoul, ready-to-draw for the
-// archer) and two legs that swing while walking. Returns the same shape as
-// buildMobMesh so the rest of the AI/animation code can treat it uniformly.
+// Build a bipedal humanoid mesh (zombie / skeleton / villager style)
 function buildHumanoidMesh(type){
   const t=MOB_TYPES[type];const root=new BABYLON.TransformNode('mob_'+type,scene);
   const parts=[];
   const legH=0.78,torsoH=0.7,torsoW=0.42,torsoD=0.24,hs=0.46;
-  // Torso sits on top of the legs.
   const torso=makePart(root,'torso',[torsoW,torsoH,torsoD],[0,legH+torsoH/2,0],t.shirt,parts);
-  // Head group (so it can look toward the player).
   const headGroup=new BABYLON.TransformNode('headGroup',scene);headGroup.parent=root;
   headGroup.position.set(0,legH+torsoH+hs/2-0.02,0);
   makePart(headGroup,'head',[hs,hs,hs],[0,0,0],t.skin,parts);
+
+  if(type==='villager'){
+    // === Minecraft Villager features ===
+    // Big distinctive nose (the defining Minecraft villager feature!)
+    makePart(headGroup,'nose',[hs*0.22,hs*0.45,hs*0.38],[0,-hs*0.08,hs*0.58],'#b07848',parts);
+    // Dark eyes
+    makePart(headGroup,'eyeL',[hs*0.15,hs*0.18,0.03],[-hs*0.28,hs*0.1,hs*0.5],'#1a1a1a',parts);
+    makePart(headGroup,'eyeR',[hs*0.15,hs*0.18,0.03],[ hs*0.28,hs*0.1,hs*0.5],'#1a1a1a',parts);
+    // White apron/bib on the front of the robe
+    makePart(root,'apron',[torsoW*0.55,torsoH*0.65,0.02],[0,legH+torsoH*0.44,torsoD*0.52],'#e8e4d8',parts);
+    // Hood/collar – small box sitting on shoulders
+    makePart(root,'collar',[torsoW+0.08,0.14,torsoD+0.06],[0,legH+torsoH-0.02,0],'#5a3e24',parts);
+    // Villager robe hangs over the legs (wider bottom)
+    makePart(root,'robeL',[0.18,legH*0.9,torsoD*1.1],[-torsoW*0.28+0.02,legH*0.55,0],'#6b4c2a',parts);
+    makePart(root,'robeR',[0.18,legH*0.9,torsoD*1.1],[ torsoW*0.28-0.02,legH*0.55,0],'#6b4c2a',parts);
+    // Villager arms hang straight down (no reaching forward)
+    const armW=0.15,armH=0.65,armD=0.16;const shoulderY=legH+torsoH-0.06;
+    const armL=new BABYLON.TransformNode('armLp',scene);armL.parent=root;armL.position.set(-(torsoW/2+armW/2),shoulderY,0);
+    makePart(armL,'armL',[armW,armH,armD],[0,-armH/2,0],t.skin,parts);
+    const armR=new BABYLON.TransformNode('armRp',scene);armR.parent=root;armR.position.set((torsoW/2+armW/2),shoulderY,0);
+    makePart(armR,'armR',[armW,armH,armD],[0,-armH/2,0],t.skin,parts);
+    const legW=0.18,legD=0.2;
+    const legs=[];
+    const legL=new BABYLON.TransformNode('legPivotL',scene);legL.parent=root;legL.position.set(-legW/2-0.01,legH,0);
+    makePart(legL,'legL',[legW,legH,legD],[0,-legH/2,0],t.pants,parts);legs.push(legL);
+    const legR=new BABYLON.TransformNode('legPivotR',scene);legR.parent=root;legR.position.set(legW/2+0.01,legH,0);
+    makePart(legR,'legR',[legW,legH,legD],[0,-legH/2,0],t.pants,parts);legs.push(legR);
+    return {root,legs,head:headGroup,bodyH:legH,parts,wings:[],arms:[armL,armR],humanoid:true};
+  }
+
   // Glowing eyes: red for the ghoul, dark sockets for the skeleton archer.
   const eyeCol=type==='ghoul'?'#ff3b30':'#1a1a1a';
   makePart(headGroup,'eyeL',[hs*0.18,hs*0.16,0.02],[-hs*0.22,hs*0.05,hs*0.5],eyeCol,parts);
   makePart(headGroup,'eyeR',[hs*0.18,hs*0.16,0.02],[ hs*0.22,hs*0.05,hs*0.5],eyeCol,parts);
-  // Bone archer gets a simple ribcage hint and a jaw line.
   if(type==='bonearcher'){
     makePart(headGroup,'jaw',[hs*0.7,hs*0.18,hs*0.6],[0,-hs*0.42,0],'#d8d8cd',parts);
     makePart(root,'ribs',[torsoW*0.7,torsoH*0.55,torsoD*0.6],[0,legH+torsoH*0.5,torsoD*0.25],'#deded3',parts);
   }
-  // Arms: pivot at the shoulder so they can be posed/animated.
   const armW=0.14,armH=0.68,armD=0.16;const shoulderY=legH+torsoH-0.04;
   const armL=new BABYLON.TransformNode('armLp',scene);armL.parent=root;armL.position.set(-(torsoW/2+armW/2),shoulderY,0);
   makePart(armL,'armL',[armW,armH,armD],[0,-armH/2,0],type==='bonearcher'?t.skin:t.skin,parts);
   const armR=new BABYLON.TransformNode('armRp',scene);armR.parent=root;armR.position.set((torsoW/2+armW/2),shoulderY,0);
   makePart(armR,'armR',[armW,armH,armD],[0,-armH/2,0],t.skin,parts);
-  // Pose the arms: ghoul reaches forward (classic zombie), archer holds a
-  // drawn-bow stance with one arm extended.
   if(type==='ghoul'){armL.rotation.x=-Math.PI*0.5;armR.rotation.x=-Math.PI*0.5;}
   if(type==='bonearcher'){
     armL.rotation.x=-Math.PI*0.5;armR.rotation.x=-Math.PI*0.35;
-    // A small bow held in the left hand.
     const bow=makePart(armL,'bow',[0.06,0.7,0.06],[0,-armH-0.05,0.18],'#6b4a2a',parts);
     bow.rotation.x=Math.PI*0.5;
   }
-  // Legs.
   const legW=0.18,legD=0.2;
   const legs=[];
   const legL=new BABYLON.TransformNode('legPivotL',scene);legL.parent=root;legL.position.set(-legW/2-0.01,legH,0);
@@ -180,6 +205,100 @@ const mobs=[];
 const MAX_MOBS=18;
 const MOB_TICK={spawnTimer:0};
 
+// ===========================================================================
+//  VILLAGER MANAGEMENT
+//  Villagers are spawned once during world generation (near village centres)
+//  and never despawn. They wander within a small radius of their home,
+//  flee from hostile mobs, and greet the player when approached.
+// ===========================================================================
+const villagers=[];      // separate list so they are never despawned
+const MAX_VILLAGERS_PER_VILLAGE=5;
+const VILLAGER_TRADES_POPUP_DIST=3.0;
+
+// Spawn villagers at all placed village centres.
+function spawnVillagersAtVillages(placedVillages){
+  if(!placedVillages||!placedVillages.length)return;
+  for(const v of placedVillages){
+    const count=2+Math.floor(Math.random()*(MAX_VILLAGERS_PER_VILLAGE-1));
+    const profs=MOB_TYPES.villager.professions;
+    for(let i=0;i<count;i++){
+      // Scatter villagers around the village centre
+      const ang=Math.random()*Math.PI*2;
+      const r=3+Math.random()*8;
+      const vx=Math.floor(v.x+Math.cos(ang)*r);
+      const vz=Math.floor(v.z+Math.sin(ang)*r);
+      if(vx<2||vx>=WORLD_W-2||vz<2||vz>=WORLD_D-2)continue;
+      const vy=spawnHeightAt(vx,vz);
+      if(vy===null)continue;
+      const prof=profs[Math.floor(Math.random()*profs.length)];
+      const mob=spawnMob('villager',vx,vy,vz);
+      mob.villagerProfession=prof;
+      mob.homeX=v.x; mob.homeZ=v.z;   // village centre as home
+      mob.neverDespawn=true;
+      mob.greetCooldown=0;
+      villagers.push(mob);
+    }
+  }
+}
+
+// Villager AI: wanders near home, flees hostiles, greets player.
+function updateVillager(mob,dt){
+  if(mob.dead)return;
+  mob.greetCooldown=Math.max(0,mob.greetCooldown-dt);
+
+  const dx=mob.pos.x-player.pos.x,dz=mob.pos.z-player.pos.z;
+  const distSq=dx*dx+dz*dz;
+
+  // Flee from nearby hostile mobs
+  let nearbyHostile=null,nearestHostileSq=Infinity;
+  for(const m of mobs){
+    if(m.dead||!m.hostile)continue;
+    const hx=m.pos.x-mob.pos.x,hz=m.pos.z-mob.pos.z;
+    const hsq=hx*hx+hz*hz;
+    if(hsq<6*6&&hsq<nearestHostileSq){nearestHostileSq=hsq;nearbyHostile=m;}
+  }
+  if(nearbyHostile){
+    // Run away from the threat
+    const fhx=mob.pos.x-nearbyHostile.pos.x,fhz=mob.pos.z-nearbyHostile.pos.z;
+    mob.targetYaw=Math.atan2(fhx,fhz);
+    mob.moving=true;mob.wanderTimer=1.0;
+  } else {
+    // Normal wandering within home radius
+    const hdx=mob.pos.x-(mob.homeX||mob.pos.x),hdz=mob.pos.z-(mob.homeZ||mob.pos.z);
+    const homeDist=Math.hypot(hdx,hdz);
+    if(homeDist>MOB_TYPES.villager.wanderRadius){
+      // Stray too far – walk back home
+      mob.targetYaw=Math.atan2(-hdx,-hdz);mob.moving=true;mob.wanderTimer=1.0;
+    }
+  }
+
+  // Greet the player when close (and not fleeing)
+  if(!nearbyHostile&&distSq<VILLAGER_TRADES_POPUP_DIST*VILLAGER_TRADES_POPUP_DIST&&mob.greetCooldown<=0){
+    mob.greetCooldown=8.0;
+    // Face the player
+    mob.targetYaw=Math.atan2(-dx,-dz);
+    mob.moving=false;
+    // Show greeting popup
+    const prof=mob.villagerProfession||'Villager';
+    if(typeof showVillagerGreeting==='function')showVillagerGreeting(prof,mob);
+  }
+}
+
+// Show a Minecraft-style villager greeting / trade hint above the villager.
+// Uses the same bed-message channel for simplicity.
+let _villagerMsgTimeout=null;
+function showVillagerGreeting(profession,mob){
+  const greetings={
+    Farmer:    '🌾 Farmer: I have crops for trade!',
+    Librarian: '📚 Librarian: Looking for enchanted books?',
+    Blacksmith:'⚒ Blacksmith: Fine tools and armour!',
+    Butcher:   '🥩 Butcher: Fresh meat, best prices!',
+    Priest:    '⭐ Priest: Blessings and potions!',
+  };
+  const msg=greetings[profession]||'👋 Villager: Hmm!';
+  if(typeof showBedMessage==='function')showBedMessage(msg);
+}
+
 function spawnHeightAt(x,z){for(let y=WORLD_H-2;y>1;y--){const id=getBlock(x,y,z);if(id===B.WATER||id===B.LAVA)return null;if(isSolid(id)){if(getBlock(x,y+1,z)===B.AIR&&getBlock(x,y+2,z)===B.AIR)return y+1;return null;}}return null;}
 
 function pickAnimalType(){const r=Math.random();if(r<0.26)return 'pig';if(r<0.5)return 'sheep';if(r<0.7)return 'cow';if(r<0.86)return 'chicken';return 'wolf';}
@@ -267,10 +386,14 @@ const MOB_GRAVITY=-22;
 function updateMobs(dt){if(!worldReady||!started)return;
   MOB_TICK.spawnTimer+=dt;if(MOB_TICK.spawnTimer>3){MOB_TICK.spawnTimer=0;trySpawnMobs();despawnFarMobs();}
   for(const mob of mobs){updateOneMob(mob,dt);}
+  // Update villagers (separate from regular mobs so they are never despawned)
+  for(const mob of villagers){
+    if(!mob.dead){updateVillager(mob,dt);updateOneMob(mob,dt);}
+  }
   updateArrows(dt);
 }
 
-function despawnFarMobs(){for(let i=mobs.length-1;i>=0;i--){const m=mobs[i];if(m.wolf&&m.tamed)continue;/* pets never despawn */const dx=m.pos.x-player.pos.x,dz=m.pos.z-player.pos.z;if(dx*dx+dz*dz>70*70){m.meshes.root.dispose();m.meshes.legs.forEach(l=>l.dispose&&l.dispose());mobs.splice(i,1);}}}
+function despawnFarMobs(){for(let i=mobs.length-1;i>=0;i--){const m=mobs[i];if(m.wolf&&m.tamed)continue;/* pets never despawn */if(m.neverDespawn)continue;/* villagers never despawn */const dx=m.pos.x-player.pos.x,dz=m.pos.z-player.pos.z;if(dx*dx+dz*dz>70*70){m.meshes.root.dispose();m.meshes.legs.forEach(l=>l.dispose&&l.dispose());mobs.splice(i,1);}}}
 
 function approachAngle(cur,target,maxStep){let dy=target-cur;while(dy>Math.PI)dy-=Math.PI*2;while(dy<-Math.PI)dy+=Math.PI*2;if(Math.abs(dy)<=maxStep)return target;return cur+Math.sign(dy)*maxStep;}
 
@@ -293,6 +416,11 @@ function updateOneMob(mob,dt){
   if(mob.wolf){
     updateWolf(mob,dt,dx,dz,distSq);
     chasing=mob._chasing;fleeing=mob._fleeing;
+  }else if(mob.t&&mob.t.villager){
+    // Villager AI is handled in updateVillager(); updateOneMob just does physics.
+    // Only flee from the player if a hostile is chasing the villager
+    // (the actual flee direction is set by updateVillager before this runs).
+    fleeing=mob._fleeing||false;
   }else if(mob.hostile&&!player.dead){
     updateHostileMob(mob,dt,dx,dz,distSq);
     chasing=mob._chasing;

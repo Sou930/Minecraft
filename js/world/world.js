@@ -1210,7 +1210,8 @@ function generateWorldAsync(onProgress){
     placeVegetation();
     report(0.93,'Building villages...');
     await nextFrame();
-    if(typeof placeVillages==='function')placeVillages();
+    let _placedVillages=[];
+    if(typeof placeVillages==='function')_placedVillages=placeVillages()||[];
     report(0.96,'Digging mineshafts...');
     await nextFrame();
     if(typeof placeMineshafts==='function')placeMineshafts();
@@ -1219,6 +1220,10 @@ function generateWorldAsync(onProgress){
     if(typeof placeStronghold==='function')placeStronghold();
     report(1.0,'Done');
     await nextFrame();
+    // Spawn villagers at village centres (delayed so Babylon scene is ready)
+    if(typeof spawnVillagersAtVillages==='function'&&_placedVillages.length){
+      setTimeout(()=>spawnVillagersAtVillages(_placedVillages),500);
+    }
   })();
 }
 let worldEdits={};function loadEdits(){try{worldEdits=JSON.parse(WORLDS.getItem('edits')||"{}");}catch(e){worldEdits={};}

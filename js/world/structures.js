@@ -184,97 +184,169 @@ function layVillageRoads(cx,cz,gy,R,desert){
   }
 }
 
-// A stone well with a wooden roof and a pool of water at the bottom.
+// Minecraft-style village well: cobblestone rim, oak log posts, plank roof,
+// lantern, and a water shaft.
 function buildWell(cx,cz,gy,desert){
   const wall=desert?B.SANDSTONE:B.COBBLE;
-  // dig a shaft and fill the bottom with water
-  for(let y=gy-1;y>=gy-4;y--)fillBox(cx-1,y,cz-1,cx+1,y,cz+1,B.AIR);
-  fillBox(cx-1,gy-4,cz-1,cx+1,gy-4,cz+1,B.WATER);
-  fillBox(cx-1,gy-3,cz-1,cx+1,gy-3,cz+1,B.WATER);
-  // stone rim, 1 block high above ground
+  const postMat=desert?B.SANDSTONE:B.LOG;
+  // dig a 3x3 shaft and fill the bottom with water
+  fillBox(cx-1,gy-5,cz-1,cx+1,gy-1,cz+1,B.AIR);
+  fillBox(cx-1,gy-5,cz-1,cx+1,gy-4,cz+1,B.WATER);
+  // cobblestone shaft walls
+  for(let y=gy-3;y<=gy-1;y++){
+    for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){
+      if(Math.abs(dx)===1||Math.abs(dz)===1)sBlock(cx+dx,y,cz+dz,wall);
+    }
+  }
+  // Well rim: 2 blocks above ground (Minecraft style)
   for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){
-    if(Math.abs(dx)===1||Math.abs(dz)===1){sBlock(cx+dx,gy,cz+dz,wall);sBlock(cx+dx,gy+1,cz+dz,wall);}
+    if(Math.abs(dx)===1||Math.abs(dz)===1){
+      sBlock(cx+dx,gy,cz+dz,wall);
+      sBlock(cx+dx,gy+1,cz+dz,wall);
+    }
   }
-  // four corner posts + roof
+  // 4 log corner pillars above the rim
   for(const [dx,dz] of [[-1,-1],[1,-1],[-1,1],[1,1]]){
-    sBlock(cx+dx,gy+2,cz+dz,B.LOG);sBlock(cx+dx,gy+3,cz+dz,B.LOG);
+    sBlock(cx+dx,gy+2,cz+dz,postMat);
+    sBlock(cx+dx,gy+3,cz+dz,postMat);
   }
-  fillBox(cx-1,gy+4,cz-1,cx+1,gy+4,cz+1,B.PLANKS);
+  // Plank roof slabs
+  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)
+    sBlock(cx+dx,gy+4,cz+dz,B.PLANKS);
+  // Peaked center roof
   sBlock(cx,gy+5,cz,B.PLANKS);
-  // a lantern hung under the roof
+  // Horizontal beam across the top (like a real well crossbeam)
+  sBlock(cx-1,gy+4,cz,B.LOG);sBlock(cx,gy+4,cz,B.LOG);sBlock(cx+1,gy+4,cz,B.LOG);
+  // Lantern hanging under the crossbeam
   sBlock(cx,gy+3,cz,B.LANTERN);
 }
 
-// Timber-framed cottage: planks walls, log corner posts, glass windows, a
-// sloped plank roof, a door gap, and a cosy interior (chest + torch).
+// Minecraft-style village house:
+//   - Stone cobblestone foundation ring (1 block tall)
+//   - Oak plank walls with log corner posts (classic half-timber framing)
+//   - Cobblestone chimney on the back wall
+//   - Glass pane windows with oak trim
+//   - Sloped plank/stair roof
+//   - Door facing village centre
+//   - Interior: chest, bed, crafting table, furnace, torches
 function buildHouse(hx,hz,gy,rng,desert,snowy,villageX,villageZ){
-  const w=5+(rng()<0.5?0:1);     // width  (x)
-  const d=5+(rng()<0.5?0:1);     // depth  (z)
-  const wallH=3+(rng()<0.4?1:0);
+  const houseType=Math.floor(rng()*3); // 0=small,1=medium,2=large
+  const w=(houseType===2?8:(houseType===1?7:6));
+  const d=(houseType===2?8:(houseType===1?6:5));
+  const wallH=4; // Minecraft houses are 4 walls tall
   const x0=hx-((w-1)>>1),z0=hz-((d-1)>>1);
   const x1=x0+w-1,z1=z0+d-1;
-  const wallMat=desert?B.SANDSTONE:B.PLANKS;
+  const wallMat=desert?B.SANDSTONE:(snowy?B.SNOW_BLOCK:B.PLANKS);
   const cornerMat=desert?B.SANDSTONE:B.LOG;
-  // clear & lay floor
-  fillBox(x0,gy+1,z0,x1,gy+wallH+3,z1,B.AIR);
-  fillBox(x0,gy,z0,x1,gy,z1,desert?B.SANDSTONE:B.PLANKS);
-  // walls
+  const foundMat=desert?B.SANDSTONE:B.COBBLE;
+  const roofMat=desert?B.SANDSTONE:(snowy?B.SNOW_BLOCK:B.LOG);
+
+  // clear space above
+  fillBox(x0-1,gy+1,z0-1,x1+1,gy+wallH+5,z1+1,B.AIR);
+
+  // === FOUNDATION (cobblestone base ring) ===
+  for(let x=x0;x<=x1;x++){sBlock(x,gy,z0,foundMat);sBlock(x,gy,z1,foundMat);}
+  for(let z=z0;z<=z1;z++){sBlock(x0,gy,z,foundMat);sBlock(x1,gy,z,foundMat);}
+  // Fill interior floor with planks
+  fillBox(x0+1,gy,z0+1,x1-1,gy,z1-1,desert?B.SANDSTONE:B.PLANKS);
+
+  // === WALLS ===
   for(let y=gy+1;y<=gy+wallH;y++){
     for(let x=x0;x<=x1;x++){sBlock(x,y,z0,wallMat);sBlock(x,y,z1,wallMat);}
     for(let z=z0;z<=z1;z++){sBlock(x0,y,z,wallMat);sBlock(x1,y,z,wallMat);}
   }
-  // log corner posts
+  // === LOG CORNER POSTS (full height) ===
   for(let y=gy+1;y<=gy+wallH;y++){
     sBlock(x0,y,z0,cornerMat);sBlock(x1,y,z0,cornerMat);
     sBlock(x0,y,z1,cornerMat);sBlock(x1,y,z1,cornerMat);
   }
-  // windows (glass) on the long walls
-  const wy=gy+2;
-  sBlock(x0+1,wy,z0,B.GLASS);sBlock(x1-1,wy,z0,B.GLASS);
-  sBlock(x0+1,wy,z1,B.GLASS);sBlock(x1-1,wy,z1,B.GLASS);
-  sBlock(x0,wy,z0+1,B.GLASS);sBlock(x1,wy,z0+1,B.GLASS);
-  // Doorway: a real 2-tall wooden door set into the wall that faces the village
-  // centre, so every entrance opens toward the plaza. Facings: N=0,E=1,S=2,W=3
-  // with +Z=South and +X=East (matching doorFacing in config / player.js).
-  // Desert (sandstone) cottages get a door too so every house has an entrance.
+  // === Horizontal log bands at mid-height (half-timber style) ===
+  const midY=gy+2;
+  for(let x=x0;x<=x1;x++){sBlock(x,midY,z0,cornerMat);sBlock(x,midY,z1,cornerMat);}
+  for(let z=z0;z<=z1;z++){sBlock(x0,midY,z,cornerMat);sBlock(x1,midY,z,cornerMat);}
+
+  // === WINDOWS (glass panes – 2 per long wall, with log trim above/below) ===
+  const wy=gy+3; // window level
+  // Front/back walls
+  const midX=Math.floor((x0+x1)/2);
+  sBlock(midX-1,wy,z0,B.GLASS);sBlock(midX+1,wy,z0,B.GLASS);
+  sBlock(midX-1,wy,z1,B.GLASS);sBlock(midX+1,wy,z1,B.GLASS);
+  // Side walls (if wide enough)
+  if(d>=6){const midZ=Math.floor((z0+z1)/2);sBlock(x0,wy,midZ,B.GLASS);sBlock(x1,wy,midZ,B.GLASS);}
+
+  // === CHIMNEY (cobblestone, 3 blocks tall above roof) ===
+  if(!desert){
+    const chX=x1-1,chZ=z0+1;
+    for(let y=gy+wallH+1;y<=gy+wallH+4;y++)sBlock(chX,y,chZ,B.COBBLE);
+    // soot/torch inside
+    sBlock(chX,gy+1,chZ,B.FURNACE);
+  }
+
+  // === DOOR ===
   let doorX,doorZ,doorBottom,doorTop,frontDX=0,frontDZ=0;
   const toCx=(villageX!==undefined)?villageX-hx:0;
-  const toCz=(villageZ!==undefined)?villageZ-hz:1; // default: face +z
+  const toCz=(villageZ!==undefined)?villageZ-hz:1;
   if(Math.abs(toCz)>=Math.abs(toCx)){
-    // door on a z-facing wall (north or south)
     doorX=hx;
-    if(toCz>=0){ doorZ=z1; doorBottom=B.DOOR_BOTTOM_S_CLOSED; doorTop=B.DOOR_TOP_S_CLOSED; frontDZ=1; }
-    else        { doorZ=z0; doorBottom=B.DOOR_BOTTOM_N_CLOSED; doorTop=B.DOOR_TOP_N_CLOSED; frontDZ=-1; }
+    if(toCz>=0){doorZ=z1;doorBottom=B.DOOR_BOTTOM_S_CLOSED;doorTop=B.DOOR_TOP_S_CLOSED;frontDZ=1;}
+    else       {doorZ=z0;doorBottom=B.DOOR_BOTTOM_N_CLOSED;doorTop=B.DOOR_TOP_N_CLOSED;frontDZ=-1;}
   }else{
-    // door on an x-facing wall (east or west)
     doorZ=hz;
-    if(toCx>=0){ doorX=x1; doorBottom=B.DOOR_BOTTOM_E_CLOSED; doorTop=B.DOOR_TOP_E_CLOSED; frontDX=1; }
-    else        { doorX=x0; doorBottom=B.DOOR_BOTTOM_W_CLOSED; doorTop=B.DOOR_TOP_W_CLOSED; frontDX=-1; }
+    if(toCx>=0){doorX=x1;doorBottom=B.DOOR_BOTTOM_E_CLOSED;doorTop=B.DOOR_TOP_E_CLOSED;frontDX=1;}
+    else       {doorX=x0;doorBottom=B.DOOR_BOTTOM_W_CLOSED;doorTop=B.DOOR_TOP_W_CLOSED;frontDX=-1;}
   }
   sBlock(doorX,gy+1,doorZ,doorBottom);
   sBlock(doorX,gy+2,doorZ,doorTop);
-  // keep the step just outside the door clear so the player can walk through
   sBlock(doorX+frontDX,gy+1,doorZ+frontDZ,B.AIR);
   sBlock(doorX+frontDX,gy+2,doorZ+frontDZ,B.AIR);
-  // pitched roof out of planks/logs
-  buildRoof(x0,z0,x1,z1,gy+wallH+1,desert);
-  // interior furnishings
+  // Small stone step/stair in front of door
+  sBlock(doorX+frontDX,gy,doorZ+frontDZ,B.COBBLE);
+
+  // === ROOF ===
+  buildRoofMinecraft(x0,z0,x1,z1,gy+wallH+1,desert,snowy);
+
+  // === INTERIOR FURNISHINGS ===
+  // Chest in corner
   sBlock(x0+1,gy+1,z0+1,B.CHEST);
-  fillContainerNearby(x0+1,gy+1,z0+1);
+  // Torches on walls
   sBlock(x1-1,gy+wallH,z0+1,B.TORCH);
   sBlock(x0+1,gy+wallH,z1-1,B.TORCH);
-  // a bed (two red wool blocks) in a corner
-  sBlock(x1-1,gy+1,z1-1,B.WOOL_RED);sBlock(x1-1,gy+1,z1-2,B.WOOL_WHITE);
-  // a crafting table
-  if(rng()<0.6)sBlock(x0+1,gy+1,z1-1,B.CRAFTING);
+  // Bed in back corner (wool block = bed)
+  sBlock(x1-1,gy+1,z1-1,B.WOOL_RED);sBlock(x1-2,gy+1,z1-1,B.WOOL_WHITE);
+  // Crafting table
+  sBlock(x0+1,gy+1,z1-1,B.CRAFTING);
+  // Flower pot hint on windowsill (use dandelion)
+  sBlockSoft(midX,gy+3,z0-1,B.FLOWER_DANDELION);
 }
 
-// Pitched roof made of wooden stairs: each layer rises one block toward the
-// central ridge, with stair blocks giving the slope a clean angled silhouette
-// instead of a blocky staircase of full cubes. Desert (sandstone) cottages keep
-// solid blocks since there are no sandstone stairs. The two slopes face inward
-// (north slope faces S/2 toward the ridge, south slope faces N/0), and a log
-// ridge beam caps the apex.
+// Minecraft-style pitched roof using stair blocks for proper angled eaves.
+// The roof overhangs 1 block on all sides. Snowy biomes get a white wool cap.
+function buildRoofMinecraft(x0,z0,x1,z1,baseY,desert,snowy){
+  const capMat=desert?B.SANDSTONE:(snowy?B.SNOW_BLOCK:B.PLANKS);
+  const ridgeMat=B.LOG;
+  const midZ=Math.round((z0+z1)/2);
+  const span=Math.ceil((z1-z0)/2)+2;
+  for(let layer=0;layer<span;layer++){
+    const y=baseY+layer;
+    const za=z0-1+layer, zb=z1+1-layer;
+    if(za>zb)break;
+    for(let x=x0-1;x<=x1+1;x++){
+      if(desert||snowy){
+        sBlock(x,y,za,capMat);
+        if(zb!==za)sBlock(x,y,zb,capMat);
+      }else{
+        sBlock(x,y,za,B.STAIRS_N);
+        if(zb!==za)sBlock(x,y,zb,B.STAIRS_S);
+      }
+    }
+    if(za>=zb-1){
+      for(let x=x0-1;x<=x1+1;x++)sBlock(x,y,midZ,ridgeMat);
+      if(snowy){for(let x=x0-1;x<=x1+1;x++)sBlock(x,y+1,midZ,B.SNOW);}
+    }
+  }
+}
+
+// Pitched roof (kept for witch hut / windmill back-compat).
 function buildRoof(x0,z0,x1,z1,baseY,desert){
   const midZ=(z0+z1)/2;const span=Math.ceil((z1-z0)/2)+1;
   for(let layer=0;layer<span;layer++){
@@ -282,16 +354,9 @@ function buildRoof(x0,z0,x1,z1,baseY,desert){
     const za=z0+layer, zb=z1-layer;
     for(let x=x0-1;x<=x1+1;x++){
       if(desert){sBlock(x,y,za,B.SANDSTONE);sBlock(x,y,zb,B.SANDSTONE);}
-      else{
-        // North eave row slopes up toward the ridge (high step on the +z side → facing N/0);
-        // South eave row mirrors it (high step on the -z side → facing S/2).
-        sBlock(x,y,za,B.STAIRS_N);
-        if(zb!==za)sBlock(x,y,zb,B.STAIRS_S);
-      }
+      else{sBlock(x,y,za,B.STAIRS_N);if(zb!==za)sBlock(x,y,zb,B.STAIRS_S);}
     }
-    if(za>=zb-1){ // ridge beam
-      for(let x=x0-1;x<=x1+1;x++)sBlock(x,y,Math.round(midZ),B.LOG);
-    }
+    if(za>=zb-1){for(let x=x0-1;x<=x1+1;x++)sBlock(x,y,Math.round(midZ),B.LOG);}
   }
 }
 
@@ -300,11 +365,18 @@ function buildRoof(x0,z0,x1,z1,baseY,desert){
 // flavour block; the chest itself is breakable for the chest item.
 function fillContainerNearby(x,y,z){ /* visual loot hint only */ }
 
-// A lamp post: a log column topped with a lantern, lighting the streets.
+// Minecraft-style lamp post: fence post column (shorter, more authentic look)
+// topped with a lantern. Desert villages use sandstone pillars.
 function buildLampPost(x,z,gy){
   if(!inBounds(x,gy+1,z))return;
   if(world[blockIndex(x,gy,z)]===B.WATER)return;
-  sBlock(x,gy+1,z,B.LOG);sBlock(x,gy+2,z,B.LOG);sBlock(x,gy+3,z,B.LOG);
+  // Base block (cobblestone / sandstone foundation)
+  sBlock(x,gy,z,B.COBBLE);
+  // Fence post shaft (3 tall) — reads as a thin iron-style post
+  sBlock(x,gy+1,z,B.FENCE_OAK);
+  sBlock(x,gy+2,z,B.FENCE_OAK);
+  sBlock(x,gy+3,z,B.FENCE_OAK);
+  // Lantern on top
   sBlock(x,gy+4,z,B.LANTERN);
 }
 
@@ -443,18 +515,50 @@ function buildWindmill(cx,cz,gy,rng,desert,snowy,villageX,villageZ){
   villageWindmills.push({hub:{x:hubX+0.0,y:hubY+0.5,z:hubZ+0.0},axis:hubAxis,spawned:false});
 }
 
-// A little market stall: planks counter under a wool awning on log posts.
+// Minecraft-style village market stall: cobble base, log posts, plank counter,
+// wool awning, chests and hay bales. A sign banner hangs over the entrance.
 function buildMarket(cx,cz,gy,desert){
-  for(const [dx,dz] of [[-2,-2],[2,-2],[-2,2],[2,2]]){
-    sBlock(cx+dx,gy+1,cz+dz,B.LOG);sBlock(cx+dx,gy+2,cz+dz,B.LOG);sBlock(cx+dx,gy+3,cz+dz,B.LOG);
+  const postMat=B.LOG;
+  const counterMat=desert?B.SANDSTONE:B.PLANKS;
+  const roofMat1=B.WOOL_RED;
+  const roofMat2=B.WOOL_WHITE;
+
+  // Cobblestone floor platform
+  for(let dx=-3;dx<=3;dx++)for(let dz=-2;dz<=3;dz++)
+    sBlock(cx+dx,gy,cz+dz,desert?B.SANDSTONE:B.COBBLE);
+
+  // 4 corner log posts (full height)
+  for(const [dx,dz] of [[-3,-2],[3,-2],[-3,3],[3,3]]){
+    for(let y=gy+1;y<=gy+4;y++)sBlock(cx+dx,y,cz+dz,postMat);
   }
-  // counter
-  for(let dx=-2;dx<=2;dx++)sBlock(cx+dx,gy+1,cz-2,B.PLANKS);
-  // striped wool awning
-  for(let dx=-2;dx<=2;dx++)for(let dz=-2;dz<=2;dz++)
-    sBlock(cx+dx,gy+4,cz+dz,((dx+dz)&1)?B.WOOL_RED:B.WOOL_WHITE);
-  sBlock(cx-1,gy+1,cz,B.CHEST);
-  sBlock(cx+1,gy+1,cz+1,B.HAY);
+
+  // Plank counter/table on the south side (facing the plaza)
+  for(let dx=-2;dx<=2;dx++){
+    sBlock(cx+dx,gy+1,cz-1,counterMat);
+    sBlock(cx+dx,gy+2,cz-1,B.AIR);// keep head height clear
+  }
+  // Back wall (north side)
+  for(let dx=-3;dx<=3;dx++){
+    sBlock(cx+dx,gy+1,cz+3,counterMat);
+    sBlock(cx+dx,gy+2,cz+3,counterMat);
+  }
+  // Striped wool awning (checkerboard pattern = classic Minecraft market)
+  for(let dx=-3;dx<=3;dx++)for(let dz=-2;dz<=3;dz++)
+    sBlock(cx+dx,gy+4,cz+dz,((dx+dz)&1)?roofMat1:roofMat2);
+  // Overhang on south side extends 1 more block
+  for(let dx=-3;dx<=3;dx++)sBlock(cx+dx,gy+4,cz-2,((dx)&1)?roofMat1:roofMat2);
+
+  // Goods: chest, hay bales, crafting
+  sBlock(cx-2,gy+1,cz+1,B.CHEST);
+  sBlock(cx+2,gy+1,cz+1,B.CHEST);
+  sBlock(cx,gy+1,cz+2,B.HAY);
+  sBlock(cx-1,gy+1,cz+2,B.HAY);
+  sBlock(cx+1,gy+1,cz+2,B.HAY);
+  // Decorative lanterns on posts
+  sBlock(cx-3,gy+4,cz-2,B.LANTERN);
+  sBlock(cx+3,gy+4,cz-2,B.LANTERN);
+  // Banner above the entrance
+  sBlock(cx,gy+4,cz-2,B.BANNER_RED);
 }
 
 // ===========================================================================
