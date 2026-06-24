@@ -64,7 +64,7 @@ const key=currentTarget.x+','+currentTarget.y+','+currentTarget.z;if(key!==minin
 const need=effectiveBreakTime(currentTarget.id);if(!isFinite(need)){resetMining();return;}
 mining.progress+=dt;const ratio=Math.min(1,mining.progress/need);crackBox.position.set(currentTarget.x+0.5,currentTarget.y+0.5,currentTarget.z+0.5);crackBox.setEnabled(true);const stage=Math.min(CRACK_STAGES-1,Math.floor(ratio*CRACK_STAGES));if(stage!==mining.stage){mining.stage=stage;drawCrack(stage);if(typeof SFX!=='undefined')SFX.digHit(currentTarget.id);}
 updateMiningUI(ratio);if(mining.progress>=need){const minedId=currentTarget.id;const mx=currentTarget.x,my=currentTarget.y,mz=currentTarget.z;const minedDef=BLOCKS[minedId];if(typeof SFX!=='undefined')SFX.dig(minedId);
-if(typeof ACH!=='undefined'){ACH.track('mined');if(minedId===B.DIAMOND_ORE)ACH.flag('diamond');if(minedId===B.LOG||minedId===B.BIRCH_LOG)ACH.track('wood');if(minedId===B.OBSIDIAN)ACH.flag('obsidian');}
+window._lastMinedId=minedId;if(typeof XP!=='undefined')XP.mineXP(minedId);if(typeof ACH!=='undefined'){ACH.track('mined');if(minedId===B.DIAMOND_ORE)ACH.flag('diamond');if(minedId===B.LOG||minedId===B.BIRCH_LOG)ACH.track('wood');if(minedId===B.OBSIDIAN)ACH.flag('obsidian');}
 if(minedDef&&minedDef.crop&&typeof FARM!=='undefined'){FARM.harvest(mx,my,mz,minedId);setBlock(mx,my,mz,B.AIR);if(typeof ACH!=='undefined')ACH.track('harvest');}
 // Door: break both halves (top+bottom) and drop a single Wooden Door item.
 else if(minedDef&&minedDef.door){const oy=minedDef.doorHalf==='top'?my-1:my;setBlock(mx,oy,mz,B.AIR);setBlock(mx,oy+1,mz,B.AIR);addToInventory(ITEM_DOOR,1);}

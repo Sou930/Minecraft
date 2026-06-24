@@ -16,6 +16,14 @@ const ACH = (function () {
     // Derived counters.
     biomes_visited: 0,   // number of distinct biomes flagged
     species_killed: 0,   // number of distinct animal species defeated
+    // Redstone
+    lever_flip: 0, piston_fire: 0, redstone_placed: 0,
+    // XP / Level
+    xp_level5: 0, xp_level10: 0, xp_level20: 0,
+    // Slime
+    kill_slime: 0, slime_split: 0,
+    // Diverse fauna
+    kill_panda: 0, kill_camel: 0, kill_turtle: 0, kill_gecko: 0, kill_axolotl: 0, kill_armadillo: 0,
   };
   const BIOME_FLAGS = ['biome_plains','biome_forest','biome_desert','biome_snowy','biome_mountains','biome_ocean','biome_jungle','biome_swamp','biome_mesa','biome_volcano'];
   const SPECIES_FLAGS = ['kill_pig','kill_sheep','kill_cow','kill_chicken'];

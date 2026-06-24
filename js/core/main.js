@@ -97,6 +97,7 @@ async function bootstrap(){
   // Resolve the active world's seed / schema before generating terrain.
   if(typeof loadActiveWorld==='function')loadActiveWorld();
   if(typeof ACH!=='undefined'&&typeof ACH.load==='function')ACH.load();
+  if(typeof XP!=='undefined'&&typeof XP.load==='function')XP.load();
   await generateWorldAsync(setLoadProgress);
   loadEdits();
   // spawnPoint is the "fresh start" / respawn location (always ground level).
@@ -162,15 +163,15 @@ function startGame(){started=true;if(typeof SFX!=='undefined'){SFX.resume();SFX.
 document.getElementById('btn-start').addEventListener('click',(e)=>{e.stopPropagation();startGame();});document.getElementById('start-overlay').addEventListener('click',startGame);{const hb=document.getElementById('btn-home');if(hb)hb.addEventListener('click',(e)=>{e.stopPropagation();if(typeof savePlayerState==='function')savePlayerState();if(typeof WORLDS!=='undefined')WORLDS.clearActive();location.reload();});}
 // Persist the player's position when leaving the page (reload / tab close) so a
 // world always resumes where it was left off.
-window.addEventListener('beforeunload',()=>{if(typeof savePlayerState==='function')savePlayerState();});
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&typeof savePlayerState==='function')savePlayerState();});
+window.addEventListener('beforeunload',()=>{if(typeof savePlayerState==='function')savePlayerState();if(typeof XP!=='undefined'&&typeof XP.save==='function')XP.save();});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'){if(typeof savePlayerState==='function')savePlayerState();if(typeof XP!=='undefined'&&typeof XP.save==='function')XP.save();}});
 document.getElementById('btn-reset-world').addEventListener('click',(e)=>{e.stopPropagation();if(confirm(typeof t==='function'?t('resetConfirm'):'Reset the world? All builds will be lost.')){if(typeof WORLDS!=='undefined'){WORLDS.removeItem('edits');WORLDS.removeItem('inventory');WORLDS.removeItem('crops');WORLDS.removeItem('ach_stats');WORLDS.removeItem('ach_done');WORLDS.removeItem('player');}if(typeof ACH!=='undefined')ACH.reset();location.reload();}});let _posSaveAcc=0;engine.runRenderLoop(()=>{const dt=Math.min(0.05,engine.getDeltaTime()/1000);update(dt);if(typeof FLUID!=='undefined')FLUID.update(dt);if(typeof FARM!=='undefined'&&worldReady&&started){FARM.update(dt);FARM.updateFarmlandWetness(dt);}if(worldReady&&started&&typeof updateCopperOxidation!=='undefined')updateCopperOxidation(dt);
 if(worldReady&&started&&typeof REDSTONE!=='undefined'){REDSTONE.update(dt);REDSTONE.updateHoppers(dt);}
 if(worldReady&&started&&typeof DECORATIONS!=='undefined')DECORATIONS.update(dt);
 updateDayNight(dt);if(worldReady){if(typeof processRelightQueue!=='undefined')processRelightQueue(3);if(typeof LIGHTING!=='undefined')LIGHTING.update(dt);if(typeof SHADERFX!=='undefined'){const dayF=(typeof LIGHTING!=='undefined')?LIGHTING.getNightFactor():1;SHADERFX.update(dt,dayF);}updateAudioEnvironment(dt);if(typeof updatePetals==='function')updatePetals(dt);if(typeof updateWindmills==='function')updateWindmills(dt);if(typeof PERF!=='undefined')PERF.update(dt);}
 // Periodically persist player position (every ~5s of play) so an unexpected
 // crash / close still resumes near where the player was.
-if(worldReady&&started&&!paused){_posSaveAcc+=dt;if(_posSaveAcc>=5){_posSaveAcc=0;if(typeof savePlayerState==='function')savePlayerState();}}
+if(worldReady&&started&&!paused){_posSaveAcc+=dt;if(_posSaveAcc>=5){_posSaveAcc=0;if(typeof savePlayerState==='function')savePlayerState();if(typeof XP!=='undefined'&&typeof XP.save==='function')XP.save();}}
 updateHUD(dt);scene.render();});
 // Cherry-blossom petals & falling leaves now live in js/effects/particles.js
 // Update ambient audio state

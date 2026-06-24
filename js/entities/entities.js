@@ -330,7 +330,14 @@ function spawnMob(type,x,y,z){const meshes=buildMobMesh(type);const t=MOB_TYPES[
   begTimer:0,          // wolf: head-tilt "begging" timer when held meat is near
   attackTimer:0,        // melee swing / shoot cooldown
   burnTimer:0,          // daylight burn accumulator (undead burn in sun)
-  };meshes.root.position.copyFrom(mob.pos);mobs.push(mob);return mob;}
+  };
+  // Slime: adjust halfW to match actual size so collision fits the cube.
+  if(t&&t.slime){
+    const sizes={slime_big:0.9,slime_medium:0.55,slime_small:0.32};
+    mob.halfW=(sizes[type]||0.45)*0.9;
+    mob.height=(sizes[type]||0.45)*2.05;
+  }
+  meshes.root.position.copyFrom(mob.pos);mobs.push(mob);return mob;}
 
 const MAX_HOSTILE=8;
 function trySpawnMobs(){
@@ -413,7 +420,10 @@ function updateOneMob(mob,dt){
   let chasing=false;
   if(mob.attackTimer>0)mob.attackTimer-=dt;
 
-  if(mob.wolf){
+  if(mob.t&&mob.t.slime){
+    if(typeof updateSlime==='function')updateSlime(mob,dt);
+    chasing=mob._chasing||false;fleeing=false;
+  }else if(mob.wolf){
     updateWolf(mob,dt,dx,dz,distSq);
     chasing=mob._chasing;fleeing=mob._fleeing;
   }else if(mob.t&&mob.t.villager){
@@ -818,6 +828,12 @@ function provokeWolfPack(src){
 
 function killMob(mob){
   if(mob.dead)return;mob.dead=true;
+  // Grant XP for the kill.
+  if(typeof XP!=='undefined')XP.killXP(mob.type);
+  // Slime splits into smaller slimes instead of regular despawn.
+  if(mob.t&&mob.t.slime){
+    if(typeof killSlime==='function'){killSlime(mob);return;}
+  }
   // Drop loot.
   const drops=mob.t.drops||[];
   if(typeof addToInventory==='function'){

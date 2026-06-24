@@ -582,6 +582,17 @@ const ACHIEVEMENTS=[
   {id:'redstone_lever',icon:'🔴',name:'Power On',desc:'Flip a lever for the first time',stat:'lever_flip',goal:1},
   {id:'redstone_piston',icon:'🟫',name:'Push It',desc:'Activate a piston',stat:'piston_fire',goal:1},
   {id:'redstone_builder',icon:'⚙',name:'Circuit Builder',desc:'Place 10 redstone components',stat:'redstone_placed',goal:10},
+  // XP / Level achievements
+  {id:'xp_level5', icon:'⭐',name:'Apprentice',    desc:'Reach level 5',    stat:'xp_level5', goal:1},
+  {id:'xp_level10',icon:'🌟',name:'Journeyman',    desc:'Reach level 10',   stat:'xp_level10',goal:1},
+  {id:'xp_level20',icon:'💫',name:'Expert',        desc:'Reach level 20',   stat:'xp_level20',goal:1},
+  // Slime achievements
+  {id:'kill_slime',icon:'🟩',name:'Slime Buster',  desc:'Defeat a Slime',   stat:'kill_slime',goal:1},
+  {id:'split_slime',icon:'🟩',name:'Split Decision',desc:'Watch a Slime split',stat:'slime_split',goal:1},
+  // Diverse fauna achievements
+  {id:'kill_panda',icon:'🐼',name:'Panda Pal',     desc:'Meet a Panda',     stat:'kill_panda',goal:1},
+  {id:'see_camel', icon:'🐪',name:'Desert Rider',  desc:'Encounter a Camel',stat:'kill_camel',goal:1},
+  {id:'see_turtle',icon:'🐢',name:'Shell Shock',   desc:'Find a Turtle',    stat:'kill_turtle',goal:1},
 ];
 const isMobile=('ontouchstart'in window)&&/Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac|iPad/i.test(navigator.userAgent));if(isMobile)document.body.classList.add('is-mobile');
 // World schema version — bump when dimensions change to invalidate saved data.
