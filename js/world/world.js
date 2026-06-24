@@ -839,10 +839,47 @@ function buildGeode(cx,cy,cz,r,rng){
   }
 }
 
-function placeOresAndGravel(){for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];for(let y=1;y<Math.min(h-2,WORLD_H);y++){if(world[blockIndex(x,y,z)]!==B.STONE)continue;const cx=x>>1,cy=y>>1,cz=z>>1;if(y<=8&&hash3(cx,cy,cz,96)<0.06)world[blockIndex(x,y,z)]=B.OBSIDIAN;else if(y<=16&&hash3(cx,cy,cz,94)<0.013)world[blockIndex(x,y,z)]=B.DIAMOND_ORE;else if(y<=28&&hash3(cx,cy,cz,93)<0.016)world[blockIndex(x,y,z)]=B.GOLD_ORE;else if(y<=50&&hash3(cx,cy,cz,92)<0.028)world[blockIndex(x,y,z)]=B.IRON_ORE;else if(y>=14&&hash3(cx,cy,cz,91)<0.04)world[blockIndex(x,y,z)]=B.COAL_ORE;else if(hash3(cx,cy,cz,95)<0.022)world[blockIndex(x,y,z)]=B.GRAVEL;}
+function placeOresAndGravel(){
+// Deepslate belt: very dark stone in the deepest caves (y <= 16).
+// Tuff belt: dark volcanic rock just above the deepslate (17..30).
+for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];for(let y=1;y<Math.min(h-2,WORLD_H);y++){const id=world[blockIndex(x,y,z)];if(id!==B.STONE&&id!==B.DEEPSLATE&&id!==B.TUFF)continue;const cx=x>>1,cy=y>>1,cz=z>>1;
+// Convert deep stone to deepslate/tuff BEFORE ore rolls so ores can sit in them.
+if(id===B.STONE){if(y<=16&&hash3(cx,cy,cz,97)<0.85)world[blockIndex(x,y,z)]=B.DEEPSLATE;else if(y>=17&&y<=30&&hash3(cx,cy,cz,98)<0.4)world[blockIndex(x,y,z)]=B.TUFF;}
+const cur=world[blockIndex(x,y,z)];
+// Diamond & obsidian — deepest, in deepslate
+if(y<=8&&hash3(cx,cy,cz,96)<0.06){world[blockIndex(x,y,z)]=B.OBSIDIAN;continue;}
+if(y<=16&&hash3(cx,cy,cz,94)<0.013){world[blockIndex(x,y,z)]=B.DIAMOND_ORE;continue;}
+// Emerald — rare, mountain biome stone (any depth in stone)
+if(hash3(cx,cy,cz,301)<0.008){world[blockIndex(x,y,z)]=B.EMERALD_ORE;continue;}
+// Ruby & sapphire — custom gems, very deep & rare (y<=20)
+if(y<=20&&hash3(cx,cy,cz,302)<0.009){world[blockIndex(x,y,z)]=B.RUBY_ORE;continue;}
+if(y<=20&&hash3(cx,cy,cz,303)<0.009){world[blockIndex(x,y,z)]=B.SAPPHIRE_ORE;continue;}
+// Obsidian ore — rare deep block near the bottom (y<=12)
+if(y<=12&&hash3(cx,cy,cz,304)<0.012){world[blockIndex(x,y,z)]=B.OBSIDIAN_ORE;continue;}
+// Lead & tin — mid-depth ores for alloy crafting
+if(y<=45&&hash3(cx,cy,cz,305)<0.022){world[blockIndex(x,y,z)]=B.LEAD_ORE;continue;}
+if(y<=45&&hash3(cx,cy,cz,306)<0.022){world[blockIndex(x,y,z)]=B.TIN_ORE;continue;}
+// Gold & iron & coal — original depths
+if(y<=28&&hash3(cx,cy,cz,93)<0.016){world[blockIndex(x,y,z)]=B.GOLD_ORE;continue;}
+if(y<=50&&hash3(cx,cy,cz,92)<0.028){world[blockIndex(x,y,z)]=B.IRON_ORE;continue;}
+if(y>=14&&hash3(cx,cy,cz,91)<0.04){world[blockIndex(x,y,z)]=B.COAL_ORE;continue;}
+if(hash3(cx,cy,cz,95)<0.022)world[blockIndex(x,y,z)]=B.GRAVEL;
+}
 if(h<=SEA_LEVEL+2&&valueNoise(x/9,z/9,57)>0.76){for(let y=Math.max(1,h-1);y<=h;y++)
 if(world[blockIndex(x,y,z)]===B.SAND||world[blockIndex(x,y,z)]===B.DIRT)
-world[blockIndex(x,y,z)]=B.GRAVEL;}}}}
+world[blockIndex(x,y,z)]=B.GRAVEL;}}}
+// Volcanic extras: sulfur blocks & cooled lava rock near volcano craters.
+// Sulfur clusters around the volcano's lava lakes; lava rock forms on the flanks.
+for(let x=2;x<WORLD_W-2;x++){for(let z=2;z<WORLD_D-2;z++){const biome=biomeMap[colIndex(x,z)];if(biome!==BIOME.VOLCANO)continue;const h=heightMap[colIndex(x,z)];
+// Lava rock crust near the surface of volcano flanks
+for(let y=Math.max(1,h-3);y<=h+1&&y<WORLD_H;y++){if(world[blockIndex(x,y,z)]===B.STONE||world[blockIndex(x,y,z)]===B.SMOOTH_BASALT){if(hash3(x>>1,y>>1,z>>1,307)<0.25)world[blockIndex(x,y,z)]=B.LAVA_ROCK;}}
+// Sulfur blocks: bright yellow pockets just below the surface near lava
+for(let y=Math.max(1,h-6);y<h-1;y++){if(world[blockIndex(x,y,z)]===B.STONE){if(hash3(x>>1,y>>1,z>>1,308)<0.04)world[blockIndex(x,y,z)]=B.SULFUR_BLOCK;}}
+// Phosphor stone: rare glowing stone in deep dark caves (any biome, y<=30)
+}}
+// Phosphor stone: rare glowing stone in deep dark caves (all biomes, y<=30)
+for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];for(let y=1;y<=Math.min(30,h-4);y++){const id=world[blockIndex(x,y,z)];if(id===B.STONE||id===B.DEEPSLATE||id===B.TUFF){if(hash3(x>>1,y>>1,z>>1,309)<0.004)world[blockIndex(x,y,z)]=B.PHOSPHOR_STONE;}}}}
+}
 // Place a leaf block only into empty air (never overwrite logs/terrain).
 function setLeaf(x,y,z,id){if(x<0||x>=WORLD_W||z<0||z>=WORLD_D||y<1||y>=WORLD_H)return;if(world[blockIndex(x,y,z)]===B.AIR)world[blockIndex(x,y,z)]=id;}
 // ACACIA tree: a short bare trunk that forks near the top into a wide, flat
@@ -886,6 +923,37 @@ function buildSpruceTree(x,h,z){
   // pointed tip
   setLeaf(x,h+trunkH+1,z,B.SPRUCE_LEAVES);
   setLeaf(x,h+trunkH,z,B.SPRUCE_LEAVES);
+}
+// GIANT MUSHROOM: a huge mushroom with a thick mycelium stem and a wide flat
+// cap made of mushroom blocks. `red` picks a red cap (with white-spotted
+// MUSHROOM_BLOCK) vs a brown cap. Grown in jungles & swamps.
+function buildGiantMushroom(x,h,z,red){
+  const stemH=5+Math.floor(hash2(x,z,70)*4);          // 5..8 block stem
+  // thick 1x1 (occasionally 2x2) mycelium stem
+  const thick=hash2(x,z,71)<0.35;
+  world[blockIndex(x,h,z)]=B.DIRT;
+  for(let y=1;y<=stemH;y++){
+    world[blockIndex(x,h+y,z)]=B.MUSHROOM_STEM;
+    if(thick&&x+1<WORLD_W)world[blockIndex(x+1,h+y,z)]=B.MUSHROOM_STEM;
+    if(thick&&z+1<WORLD_D)world[blockIndex(x,h+y,z+1)]=B.MUSHROOM_STEM;
+    if(thick&&x+1<WORLD_W&&z+1<WORLD_D)world[blockIndex(x+1,h+y,z+1)]=B.MUSHROOM_STEM;
+  }
+  // wide flat cap: a 5x5 (or 7x7 if thick) disc of mushroom blocks one block
+  // above the stem, with a rim and a few holes for an organic look.
+  const cy=h+stemH+1;
+  const R=thick?3:2;
+  for(let dx=-R;dx<=R;dx++)for(let dz=-R;dz<=R;dz++){
+    const dist=Math.abs(dx)+Math.abs(dz);
+    if(dist>R+1)continue;
+    // ragged edge: skip some outer cells
+    if(dist>=R&&hash2(x+dx*7,z+dz*7,72)<0.4)continue;
+    setLeaf(x+dx,cy,z+dz,B.MUSHROOM_BLOCK);
+    // cap underside: a small mushroom (red/brown) hangs as a detail
+    if(dx===0&&dz===0)continue;
+    if(hash2(x+dx*5,z+dz*5,73)<0.18)setLeaf(x+dx,cy-1,z+dz,red?B.HUGE_MUSHROOM_RED:B.HUGE_MUSHROOM_BROWN);
+  }
+  // a single decorative mushroom on top of the cap centre
+  setLeaf(x,cy+1,z,red?B.HUGE_MUSHROOM_RED:B.HUGE_MUSHROOM_BROWN);
 }
 // GIANT tree: a colossal 2x2 oak trunk soaring 20m+ with a vast spherical
 // canopy. Dwarfs everything around it and casts the forest floor into shade.
@@ -1020,6 +1088,15 @@ if(h<=SEA_LEVEL+1||h+8>=WORLD_H)continue;const surf=world[blockIndex(x,h,z)];
 if(biome===BIOME.OCEAN||biome===BIOME.VOLCANO||biome===BIOME.MOUNTAINS||biome===BIOME.MESA)continue;
 if(biome===BIOME.DESERT){if(surf!==B.SAND||hash2(x+555,z+333,6)<=0.994)continue;const ch=1+Math.floor(hash2(x,z,7)*3);for(let y=1;y<=ch;y++)
 if(world[blockIndex(x,h+y,z)]===B.AIR)world[blockIndex(x,h+y,z)]=B.CACTUS;continue;}
+// --- Giant mushrooms in humid biomes (jungle / swamp) ---
+if(biome===BIOME.JUNGLE||biome===BIOME.SWAMP){
+  // sparse giant mushrooms on grass/dirt ground; red & brown mixed
+  if(surf!==B.GRASS&&surf!==B.DIRT)continue;
+  if(hash2(x+432,z-188,74)<=0.991)continue;          // ~0.9% chance
+  if(h+10>=WORLD_H)continue;
+  const red=hash2(x,z,75)<0.55;
+  buildGiantMushroom(x,h,z,red);continue;
+}
 // --- New biome trees -------------------------------------------------------
 if(biome===BIOME.SAVANNA){
   // sparse acacia groves on the golden grass

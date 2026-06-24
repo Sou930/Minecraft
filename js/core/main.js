@@ -52,8 +52,12 @@ const sin=Math.sin(player.yaw),cos=Math.cos(player.yaw);const dirX=mx*cos+mz*sin
 if(typeof getCombatSpeedMod==='function') speed*=getCombatSpeedMod();
 // Crouch slows movement (sneak speed)
 if(!player.flying&&player.pose===POSE.CROUCH)speed*=0.5;
+// Heavy ground (lead ore): standing on a heavy block magnifies gravity & weakens jumps.
+const _hgX=Math.floor(player.pos.x),_hgZ=Math.floor(player.pos.z),_hgY=Math.floor(player.pos.y-0.2);
+const _hgBlk=(typeof getBlock==='function')?getBlock(_hgX,_hgY,_hgZ):0;
+const heavyGround=!!(BLOCKS[_hgBlk]&&BLOCKS[_hgBlk].heavy);
 if(inWaterBody&&!player.flying)speed*=0.55;const accel=Math.min(1,dt*12);player.vel.x+=(dirX*speed-player.vel.x)*accel;player.vel.z+=(dirZ*speed-player.vel.z)*accel;if(player.flying){let vy=0;if(keys['Space'])vy+=8;if(keys['KeyC'])vy-=8;player.vel.y+=(vy-player.vel.y)*Math.min(1,dt*10);player.fallStartY=null;}else if(inWaterBody){player.vel.y+=GRAVITY*0.25*dt;if(player.vel.y<-2.5)player.vel.y=-2.5;if(keys['Space']){if(!isInWater(1.0)){player.vel.y=Math.max(player.vel.y,7.6);}else{player.vel.y=Math.min(player.vel.y+30*dt,4);}}
-player.fallStartY=null;}else if(isInLava(0.5)){player.vel.y+=GRAVITY*0.18*dt;if(player.vel.y<-1.6)player.vel.y=-1.6;if(keys['Space'])player.vel.y=Math.min(player.vel.y+24*dt,3);player.fallStartY=null;}else{player.vel.y+=GRAVITY*dt;if(player.vel.y<-50)player.vel.y=-50;if(keys['Space']&&player.onGround){player.vel.y=8.2;player.onGround=false;}
+player.fallStartY=null;}else if(isInLava(0.5)){player.vel.y+=GRAVITY*0.18*dt;if(player.vel.y<-1.6)player.vel.y=-1.6;if(keys['Space'])player.vel.y=Math.min(player.vel.y+24*dt,3);player.fallStartY=null;}else{const gMult=heavyGround?1.7:1;player.vel.y+=GRAVITY*gMult*dt;if(player.vel.y<(heavyGround?-65:-50))player.vel.y=heavyGround?-65:-50;if(keys['Space']&&player.onGround){player.vel.y=heavyGround?5.4:8.2;player.onGround=false;}
 if(player.vel.y<-0.1&&player.fallStartY===null)player.fallStartY=player.pos.y;}
 const prevVy=player.vel.y;
 // Sneak prevents falling off edges

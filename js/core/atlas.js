@@ -695,6 +695,57 @@ ctx.fillStyle='#6a6a6a';ctx.strokeStyle='#6a6a6a';ctx.lineWidth=2;ctx.beginPath(
  ctx.fillStyle='#b88a4a';ctx.fillRect(ox+1,oy+1,TILE_PX-2,2);ctx.fillRect(ox+1,oy,2,TILE_PX-2);
  // corner studs
  ctx.fillStyle='#5a3c18';ctx.fillRect(ox+3,oy+3,3,3);ctx.fillRect(ox+TILE_PX-6,oy+3,3,3);ctx.fillRect(ox+3,oy+TILE_PX-6,3,3);ctx.fillRect(ox+TILE_PX-6,oy+TILE_PX-6,3,3);}
+// ---- New ores / rocks / mushrooms ----
+// Reusable deepslate base (darker stone) for underground ores
+function deepOreTile(t,colors,seed){noisy(t,'#4a4a52',['#404048','#54545c','#3a3a42','#4e4e56'],0.7);const[ox,oy]=tileOrigin(t);const rnd=mulberry32(seed);for(let i=0;i<5;i++){const cx=4+Math.floor(rnd()*11)*2,cy=4+Math.floor(rnd()*11)*2;const main=colors[0],hi=colors[1],lo=colors[2];ctx.fillStyle=main;ctx.fillRect(ox+cx,oy+cy,4,4);ctx.fillRect(ox+cx-2,oy+cy,2,2);ctx.fillRect(ox+cx+4,oy+cy+2,2,2);ctx.fillStyle=hi;ctx.fillRect(ox+cx,oy+cy,2,2);ctx.fillStyle=lo;ctx.fillRect(ox+cx+2,oy+cy+2,2,2);}}
+// Emerald ore (green gems in stone)
+oreTile(T.EMERALD_ORE,['#27c07a','#7fffc0','#1a8a55'],3101);
+// Ruby ore (custom red gems in deepslate)
+deepOreTile(T.RUBY_ORE,['#e0264a','#ff9aae','#a01230'],3102);
+// Sapphire ore (custom blue gems in deepslate)
+deepOreTile(T.SAPPHIRE_ORE,['#2a6fe0','#9fc4ff','#1a4ab0'],3103);
+// Obsidian ore (dark, with purple specks — deep/rare)
+{noisy(T.OBSIDIAN_ORE,'#1a1422',['#120c18','#241c30','#0c0810','#2a2040'],0.85);const[ox,oy]=tileOrigin(T.OBSIDIAN_ORE);const rnd=mulberry32(3104);ctx.fillStyle='#6a4aa0';for(let i=0;i<10;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);ctx.fillStyle='#9a7ad0';for(let i=0;i<4;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+// Sulfur block (volcanic — bright yellow crystalline)
+{noisy(T.SULFUR_BLOCK,'#d4c01a',['#c4b010','#e8d830','#b8a808','#f0e048'],0.7);const[ox,oy]=tileOrigin(T.SULFUR_ORE||T.SULFUR_BLOCK);const rnd=mulberry32(3105);for(let i=0;i<8;i++){const cx=4+Math.floor(rnd()*11)*2,cy=4+Math.floor(rnd()*11)*2;ctx.fillStyle='#a89008';ctx.fillRect(ox+cx,oy+cy,3,3);}ctx.fillStyle='#fff6a0';for(let i=0;i<6;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+// Phosphor stone (glowing stone tablet — pale green glow)
+{noisy(T.PHOSPHOR_STONE,'#3a4a3a',['#344034','#465246','#2e3a2e','#506050'],0.6);const[ox,oy]=tileOrigin(T.PHOSPHOR_STONE);const rnd=mulberry32(3106);ctx.fillStyle='#9affc0';for(let i=0;i<14;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);ctx.fillStyle='#d8ffe8';for(let i=0;i<6;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+// Polished amethyst (refined, smoother amethyst block)
+{noisy(T.POLISHED_AMETHYST,'#a47ce0',['#9870d4','#b88cf0','#8c64c8','#c098f0'],0.5);const[ox,oy]=tileOrigin(T.POLISHED_AMETHYST);const rnd=mulberry32(3107);ctx.fillStyle='#d8b8ff';for(let i=0;i<10;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);ctx.strokeStyle='#7a5aa8';ctx.lineWidth=1;ctx.strokeRect(ox+2,oy+2,TILE_PX-4,TILE_PX-4);}
+// Lead ore (dark grey heavy ore in stone)
+oreTile(T.LEAD_ORE,['#5a5e6a','#8a8e9a','#3a3e4a'],3108);
+// Tin ore (silvery-light ore in stone)
+oreTile(T.TIN_ORE,['#b8c0c8','#e0e8f0','#8a9098'],3109);
+// Bronze block (iron+tin alloy — warm bronze metallic)
+{noisy(T.BRONZE_BLOCK,'#b8743a',['#a86a32','#c8844a','#9c6028','#d09050'],0.6);const[ox,oy]=tileOrigin(T.BRONZE_BLOCK);const rnd=mulberry32(3110);ctx.fillStyle='#e8b070';for(let i=0;i<8;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);ctx.strokeStyle='#7a4a22';ctx.lineWidth=1;ctx.strokeRect(ox+2,oy+2,TILE_PX-4,TILE_PX-4);}
+// Lava rock (cooled lava — dark crust with orange veins)
+{noisy(T.LAVA_ROCK,'#3a2418',['#2e1c12','#46301e','#241810','#523824'],0.7);const[ox,oy]=tileOrigin(T.LAVA_ROCK);const rnd=mulberry32(3111);ctx.fillStyle='#c4501a';for(let i=0;i<10;i++){const cx=Math.floor(rnd()*14)*2,cy=Math.floor(rnd()*14)*2;ctx.fillRect(ox+cx,oy+cy,2,2);}ctx.fillStyle='#ff8030';for(let i=0;i<5;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+// Tuff (dark volcanic rock)
+noisy(T.TUFF,'#5a5450',['#4e4846','#665e5a','#46403c','#6e6660'],0.75);
+// Deepslate (very dark stone)
+{noisy(T.DEEPSLATE,'#3a3a42',['#343440','#44444c','#2e2e36','#404048'],0.7);const[ox,oy]=tileOrigin(T.DEEPSLATE);const rnd=mulberry32(3112);ctx.fillStyle='#2a2a32';for(let i=0;i<6;i++){const cx=Math.floor(rnd()*14)*2,cy=Math.floor(rnd()*14)*2;ctx.fillRect(ox+cx,oy+cy,4,2);}}
+// Huge red mushroom (cross-plant: a red cap with white spots)
+{const[ox,oy]=tileOrigin(T.HUGE_MUSHROOM_RED);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);const rnd=mulberry32(3113);
+// stem
+ctx.fillStyle='#e8dcc0';ctx.fillRect(ox+13,oy+20,6,10);
+// red cap (dome)
+ctx.fillStyle='#c43030';ctx.fillRect(ox+6,oy+12,20,8);ctx.fillRect(ox+8,oy+10,16,2);ctx.fillRect(ox+10,oy+8,12,2);
+ctx.fillStyle='#a82020';ctx.fillRect(ox+6,oy+18,20,2);
+// white spots
+ctx.fillStyle='#ffffff';ctx.fillRect(ox+9,oy+12,2,2);ctx.fillRect(ox+15,oy+10,2,2);ctx.fillRect(ox+21,oy+13,2,2);ctx.fillRect(ox+12,oy+14,2,2);ctx.fillRect(ox+18,oy+15,2,2);}
+// Huge brown mushroom (cross-plant: a brown cap)
+{const[ox,oy]=tileOrigin(T.HUGE_MUSHROOM_BROWN);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+// stem
+ctx.fillStyle='#e8dcc0';ctx.fillRect(ox+13,oy+20,6,10);
+// brown cap (dome)
+ctx.fillStyle='#8a6a3a';ctx.fillRect(ox+6,oy+12,20,8);ctx.fillRect(ox+8,oy+10,16,2);ctx.fillRect(ox+10,oy+8,12,2);
+ctx.fillStyle='#6a5028';ctx.fillRect(ox+6,oy+18,20,2);
+// tan spots
+ctx.fillStyle='#c8a878';ctx.fillRect(ox+10,oy+12,2,2);ctx.fillRect(ox+18,oy+12,2,2);ctx.fillRect(ox+14,oy+14,2,2);}
+// Mushroom block (mycelium cap — red block with white spots)
+{noisy(T.MUSHROOM_BLOCK,'#c43030',['#a82020','#d44040','#981818'],0.5);const[ox,oy]=tileOrigin(T.MUSHROOM_BLOCK);const rnd=mulberry32(3114);ctx.fillStyle='#ffffff';for(let i=0;i<8;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+// Mushroom stem (pale mycelium trunk)
+{noisy(T.MUSHROOM_STEM,'#e8dcc0',['#dcd0b0','#f0e4cc','#d0c4a4'],0.5);const[ox,oy]=tileOrigin(T.MUSHROOM_STEM);const rnd=mulberry32(3115);ctx.fillStyle='#c8b890';for(let i=0;i<6;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
 
 })();function tileUV(t){const col=t%ATLAS_TILES,row=Math.floor(t/ATLAS_TILES);const padU=0.5/ATLAS_W,padV=0.5/ATLAS_H;return{u1:col/ATLAS_TILES+padU,u2:(col+1)/ATLAS_TILES-padU,v1:1-(row+1)/ATLAS_ROWS+padV,v2:1-row/ATLAS_ROWS-padV,};}
 /* ---------------------------------------------------------------------------
