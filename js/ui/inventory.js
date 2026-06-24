@@ -35,8 +35,8 @@ if(maxR<0)return null;const h=maxR-minR+1,w=maxC-minC+1;for(const rec of RECIPES
 for(let c=0;c<w&&ok;c++)
 if((rec.pattern[r][c]??null)!==ids[(minR+r)*n+(minC+c)])ok=false;if(ok)return{id:rec.out.id,count:rec.out.count};}
 return null;}
-function getSlotByLoc(loc){return loc.kind==='inv'?inventory[loc.i]:craftGrid[loc.i];}
-function setSlotByLoc(loc,s){if(loc.kind==='inv')inventory[loc.i]=s;else craftGrid[loc.i]=s;}
+function getSlotByLoc(loc){if(!loc)return null;if(loc.kind==='inv')return inventory[loc.i];if(loc.kind==='craft')return craftGrid[loc.i];return null;}
+function setSlotByLoc(loc,s){if(!loc)return;if(loc.kind==='inv')inventory[loc.i]=s;else if(loc.kind==='craft')craftGrid[loc.i]=s;}
 function leftClickSlot(loc){const s=getSlotByLoc(loc);const cap=heldStack?maxStackOf(heldStack.id):STACK_MAX;if(!heldStack){if(s){setSlotByLoc(loc,null);heldStack=s;}}else if(!s){setSlotByLoc(loc,heldStack);heldStack=null;}else if(s.id===heldStack.id&&!isTool(s.id)&&s.count<cap){const n=Math.min(cap-s.count,heldStack.count);s.count+=n;heldStack.count-=n;if(heldStack.count<=0)heldStack=null;}else{setSlotByLoc(loc,heldStack);heldStack=s;}
 afterInvChange();}
 function rightClickSlot(loc){const s=getSlotByLoc(loc);
@@ -55,30 +55,293 @@ if(typeof ACH!=='undefined')ACH.track('crafted');afterInvChange();}
 function afterInvChange(){renderInventory();renderHotbar();updateHeldUI();scheduleInvSave();if(recipePanelOpen&&inventoryOpen)renderRecipeBook();if(typeof armorPanelOpen!=='undefined'&&armorPanelOpen&&typeof buildArmorPanel==='function')buildArmorPanel();}
 const heldEl=document.getElementById('held-item');function updateHeldUI(){heldEl.innerHTML='';if(heldStack){heldEl.appendChild(makeItemNode(heldStack.id));if(heldStack.count>1){const c=document.createElement('span');c.className='slot-count';c.textContent=heldStack.count;heldEl.appendChild(c);}
 if(isTool(heldStack.id))heldEl.appendChild(makeDurBar(heldStack));
-heldEl.style.display='block';}else{heldEl.style.display='none';}}
-function moveHeldTo(x,y){heldEl.style.left=x+'px';heldEl.style.top=y+'px';}
-document.addEventListener('pointermove',(e)=>{if(heldStack)moveHeldTo(e.clientX,e.clientY);});const slotEls={craft:[],result:null,main:[],hotbar:[]};function mkInvSlot(parent,onLeft,onRight){const el=document.createElement('div');el.className='inv-slot';
-// Mobile tap: same as left click
-let touchHandled=false;
-el.addEventListener('touchend',(e)=>{
-  if(e.cancelable)e.preventDefault();
-  e.stopPropagation();
-  const t=e.changedTouches&&e.changedTouches[0];
-  if(t)moveHeldTo(t.clientX,t.clientY);
-  onLeft();
-  if(heldStack){const tt=t||{};moveHeldTo(tt.clientX||0,tt.clientY||0);}
-  touchHandled=true;setTimeout(()=>{touchHandled=false;},400);
-},{passive:false});
-el.addEventListener('click',(e)=>{if(touchHandled)return;moveHeldTo(e.clientX,e.clientY);onLeft();});
-el.addEventListener('contextmenu',(e)=>{e.preventDefault();moveHeldTo(e.clientX,e.clientY);onRight();});parent.appendChild(el);return el;}
-function buildCraftGrid(){const craftWrap=document.getElementById('craft-grid');craftWrap.innerHTML='';craftWrap.classList.toggle('size-3',craftSize===3);slotEls.craft=[];for(let i=0;i<craftSize*craftSize;i++){const loc={kind:'craft',i};slotEls.craft.push(mkInvSlot(craftWrap,()=>leftClickSlot(loc),()=>rightClickSlot(loc)));}
-document.getElementById('craft-label').textContent=craftSize===3?'Crafting Table (3×3)':'Crafting (2×2)';document.querySelector('#inventory-header h2').textContent=craftSize===3?'Crafting Table':'Inventory';}
+heldEl.style.display='block';
+document.body.classList.add('holding-stack');
+}else{heldEl.style.display='none';
+document.body.classList.remove('holding-stack');
+document.body.classList.remove('inv-dragging');
+}}
+// Smooth held-item tracking using requestAnimationFrame + lerp
+let _heldTargetX=0,_heldTargetY=0,_heldCurrentX=0,_heldCurrentY=0,_heldRafId=null;
+function _animateHeld(){
+  // Instantly snap on first frame after pickup; smooth after that
+  const dx=_heldTargetX-_heldCurrentX,dy=_heldTargetY-_heldCurrentY;
+  if(Math.abs(dx)+Math.abs(dy)>0.3){
+    _heldCurrentX+=dx*0.62;_heldCurrentY+=dy*0.62;
+    heldEl.style.transform=`translate(${(_heldCurrentX-16).toFixed(1)}px,${(_heldCurrentY-16).toFixed(1)}px)`;
+    _heldRafId=requestAnimationFrame(_animateHeld);
+  }else{
+    _heldCurrentX=_heldTargetX;_heldCurrentY=_heldTargetY;
+    heldEl.style.transform=`translate(${(_heldCurrentX-16).toFixed(1)}px,${(_heldCurrentY-16).toFixed(1)}px)`;
+    _heldRafId=null;
+  }
+}
+function moveHeldTo(x,y){
+  _heldTargetX=x;_heldTargetY=y;
+  if(!_heldRafId){_heldCurrentX=x;_heldCurrentY=y;
+    heldEl.style.transform=`translate(${(x-16).toFixed(1)}px,${(y-16).toFixed(1)}px)`;
+  }
+  if(!_heldRafId&&heldStack)_heldRafId=requestAnimationFrame(_animateHeld);
+}
+document.addEventListener('pointermove',(e)=>{
+  if(!heldStack)return;
+  _heldTargetX=e.clientX;_heldTargetY=e.clientY;
+  if(!_heldRafId)_heldRafId=requestAnimationFrame(_animateHeld);
+});
+
+// ── Drag-and-drop state ─────────────────────────────────────────────────────
+// When the user presses mousedown on a non-empty slot and moves the mouse
+// (more than DRAG_THRESHOLD px) before releasing, it becomes a drag.
+// Releasing over a slot swaps/merges exactly like a left-click.
+// Releasing over empty space (or outside inventory) drops the held stack back.
+const DRAG_THRESHOLD=6;
+let _dragOriginLoc=null;  // loc object of the slot being dragged from
+let _dragOriginPos={x:0,y:0};
+let _isDragging=false;
+let _allSlotEls=[];       // flat list of {el, loc, onLeft, onRight} — built in mkInvSlot
+
+// Right-drag: paint one item into each slot the cursor sweeps over (Minecraft-style)
+let _rightDragging=false;
+let _rightDragVisited=new Set();
+
+const slotEls={craft:[],result:null,main:[],hotbar:[]};
+
+function _findLocForEl(el){
+  for(const s of _allSlotEls){if(s.el===el)return s;}
+  return null;
+}
+
+// ── Drag ghost: faded copy of the original slot during a drag ──────────────
+let _dragGhostEl=null;
+function _startDragGhost(el){
+  if(_dragGhostEl)_dragGhostEl.remove();
+  _dragGhostEl=el.cloneNode(true);
+  _dragGhostEl.style.cssText=`opacity:0.35;pointer-events:none;position:absolute;left:0;top:0;width:100%;height:100%;z-index:1;`;
+  el.style.position='relative';
+  el.appendChild(_dragGhostEl);
+}
+function _clearDragGhost(){
+  if(_dragGhostEl){_dragGhostEl.remove();_dragGhostEl=null;}
+}
+// Current drop-target highlight
+let _dropHighlightEl=null;
+function _setDropHighlight(el){
+  if(_dropHighlightEl===el)return;
+  if(_dropHighlightEl)_dropHighlightEl.classList.remove('slot-drop-target');
+  _dropHighlightEl=el;
+  if(el)el.classList.add('slot-drop-target');
+}
+
+function mkInvSlot(parent,onLeft,onRight){
+  const el=document.createElement('div');
+  el.className='inv-slot';
+
+  // ── Desktop drag-and-drop ───────────────────────────────────────────────
+  el.addEventListener('mousedown',(e)=>{
+    if(e.button!==0&&e.button!==2)return;
+    const info=_findLocForEl(el);if(!info)return;
+    if(e.button===2){
+      // Right-drag: start paint mode
+      _rightDragging=true;
+      _rightDragVisited.clear();
+      return;
+    }
+    const s=info.loc?getSlotByLoc(info.loc):null;
+    if(!s&&!heldStack)return; // nothing to drag
+    _dragOriginLoc=info.loc;
+    _dragOriginPos={x:e.clientX,y:e.clientY};
+    _isDragging=false;
+  });
+
+  el.addEventListener('mouseenter',(e)=>{
+    el.classList.add('slot-hover');
+    // Highlight as drop target while dragging
+    if(_isDragging)_setDropHighlight(el);
+    // Right drag: paint one item into each entered slot
+    if(_rightDragging&&heldStack){
+      const info=_findLocForEl(el);
+      if(info&&info.loc&&!_rightDragVisited.has(el)){
+        _rightDragVisited.add(el);
+        onRight();
+        moveHeldTo(e.clientX,e.clientY);
+      }
+    }
+    // Show tooltip with item name above the slot
+    const info=_findLocForEl(el);
+    if(info&&info.loc){
+      const s=getSlotByLoc(info.loc);
+      if(s&&s.id!==undefined){
+        let tip=el.title||(typeof itemName==='function'?itemName(s.id):'');
+        el.setAttribute('data-tip',tip);
+      }
+    }
+  });
+  el.addEventListener('mouseleave',()=>{
+    el.classList.remove('slot-hover');
+    if(_dropHighlightEl===el){_dropHighlightEl.classList.remove('slot-drop-target');_dropHighlightEl=null;}
+  });
+
+  el.addEventListener('mouseup',(e)=>{
+    if(e.button===1){
+      // Middle-click: quick split to one (place one into held if held is null)
+      const info=_findLocForEl(el);if(!info)return;
+      const s=getSlotByLoc(info.loc);
+      if(!heldStack&&s&&s.count>1){
+        heldStack={id:s.id,count:1};
+        s.count-=1;if(s.count<=0)setSlotByLoc(info.loc,null);
+        afterInvChange();moveHeldTo(e.clientX,e.clientY);
+      }
+      return;
+    }
+    _setDropHighlight(null);
+    if(_isDragging&&_dragOriginLoc){
+      // Dragged: treat release as left-click on destination
+      _clearDragGhost();
+      const info=_findLocForEl(el);
+      if(info&&info.loc){
+        moveHeldTo(e.clientX,e.clientY);
+        // If heldStack is null we need to first pick up from origin
+        if(!heldStack){
+          const orig=getSlotByLoc(_dragOriginLoc);
+          if(orig){setSlotByLoc(_dragOriginLoc,null);heldStack=orig;afterInvChange();}
+        }
+        onLeft();
+      }
+      _isDragging=false;_dragOriginLoc=null;
+      return;
+    }
+    _isDragging=false;_dragOriginLoc=null;
+  });
+
+  // ── Double-click: gather all matching items into held stack ─────────────
+  let _lastClickTime=0;
+  el.addEventListener('click',(e)=>{
+    if(e.button!==0)return;
+    const now=Date.now();
+    const isDouble=(now-_lastClickTime)<380;
+    _lastClickTime=now;
+    if(isDouble&&!_isDragging&&heldStack&&!isTool(heldStack.id)){
+      // Collect matching items from all inventory slots into held
+      let cap=STACK_MAX;let gathered=heldStack.count;
+      for(let i=0;i<INV_SIZE&&gathered<cap;i++){
+        const s=inventory[i];if(!s||s.id!==heldStack.id)continue;
+        const take=Math.min(cap-gathered,s.count);s.count-=take;gathered+=take;
+        if(s.count<=0)inventory[i]=null;
+      }
+      for(let i=0;i<craftGrid.length&&gathered<cap;i++){
+        const s=craftGrid[i];if(!s||s.id!==heldStack.id)continue;
+        const take=Math.min(cap-gathered,s.count);s.count-=take;gathered+=take;
+        if(s.count<=0)craftGrid[i]=null;
+      }
+      heldStack.count=gathered;
+      afterInvChange();moveHeldTo(e.clientX,e.clientY);
+      return;
+    }
+    if(_isDragging)return;
+    moveHeldTo(e.clientX,e.clientY);onLeft();
+  });
+  el.addEventListener('contextmenu',(e)=>{e.preventDefault();moveHeldTo(e.clientX,e.clientY);onRight();});
+
+  // Mobile tap: same as left click
+  let touchHandled=false;
+  el.addEventListener('touchend',(e)=>{
+    if(e.cancelable)e.preventDefault();
+    e.stopPropagation();
+    const t=e.changedTouches&&e.changedTouches[0];
+    if(t)moveHeldTo(t.clientX,t.clientY);
+    onLeft();
+    if(heldStack){const tt=t||{};moveHeldTo(tt.clientX||0,tt.clientY||0);}
+    touchHandled=true;setTimeout(()=>{touchHandled=false;},400);
+  },{passive:false});
+  parent.appendChild(el);
+  _allSlotEls.push({el,loc:null,onLeft,onRight});// loc filled later by caller
+  return el;
+}
+// Helper to associate a loc with the most recently pushed slot entry
+function _assignLastLoc(loc){
+  if(_allSlotEls.length){_allSlotEls[_allSlotEls.length-1].loc=loc;}
+}
+function buildCraftGrid(){
+  // Clear loc entries for old craft slots
+  _allSlotEls=_allSlotEls.filter(s=>s.loc&&s.loc.kind!=='craft');
+  const craftWrap=document.getElementById('craft-grid');craftWrap.innerHTML='';
+  craftWrap.classList.toggle('size-3',craftSize===3);slotEls.craft=[];
+  for(let i=0;i<craftSize*craftSize;i++){
+    const loc={kind:'craft',i};
+    const el=mkInvSlot(craftWrap,()=>leftClickSlot(loc),()=>rightClickSlot(loc));
+    _assignLastLoc(loc);
+    slotEls.craft.push(el);
+  }
+  document.getElementById('craft-label').textContent=craftSize===3?'Crafting Table (3×3)':'Crafting (2×2)';
+  document.querySelector('#inventory-header h2').textContent=craftSize===3?'Crafting Table':'Inventory';
+}
 function setCraftMode(n){if(craftSize!==n){for(let i=0;i<craftGrid.length;i++){if(craftGrid[i]){addToInventory(craftGrid[i].id,craftGrid[i].count);craftGrid[i]=null;}}
 craftSize=n;craftGrid=new Array(n*n).fill(null);}
 buildCraftGrid();}
-function createInventoryUI(){const mkSlot=mkInvSlot;buildCraftGrid();slotEls.result=mkSlot(document.getElementById('craft-result'),takeCraftResult,takeCraftResult);const main=document.getElementById('inv-main');for(let i=9;i<INV_SIZE;i++){const loc={kind:'inv',i};slotEls.main.push(mkSlot(main,()=>leftClickSlot(loc),()=>rightClickSlot(loc)));}
-const hb=document.getElementById('inv-hotbar');for(let i=0;i<9;i++){const loc={kind:'inv',i};slotEls.hotbar.push(mkSlot(hb,()=>leftClickSlot(loc),()=>rightClickSlot(loc)));}
-document.getElementById('btn-inventory').addEventListener('click',(e)=>{e.stopPropagation();if(started&&!player.dead)toggleInventory();});document.getElementById('btn-inv-close').addEventListener('click',()=>toggleInventory(false));document.getElementById('btn-recipes').addEventListener('click',()=>setRecipePanel(!recipePanelOpen));document.getElementById('btn-recipe-close').addEventListener('click',()=>setRecipePanel(false));document.getElementById('inventory-overlay').addEventListener('click',(e)=>{if(e.target.id==='inventory-overlay')toggleInventory(false);});canvas.addEventListener('click',()=>{if(!isMobile&&started&&!paused&&!inventoryOpen&&document.pointerLockElement!==canvas)lockPointer();});}
+function createInventoryUI(){
+  buildCraftGrid();
+  // Craft result slot
+  const resLoc={kind:'result'};
+  slotEls.result=mkInvSlot(document.getElementById('craft-result'),takeCraftResult,takeCraftResult);
+  _assignLastLoc(resLoc);
+  // Main inventory slots (9–35)
+  const main=document.getElementById('inv-main');
+  for(let i=9;i<INV_SIZE;i++){
+    const loc={kind:'inv',i};
+    mkInvSlot(main,()=>leftClickSlot(loc),()=>rightClickSlot(loc));
+    _assignLastLoc(loc);
+    slotEls.main.push(_allSlotEls[_allSlotEls.length-1].el);
+  }
+  // Hotbar slots (0–8)
+  const hb=document.getElementById('inv-hotbar');
+  for(let i=0;i<9;i++){
+    const loc={kind:'inv',i};
+    mkInvSlot(hb,()=>leftClickSlot(loc),()=>rightClickSlot(loc));
+    _assignLastLoc(loc);
+    slotEls.hotbar.push(_allSlotEls[_allSlotEls.length-1].el);
+  }
+  // ── Global drag handlers ──────────────────────────────────────────────────
+  document.addEventListener('mousemove',(e)=>{
+    if(_dragOriginLoc&&!_isDragging){
+      const dx=e.clientX-_dragOriginPos.x,dy=e.clientY-_dragOriginPos.y;
+      if(Math.hypot(dx,dy)>DRAG_THRESHOLD){
+        // Transition to dragging: pick up from origin slot
+        _isDragging=true;
+        document.body.classList.add('inv-dragging');
+        if(!heldStack){
+          const orig=getSlotByLoc(_dragOriginLoc);
+          if(orig){setSlotByLoc(_dragOriginLoc,null);heldStack=orig;afterInvChange();updateHeldUI();}
+        }
+      }
+    }
+    if(_isDragging&&heldStack){
+      // Use smooth lerp tracking
+      _heldTargetX=e.clientX;_heldTargetY=e.clientY;
+      if(!_heldRafId)_heldRafId=requestAnimationFrame(_animateHeld);
+      // Highlight slot under cursor
+      const underEl=document.elementFromPoint(e.clientX,e.clientY);
+      const slotUnder=underEl&&underEl.closest('.inv-slot');
+      _setDropHighlight(slotUnder||null);
+    }
+  });
+  document.addEventListener('mouseup',(e)=>{
+    _rightDragging=false;_rightDragVisited.clear();
+    _setDropHighlight(null);
+    if(_isDragging&&!e.target.closest('.inv-slot')){
+      // Released outside any slot: return held stack to inventory
+      if(heldStack){addToInventory(heldStack.id,heldStack.count);heldStack=null;afterInvChange();updateHeldUI();}
+    }
+    _isDragging=false;_dragOriginLoc=null;
+    document.body.classList.remove('inv-dragging');
+  });
+
+  document.getElementById('btn-inventory').addEventListener('click',(e)=>{e.stopPropagation();if(started&&!player.dead)toggleInventory();});
+  document.getElementById('btn-inv-close').addEventListener('click',()=>toggleInventory(false));
+  document.getElementById('btn-recipes').addEventListener('click',()=>setRecipePanel(!recipePanelOpen));
+  document.getElementById('btn-recipe-close').addEventListener('click',()=>setRecipePanel(false));
+  document.getElementById('inventory-overlay').addEventListener('click',(e)=>{if(e.target.id==='inventory-overlay')toggleInventory(false);});
+  canvas.addEventListener('click',()=>{if(!isMobile&&started&&!paused&&!inventoryOpen&&document.pointerLockElement!==canvas)lockPointer();});
+}
 function renderInventory(){for(let i=0;i<craftGrid.length;i++)fillSlotEl(slotEls.craft[i],craftGrid[i]);fillSlotEl(slotEls.result,craftResultNow());for(let i=9;i<INV_SIZE;i++)fillSlotEl(slotEls.main[i-9],inventory[i]);for(let i=0;i<9;i++)fillSlotEl(slotEls.hotbar[i],inventory[i]);}
 function lockPointer(){try{const p=canvas.requestPointerLock();if(p&&p.catch)p.catch(()=>{});}catch(e){}}
 function toggleInventory(force,mode){const open=force!==undefined?force:!inventoryOpen;if(open===inventoryOpen||!started||player.dead)return;inventoryOpen=open;const ov=document.getElementById('inventory-overlay');if(open){if(mode===3&&typeof ACH!=='undefined')ACH.flag('workbench');setCraftMode(mode===3?3:2);mining.active=false;resetMining();clearInterval(actionInterval);ov.style.display='flex';renderInventory();updateHeldUI();document.getElementById('recipe-panel').style.display=recipePanelOpen?'flex':'none';document.getElementById('btn-recipes').classList.toggle('active',recipePanelOpen);if(recipePanelOpen)renderRecipeBook();if(typeof buildArmorPanel==='function')buildArmorPanel();if(!isMobile&&document.pointerLockElement===canvas)document.exitPointerLock();}else{for(let i=0;i<craftGrid.length;i++){if(craftGrid[i]){addToInventory(craftGrid[i].id,craftGrid[i].count);craftGrid[i]=null;}}

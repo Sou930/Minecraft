@@ -44,9 +44,108 @@ canvas.addEventListener('touchend',end);canvas.addEventListener('touchcancel',en
 {const breakBtn=document.getElementById('btn-break');breakBtn.addEventListener('touchstart',(e)=>{e.preventDefault();if(typeof tryRecoverNearbyBoat==='function'&&tryRecoverNearbyBoat())return;if(typeof tryPlayerAttack==='function'&&tryPlayerAttack())return;mining.active=true;},{passive:false});const stopMine=()=>{mining.active=false;resetMining();};breakBtn.addEventListener('touchend',stopMine);breakBtn.addEventListener('touchcancel',stopMine);}
 bindHold('btn-place',()=>placeOrEat(),true);{const jumpBtn=document.getElementById('btn-jump');jumpBtn.addEventListener('touchstart',(e)=>{e.preventDefault();keys['Space']=true;},{passive:false});const off=()=>{keys['Space']=false;};jumpBtn.addEventListener('touchend',off);jumpBtn.addEventListener('touchcancel',off);}
 let currentTarget=null;function updateTarget(){const dir=camera.getDirection(BABYLON.Vector3.Forward());currentTarget=raycastVoxel(camera.position,dir,6);if(currentTarget){highlightLines.position.set(currentTarget.x-0.001,currentTarget.y-0.001,currentTarget.z-0.001);highlightLines.setEnabled(true);}else{highlightLines.setEnabled(false);}}
-const mining={active:false,progress:0,key:null,stage:-1};const CRACK_STAGES=10;const crackTexture=new BABYLON.DynamicTexture('crackTex',{width:64,height:64},scene,false,BABYLON.Texture.NEAREST_SAMPLINGMODE);crackTexture.hasAlpha=true;const crackMat=new BABYLON.StandardMaterial('crackMat',scene);crackMat.emissiveTexture=crackTexture;crackMat.opacityTexture=crackTexture;crackMat.disableLighting=true;crackMat.backFaceCulling=true;const crackBox=BABYLON.MeshBuilder.CreateBox('crackBox',{size:1.004},scene);crackBox.material=crackMat;crackBox.isPickable=false;crackBox.setEnabled(false);function drawCrack(stage){const ctx=crackTexture.getContext();ctx.clearRect(0,0,64,64);const rnd=mulberry32(424242);ctx.strokeStyle='rgba(15,15,15,0.92)';ctx.lineWidth=2.4;ctx.lineCap='round';const branches=3+stage*2;for(let i=0;i<branches;i++){let x=32+(rnd()-0.5)*10,y=32+(rnd()-0.5)*10;let a=rnd()*Math.PI*2;const len=10+stage*2.6+rnd()*8;const segs=3+Math.floor(rnd()*3);ctx.beginPath();ctx.moveTo(x,y);for(let s=0;s<segs;s++){a+=(rnd()-0.5)*1.3;x+=Math.cos(a)*(len/segs);y+=Math.sin(a)*(len/segs);ctx.lineTo(x,y);}
-ctx.stroke();}
-crackTexture.update();}
+const mining={active:false,progress:0,key:null,stage:-1};const CRACK_STAGES=10;
+// Enhanced crack texture: larger canvas, richer Minecraft-style fracture pattern
+const crackTexture=new BABYLON.DynamicTexture('crackTex',{width:128,height:128},scene,false,BABYLON.Texture.NEAREST_SAMPLINGMODE);
+crackTexture.hasAlpha=true;
+const crackMat=new BABYLON.StandardMaterial('crackMat',scene);
+crackMat.emissiveTexture=crackTexture;
+crackMat.opacityTexture=crackTexture;
+crackMat.diffuseTexture=crackTexture;
+crackMat.disableLighting=true;
+crackMat.backFaceCulling=false; // show on all faces
+crackMat.zOffset=-2; // render on top of block face
+crackMat.alphaMode=BABYLON.Engine.ALPHA_COMBINE;
+const crackBox=BABYLON.MeshBuilder.CreateBox('crackBox',{size:1.006},scene);
+crackBox.material=crackMat;
+crackBox.isPickable=false;
+crackBox.setEnabled(false);
+crackBox.renderingGroupId=1; // always render on top
+
+function drawCrack(stage){
+  const W=128,H=128,cx=W/2,cy=H/2;
+  const ctx=crackTexture.getContext();
+  ctx.clearRect(0,0,W,H);
+  const rnd=mulberry32(0xBEEF1234);
+
+  // Dark vignette: block gets darker at high crack stages
+  const vigAlpha=0.06+stage*0.025;
+  ctx.fillStyle=`rgba(0,0,0,${vigAlpha.toFixed(3)})`;
+  ctx.fillRect(0,0,W,H);
+
+  // Spider-web style fractures radiating from impact point
+  const impX=cx+(rnd()-0.5)*12, impY=cy+(rnd()-0.5)*12;
+  const mainBranches=2+Math.floor(stage*0.8);
+  const totalBranches=mainBranches+(stage>4?2:0);
+
+  for(let i=0;i<totalBranches;i++){
+    const baseAngle=(i/totalBranches)*Math.PI*2+(rnd()-0.5)*0.5;
+    drawCrackBranch(ctx,rnd,impX,impY,baseAngle,stage,true);
+  }
+
+  // Fine hairline cracks at high stages
+  if(stage>=6){
+    const hairlines=Math.floor((stage-5)*1.5);
+    for(let h=0;h<hairlines;h++){
+      const hx=20+rnd()*88, hy=20+rnd()*88;
+      const ha=rnd()*Math.PI*2;
+      drawCrackBranch(ctx,rnd,hx,hy,ha,Math.floor(stage*0.6),false);
+    }
+  }
+
+  // Central impact: darker circle at origin
+  const impR=3+stage*0.7;
+  const grd=ctx.createRadialGradient(impX,impY,0,impX,impY,impR);
+  grd.addColorStop(0,`rgba(0,0,0,${(0.5+stage*0.04).toFixed(2)})`);
+  grd.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=grd;
+  ctx.beginPath();ctx.arc(impX,impY,impR,0,Math.PI*2);ctx.fill();
+
+  crackTexture.update();
+}
+
+function drawCrackBranch(ctx,rnd,startX,startY,angle,stage,doSubBranches){
+  const maxLen=22+stage*4.5;
+  const segments=4+Math.floor(rnd()*4)+Math.floor(stage*0.4);
+  const lineW=1.2+stage*0.18;
+
+  ctx.strokeStyle=`rgba(8,5,3,${(0.75+stage*0.025).toFixed(2)})`;
+  ctx.lineWidth=lineW;
+  ctx.lineCap='round';
+  ctx.lineJoin='round';
+
+  let x=startX,y=startY,a=angle;
+  const pts=[[x,y]];
+  const segLen=maxLen/segments;
+
+  ctx.beginPath();ctx.moveTo(x,y);
+  for(let s=0;s<segments;s++){
+    a+=(rnd()-0.5)*0.9;
+    x+=Math.cos(a)*segLen*(0.8+rnd()*0.4);
+    y+=Math.sin(a)*segLen*(0.8+rnd()*0.4);
+    ctx.lineTo(x,y);
+    pts.push([x,y]);
+  }
+  ctx.stroke();
+
+  // White highlight alongside the crack (depth illusion)
+  ctx.strokeStyle=`rgba(255,255,255,${(0.12+stage*0.01).toFixed(2)})`;
+  ctx.lineWidth=lineW*0.45;
+  ctx.beginPath();
+  for(let s=0;s<pts.length;s++){if(s===0)ctx.moveTo(pts[s][0]+0.8,pts[s][1]-0.8);else ctx.lineTo(pts[s][0]+0.8,pts[s][1]-0.8);}
+  ctx.stroke();
+
+  // Sub-branches at stage >= 3
+  if(doSubBranches&&stage>=3&&pts.length>2){
+    const numSub=1+Math.floor((stage-2)*0.5);
+    for(let sb=0;sb<numSub;sb++){
+      const pIdx=1+Math.floor(rnd()*(pts.length-1));
+      const [bx,by]=pts[pIdx];
+      const ba=a+(rnd()<0.5?1:-1)*(0.4+rnd()*0.6);
+      drawCrackBranch(ctx,rnd,bx,by,ba,Math.floor(stage*0.55),false);
+    }
+  }
+}
 function getBreakTime(id){const def=BLOCKS[id];if(!def||def.unbreakable)return Infinity;return def.breakTime!==undefined?def.breakTime:0.75;}
 // Get held tool definition
 function heldToolDef(){const slot=inventory[selectedSlot];return slot&&isTool(slot.id)?toolDef(slot.id):null;}

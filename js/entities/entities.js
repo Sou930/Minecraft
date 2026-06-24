@@ -491,7 +491,11 @@ function updateOneMob(mob,dt){
     else if(mob.pos.y<-5){mob.meshes.root.dispose();mob.meshes.legs.forEach(l=>l.dispose&&l.dispose());const i=mobs.indexOf(mob);if(i>=0)mobs.splice(i,1);return;}
   }
 
-  mob.meshes.root.position.copyFrom(mob.pos);mob.meshes.root.rotation.y=mob.yaw;
+  // Position: X/Z from physics, Y managed by IK body-bob below
+  mob.meshes.root.position.x=mob.pos.x;
+  mob.meshes.root.position.z=mob.pos.z;
+  if(!mob.t||!mob._bodyBobY){mob.meshes.root.position.y=mob.pos.y;}
+  mob.meshes.root.rotation.y=mob.yaw;
 
   mob.lookTimer-=dt;
   if(mob.lookTimer<=0){mob.lookTimer=1.0+Math.random()*2.5;
@@ -501,20 +505,104 @@ function updateOneMob(mob,dt){
   if(mob.meshes.head){mob.meshes.head.rotation.y=approachAngle(mob.meshes.head.rotation.y,mob.headYaw,dt*3);mob.meshes.head.rotation.x=mob.meshes.head.rotation.x+(mob.headPitch-mob.meshes.head.rotation.x)*Math.min(1,dt*3);}
 
   const groundSpeed=Math.hypot(mob.vel.x,mob.vel.z);const moving=groundSpeed>0.25;
-  if(moving){mob.walkPhase+=dt*(5+groundSpeed*3.2);}else{mob.walkPhase*=0.82;}
-  const amp=Math.min(0.6,0.25+groundSpeed*0.22);const swing=Math.sin(mob.walkPhase)*amp;
-  mob.meshes.legs.forEach((leg,i)=>{const s=(i===0||i===3)?swing:-swing;leg.rotation.x=s;});
-  // Humanoid arm easing: after an attack lunge the arms ease back to their
-  // species rest pose (ghoul reaching forward, archer in a draw stance).
+  // ── Smooth walk cycle: phase advances with actual ground speed ──────────────
+  const walkFreq=4.5+groundSpeed*2.8;
+  if(moving){mob.walkPhase+=dt*walkFreq;}else{mob.walkPhase+=(0-mob.walkPhase)*Math.min(1,dt*4);}
+  const amp=Math.min(0.72,0.18+groundSpeed*0.24);
+  // ── Terrain IK: adjust body height to match ground slope ─────────────────
+  // Sample ground height under front, rear, left, right of the mob for full IK.
+  if(mob.onGround&&mob.meshes.root){
+    const sin=Math.sin(mob.yaw),cos=Math.cos(mob.yaw);
+    const probeOff=0.38*(mob.t.bodyDepthMul||1)*(mob.t.small?0.7:1);
+    const latOff=0.28*(mob.t.bodyWidthMul||1)*(mob.t.small?0.7:1);
+    const fgx=Math.floor(mob.pos.x+sin*probeOff),fgz=Math.floor(mob.pos.z+cos*probeOff);
+    const bgx=Math.floor(mob.pos.x-sin*probeOff),bgz=Math.floor(mob.pos.z-cos*probeOff);
+    const lgx=Math.floor(mob.pos.x+cos*latOff),lgz=Math.floor(mob.pos.z-sin*latOff);
+    const rgx=Math.floor(mob.pos.x-cos*latOff),rgz=Math.floor(mob.pos.z+sin*latOff);
+    // Ground Y under each probe (scan ±2 blocks)
+    function probeGY(px,pz){
+      const baseY=Math.floor(mob.pos.y);
+      for(let dy=2;dy>=-3;dy--){
+        if(typeof isSolid==='function'&&typeof getBlock==='function'&&isSolid(getBlock(px,baseY+dy,pz)))return baseY+dy+1;
+      }
+      return mob.pos.y;
+    }
+    const fgy=probeGY(fgx,fgz),bgy=probeGY(bgx,bgz);
+    const lgy=probeGY(lgx,lgz),rgy=probeGY(rgx,rgz);
+    // Pitch (front-back slope)
+    const slopePitch=Math.atan2(fgy-bgy,probeOff*2);
+    mob._ikPitch=(mob._ikPitch||0)+(slopePitch-mob._ikPitch)*Math.min(1,dt*6);
+    mob.meshes.root.rotation.x=mob._ikPitch;
+    // Roll (left-right slope) blended with velocity banking
+    const slopeRoll=Math.atan2(rgy-lgy,latOff*2);
+    const lateralVel=mob.vel.x*Math.cos(mob.yaw)-mob.vel.z*Math.sin(mob.yaw);
+    const targetRoll=slopeRoll*0.5-lateralVel*0.035;
+    mob._ikRoll=(mob._ikRoll||0)+(targetRoll-mob._ikRoll)*Math.min(1,dt*5);
+    mob.meshes.root.rotation.z=mob._ikRoll;
+    // Per-leg foot planting: raise/lower each leg pivot to track ground height
+    if(mob.meshes.legs.length>=4){
+      const legPositions=[[sin*probeOff+cos*latOff,cos*probeOff-sin*latOff],
+                          [sin*probeOff-cos*latOff,cos*probeOff+sin*latOff],
+                          [-sin*probeOff+cos*latOff,-cos*probeOff-sin*latOff],
+                          [-sin*probeOff-cos*latOff,-cos*probeOff+sin*latOff]];
+      const legGrounds=[fgy,fgy,bgy,bgy]; // front pair / rear pair
+      const legH=mob.t?(mob.t.legH||0.45):0.45;
+      for(let li=0;li<4&&li<mob.meshes.legs.length;li++){
+        const leg=mob.meshes.legs[li];
+        const groundDiff=legGrounds[li]-mob.pos.y;
+        const targetExtraY=Math.max(-0.15,Math.min(0.25,groundDiff*0.5));
+        if(!leg._ikGroundY)leg._ikGroundY=0;
+        leg._ikGroundY+=(targetExtraY-leg._ikGroundY)*Math.min(1,dt*10);
+        leg.position.y=legH+leg._ikGroundY;
+      }
+    }
+  } else {
+    if(mob.meshes.root){
+      mob._ikPitch=(mob._ikPitch||0)*Math.max(0,1-dt*6);
+      mob._ikRoll=(mob._ikRoll||0)*Math.max(0,1-dt*6);
+      mob.meshes.root.rotation.x=mob._ikPitch;
+      mob.meshes.root.rotation.z=mob._ikRoll;
+    }
+    // Ease legs back to rest position
+    for(const leg of mob.meshes.legs){
+      if(leg._ikGroundY){leg._ikGroundY*=Math.max(0,1-dt*8);}
+    }
+  }
+  // ── Body bob: gentle vertical bob while walking ───────────────────────────
+  if(mob.meshes.root&&!mob.t.humanoid&&mob.onGround){
+    const bobAmp=Math.min(0.08,groundSpeed*0.016);
+    mob._bodyBobY=(mob._bodyBobY||0);
+    const targetBob=moving?Math.abs(Math.sin(mob.walkPhase))*bobAmp:0;
+    mob._bodyBobY+=(targetBob-mob._bodyBobY)*Math.min(1,dt*10);
+    mob.meshes.root.position.y=mob.pos.y+mob._bodyBobY;
+  } else if(mob.meshes.root&&mob._bodyBobY){
+    mob._bodyBobY*=Math.max(0,1-dt*8);
+    mob.meshes.root.position.y=mob.pos.y+mob._bodyBobY;
+  }
+  // ── Per-leg swing with diagonal gait (FL+RR vs FR+RL) ────────────────────
+  mob.meshes.legs.forEach((leg,i)=>{
+    // Diagonal pairs: 0(FL)&3(RR) move together; 1(FR)&2(RL) opposite
+    const phase=mob.walkPhase+((i===1||i===2)?Math.PI:0);
+    const targetAngle=Math.sin(phase)*amp;
+    // Ease leg rotation for smoothness (IIR low-pass)
+    leg.rotation.x=leg.rotation.x+(targetAngle-leg.rotation.x)*Math.min(1,dt*16);
+    // Slight lateral splay on weight-bearing leg
+    const splay=Math.cos(phase)*0.04;
+    leg.rotation.z=(leg.rotation.z||0)+(splay-leg.rotation.z)*Math.min(1,dt*10);
+  });
+  // ── Humanoid arm easing: after an attack lunge the arms ease back to their
+  // species rest pose (ghoul reaching forward, archer in a draw stance). ─────
   if(mob.meshes.humanoid&&mob.meshes.arms&&mob.meshes.arms.length){
     let restL,restR;
     if(mob.type==='ghoul'){restL=-Math.PI*0.5;restR=-Math.PI*0.5;}
     else{restL=-Math.PI*0.5;restR=-Math.PI*0.35;}
     const a=mob.meshes.arms;const k=Math.min(1,dt*6);
-    a[0].rotation.x+=(restL-a[0].rotation.x)*k;
-    a[1].rotation.x+=(restR-a[1].rotation.x)*k;
+    // Humanoid arm swing while walking
+    const armSwing=Math.sin(mob.walkPhase)*Math.min(0.45,groundSpeed*0.18);
+    a[0].rotation.x+=(restL+armSwing-a[0].rotation.x)*k;
+    a[1].rotation.x+=(restR-armSwing-a[1].rotation.x)*k;
   }
-  // Wolf tail wag: tamed/happy wolves wag faster; angle eases with motion.
+  // ── Wolf tail wag: tamed/happy wolves wag faster; angle eases with motion ─
   if(mob.meshes.tail){
     const happy=mob.tamed||mob.begTimer>0;
     const wagSpeed=happy?14:(moving?9:4);
@@ -524,7 +612,7 @@ function updateOneMob(mob,dt){
     // Tail lifts when tamed (confident), droops slightly otherwise.
     mob.meshes.tail.rotation.x=happy?-0.7:-0.4;
   }
-  // Chicken wings flutter up/down: fast when moving (or airborne), gentle idle.
+  // ── Chicken wings flutter up/down: fast when moving (or airborne) ─────────
   if(mob.meshes.wings&&mob.meshes.wings.length){
     const airborne=!mob.onGround;
     const flap=airborne?Math.sin(mob.walkPhase*4)*0.9+0.5:(moving?Math.abs(Math.sin(mob.walkPhase*2))*0.5:0.05+Math.sin(mob.walkPhase*1.5)*0.05);
