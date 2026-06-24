@@ -190,3 +190,20 @@ body.screenshot-mode #btn-screenshot-exit{display:flex}
 #xp-bar-wrap.xp-levelup #xp-level-label{animation:xp-level-flash .6s ease}
 @keyframes xp-level-flash{0%{transform:scale(1)}30%{transform:scale(1.45);color:#ffe400}60%{transform:scale(1.15);color:#7cfc00}100%{transform:scale(1)}}
 body.screenshot-mode #xp-bar-wrap{display:none !important}
+
+/* ── Combat System: Armor Panel ─────────────────────────────────────────── */
+#armor-panel{scrollbar-width:thin;scrollbar-color:#555 #222;}
+#armor-panel::-webkit-scrollbar{width:5px;}
+#armor-panel::-webkit-scrollbar-thumb{background:#555;border-radius:4px;}
+.armor-equip-slot:hover{border-color:#7cb342 !important;background:#222 !important;}
+.armor-equip-slot:active{transform:scale(0.95);}
+
+/* ── Combat System: Status Effects HUD ──────────────────────────────────── */
+#status-effects-display{transition:opacity 0.3s;}
+body.screenshot-mode #status-effects-display{display:none!important;}
+body.screenshot-mode #combat-msg{display:none!important;}
+
+/* ── Combat System: Bow charge indicator ────────────────────────────────── */
+#bow-charge-bar{position:fixed;left:50%;bottom:calc(var(--ui-bottom) + var(--hotbar-slot) + 22px);transform:translateX(-50%);width:80px;height:6px;background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.3);border-radius:4px;overflow:hidden;display:none;pointer-events:none;z-index:25;}
+#bow-charge-fill{height:100%;width:0%;background:linear-gradient(90deg,#ffd54f,#ff8f00);border-radius:3px;transition:width 0.05s linear;}
+body.screenshot-mode #bow-charge-bar{display:none!important;}

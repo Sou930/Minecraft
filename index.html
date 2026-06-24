@@ -95,6 +95,7 @@ Place a crafting table and right-click to open 3×3 crafting
       </div>
     </div>
   </div>
+  <div id="bow-charge-bar"><div id="bow-charge-fill"></div></div>
   <button id="btn-screenshot" class="screenshot-btn" aria-label="Screenshot mode" title="Screenshot mode (P)">📷</button>
   <button id="btn-screenshot-exit" aria-label="Exit screenshot mode" title="Exit (P / Esc)">✕ <span id="ss-exit-label">Exit</span></button>
   <script src="https://cdn.jsdelivr.net/npm/babylonjs@7/babylon.min.js"></script>
@@ -130,6 +131,8 @@ Place a crafting table and right-click to open 3×3 crafting
   <script src="js/entities/minecart.js"></script>
   <!-- Fishing system (rod + fish, depends on entities/inventory) -->
   <script src="js/systems/fishing.js"></script>
+  <!-- Combat system: armor, shield, bow/crossbow, status effects, potions -->
+  <script src="js/systems/combat.js"></script>
   <!-- Redstone system (lever, dust, torch, repeater, piston, dispenser, dropper, hopper, observer) -->
   <script src="js/systems/redstone.js"></script>
   <!-- Decorations system (sign text, item frame display) -->

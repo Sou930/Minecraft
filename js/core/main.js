@@ -48,6 +48,8 @@ if(typeof ridingCart!=='undefined'&&ridingCart){
 let mx=0,mz=0;if(keys['KeyW'])mz+=1;if(keys['KeyS'])mz-=1;if(keys['KeyA'])mx-=1;if(keys['KeyD'])mx+=1;if(joy.active){mx+=joy.x;mz+=-joy.y;}
 const mlen=Math.hypot(mx,mz);if(mlen>1){mx/=mlen;mz/=mlen;}
 const sin=Math.sin(player.yaw),cos=Math.cos(player.yaw);const dirX=mx*cos+mz*sin,dirZ=-mx*sin+mz*cos;const inWaterBody=isInWater(0.5);const inWaterHead=isInWater(PLAYER.eye-0.1);if(inWaterHead&&typeof ACH!=='undefined')ACH.flag('swim');const sprint=(!!keys['ShiftLeft']||!!keys['ShiftRight'])&&player.pose===POSE.STAND;let speed=player.flying?10:(sprint?6.6:4.3);
+// Combat: apply status effect speed modifier
+if(typeof getCombatSpeedMod==='function') speed*=getCombatSpeedMod();
 // Crouch slows movement (sneak speed)
 if(!player.flying&&player.pose===POSE.CROUCH)speed*=0.5;
 if(inWaterBody&&!player.flying)speed*=0.55;const accel=Math.min(1,dt*12);player.vel.x+=(dirX*speed-player.vel.x)*accel;player.vel.z+=(dirZ*speed-player.vel.z)*accel;if(player.flying){let vy=0;if(keys['Space'])vy+=8;if(keys['KeyC'])vy-=8;player.vel.y+=(vy-player.vel.y)*Math.min(1,dt*10);player.fallStartY=null;}else if(inWaterBody){player.vel.y+=GRAVITY*0.25*dt;if(player.vel.y<-2.5)player.vel.y=-2.5;if(keys['Space']){if(!isInWater(1.0)){player.vel.y=Math.max(player.vel.y,7.6);}else{player.vel.y=Math.min(player.vel.y+30*dt,4);}}
@@ -72,9 +74,9 @@ if(typeof SFX!=='undefined'){if(moving&&player.onGround&&!player.flying&&!inWate
 player.hungerTimer+=dt*(moving?(sprint?3.2:1.4):0.4);if(player.hungerTimer>22){player.hungerTimer=0;if(player.hunger>0){player.hunger--;updateVitalsUI();}}
 if(player.hunger>=14&&player.hp<20){player.regenTimer+=dt;if(player.regenTimer>3.5){player.regenTimer=0;player.hp=Math.min(20,player.hp+1);updateVitalsUI();}}else player.regenTimer=0;if(player.hunger<=0){player.starveTimer+=dt;if(player.starveTimer>4){player.starveTimer=0;if(player.hp>1)damage(1);}}else player.starveTimer=0;if(inWaterHead){player.idleTimer+=dt;if(player.idleTimer>8){player.idleTimer=6.5;damage(1);}}else player.idleTimer=0;
 // Lava burns: standing in / touching lava deals rapid damage.
-if(!player.flying&&(isInLava(0.2)||isInLava(0.9))){player.lavaTimer=(player.lavaTimer||0)+dt;if(player.lavaTimer>0.5){player.lavaTimer=0;damage(3);}}else player.lavaTimer=0;
+if(!player.flying&&(isInLava(0.2)||isInLava(0.9))){player.lavaTimer=(player.lavaTimer||0)+dt;if(player.lavaTimer>0.5){player.lavaTimer=0;if(typeof STATUS_EFFECTS==='undefined'||!STATUS_EFFECTS.isFireResistant())damage(3,'fire');}}else player.lavaTimer=0;
 if(typeof SFX!=='undefined'){if(inWaterBody&&!player._wasInWater)SFX.splash();player._wasInWater=inWaterBody;}
-updateCamera();updatePlayerModel(dt);updateMobs(dt);if(typeof updateAttackCooldown==='function')updateAttackCooldown(dt);if(typeof updateBoats==='function')updateBoats(dt);if(typeof updateMinecarts==='function')updateMinecarts(dt);if(typeof updateFishing==='function')updateFishing(dt);updateTarget();updateMining(dt);document.getElementById('water-tint').style.opacity=inWaterHead?'1':'0';}
+updateCamera();updatePlayerModel(dt);updateMobs(dt);if(typeof updateAttackCooldown==='function')updateAttackCooldown(dt);if(typeof updateBoats==='function')updateBoats(dt);if(typeof updateMinecarts==='function')updateMinecarts(dt);if(typeof updateFishing==='function')updateFishing(dt);if(typeof updateCombatSystems==='function')updateCombatSystems(dt);updateTarget();updateMining(dt);document.getElementById('water-tint').style.opacity=inWaterHead?'1':'0';}
 // Update camera position based on view mode
 function updateCamera(){const eyeX=player.pos.x,eyeY=player.pos.y+PLAYER.eye,eyeZ=player.pos.z;const view=(typeof cameraView!=='undefined')?cameraView:0;if(view===0){camera.position.set(eyeX,eyeY,eyeZ);camera.rotation.set(player.pitch,player.yaw,0);return;}
 const cp=Math.cos(player.pitch),sp=Math.sin(player.pitch),sy=Math.sin(player.yaw),cy=Math.cos(player.yaw);
@@ -128,6 +130,8 @@ async function bootstrap(){
     if(n===0)break; // all initial chunks meshed
   }
   loadInventory();createInventoryUI();renderHotbar();updateVitalsUI();if(typeof initAchievementsUI==='function')initAchievementsUI();
+  // Combat systems: armor, shield, bow, status effects, potions
+  if(typeof initCombatUI==='function'){loadArmorFromSave();initCombatUI();}
   applyPose();if(typeof buildPlayerModel==='function')buildPlayerModel();if(typeof trySpawnMobs==='function'){trySpawnMobs();trySpawnMobs();}
   if(typeof LIGHTING!=='undefined')LIGHTING.init();
   // Settings: bind UI + apply persisted language / render distance / quality.

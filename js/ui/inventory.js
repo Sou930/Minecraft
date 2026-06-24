@@ -1,12 +1,12 @@
 const INV_SIZE=36;let inventory=new Array(INV_SIZE).fill(null);let craftSize=2;let craftGrid=new Array(craftSize*craftSize).fill(null);let heldStack=null;let inventoryOpen=false;
-function makeStack(id,count){const st={id,count:isTool(id)?1:count};if(isTool(id)){const def=toolDef(id);st.dur=def?def.maxDur:1;}return st;}
+function makeStack(id,count){const st={id,count:(isTool(id)||( ITEMS[id]&&(ITEMS[id].armor||ITEMS[id].shield||ITEMS[id].ranged)))?1:count};if(isTool(id)){const def=toolDef(id);st.dur=def?def.maxDur:1;}else if(ITEMS[id]&&(ITEMS[id].armor||ITEMS[id].shield||ITEMS[id].ranged)){st.dur=ITEMS[id].maxDur||1;}return st;}
 function loadInventory(){try{const d=JSON.parse(WORLDS.getItem('inventory')||'null');if(Array.isArray(d)&&d.length===INV_SIZE)
-inventory=d.map(s=>{if(!s||typeof s.id!=='number'||s.count<=0)return null;if(isTool(s.id)){const def=toolDef(s.id);const dur=(typeof s.dur==='number'&&s.dur>0)?Math.min(s.dur,def.maxDur):def.maxDur;return{id:s.id,count:1,dur};}return{id:s.id,count:Math.min(STACK_MAX,s.count)};});}catch(e){}}
+inventory=d.map(s=>{if(!s||typeof s.id!=='number'||s.count<=0)return null;if(isTool(s.id)){const def=toolDef(s.id);const dur=(typeof s.dur==='number'&&s.dur>0)?Math.min(s.dur,def.maxDur):def.maxDur;return{id:s.id,count:1,dur};}if(ITEMS[s.id]&&(ITEMS[s.id].armor||ITEMS[s.id].shield||ITEMS[s.id].ranged)){const maxDur=ITEMS[s.id].maxDur||1;const dur=(typeof s.dur==='number'&&s.dur>0)?Math.min(s.dur,maxDur):maxDur;return{id:s.id,count:1,dur};}return{id:s.id,count:Math.min(STACK_MAX,s.count)};});}catch(e){}}
 let invSaveTimer=null;function scheduleInvSave(){clearTimeout(invSaveTimer);invSaveTimer=setTimeout(()=>{try{WORLDS.setItem('inventory',JSON.stringify(inventory));}catch(e){}},400);}
 function itemName(id){return ITEMS[id]?ITEMS[id].name:(BLOCKS[id]?BLOCKS[id].name:'?');}
 function addToInventory(id,count){let left=count;
-// Tools do not stack
-if(isTool(id)){for(let i=0;i<INV_SIZE&&left>0;i++){if(!inventory[i]){inventory[i]=makeStack(id,1);left--;}}
+// Tools, armor, shields, ranged weapons do not stack
+if(isTool(id)||(typeof isArmorLike==='function'&&isArmorLike(id))){for(let i=0;i<INV_SIZE&&left>0;i++){if(!inventory[i]){inventory[i]=makeStack(id,1);left--;}}
 renderHotbar();if(inventoryOpen)renderInventory();scheduleInvSave();return left;}
 const cap=STACK_MAX;for(let i=0;i<INV_SIZE&&left>0;i++){const s=inventory[i];if(s&&s.id===id&&s.count<cap){const n=Math.min(cap-s.count,left);s.count+=n;left-=n;}}
 for(let i=0;i<INV_SIZE&&left>0;i++){if(!inventory[i]){const n=Math.min(cap,left);inventory[i]={id,count:n};left-=n;}}
@@ -17,12 +17,15 @@ function makeItemNode(id){
 if(typeof toolTextureFor==='function'){const tt=toolTextureFor(id);if(tt){const c=document.createElement('canvas');c.width=32;c.height=32;const ictx=c.getContext('2d');ictx.imageSmoothingEnabled=false;ictx.drawImage(tt,0,0,32,32);c.classList.add('tool-tex');return c;}}
 if(ITEMS[id]){const def=ITEMS[id];const em=document.createElement('span');em.className='item-emoji';em.textContent=def.emoji;
 if(def.toolColor){em.classList.add('tool-emoji');em.style.setProperty('--tool-color',def.toolColor);}
+// Potions: show colored tint
+if(def.isPotion&&def.color){em.style.filter=`drop-shadow(0 0 4px ${def.color})`;}
 return em;}
 const c=document.createElement('canvas');c.width=32;c.height=32;const ictx=c.getContext('2d');ictx.imageSmoothingEnabled=false;const def=BLOCKS[id];const tile=def.all!==undefined?def.all:def.side;ictx.drawImage(atlasCanvas,(tile%ATLAS_TILES)*TILE_PX,Math.floor(tile/ATLAS_TILES)*TILE_PX,TILE_PX,TILE_PX,0,0,32,32);return c;}
 function fillSlotEl(el,stack){el.innerHTML='';el.title='';if(!stack)return;el.appendChild(makeItemNode(stack.id));if(stack.count>1){const cnt=document.createElement('span');cnt.className='slot-count';cnt.textContent=stack.count;el.appendChild(cnt);}
-// Durability bar
-if(isTool(stack.id)){el.appendChild(makeDurBar(stack));}
-el.title=itemName(stack.id)+(isTool(stack.id)?` (dur ${stack.dur}/${toolDef(stack.id).maxDur})`:'');}
+// Durability bar for tools AND armor/shields/ranged weapons
+const hasMaxDur=ITEMS[stack.id]&&ITEMS[stack.id].maxDur&&(isTool(stack.id)||ITEMS[stack.id].armor||ITEMS[stack.id].shield||ITEMS[stack.id].ranged);
+if(hasMaxDur){const def=ITEMS[stack.id];const max=def.maxDur||1;const ratio=Math.max(0,Math.min(1,(stack.dur||0)/max));const bar=document.createElement('span');bar.className='dur-bar';const fill=document.createElement('span');fill.className='dur-fill';fill.style.width=(ratio*100).toFixed(1)+'%';const hue=ratio>0.5?120:(ratio>0.2?55:0);fill.style.background=`hsl(${hue},80%,48%)`;bar.appendChild(fill);if(ratio>=1)bar.style.opacity='0';el.appendChild(bar);}
+el.title=itemName(stack.id)+(hasMaxDur?` (${stack.dur||'?'}/${ITEMS[stack.id].maxDur})`:'');}
 // Build durability bar element
 function makeDurBar(stack){const def=toolDef(stack.id);const max=def?def.maxDur:1;const ratio=Math.max(0,Math.min(1,(stack.dur||0)/max));const bar=document.createElement('span');bar.className='dur-bar';const fill=document.createElement('span');fill.className='dur-fill';fill.style.width=(ratio*100).toFixed(1)+'%';
 const hue=ratio>0.5?120:(ratio>0.2?55:0);fill.style.background=`hsl(${hue},80%,48%)`;bar.appendChild(fill);
@@ -49,7 +52,7 @@ if(isTool(out.id)){if(heldStack)return;heldStack=makeStack(out.id,1);}
 else if(heldStack){if(heldStack.id!==out.id||heldStack.count+out.count>STACK_MAX)return;heldStack.count+=out.count;}else{heldStack={id:out.id,count:out.count};}
 for(let i=0;i<craftGrid.length;i++){if(craftGrid[i]){craftGrid[i].count--;if(craftGrid[i].count<=0)craftGrid[i]=null;}}
 if(typeof ACH!=='undefined')ACH.track('crafted');afterInvChange();}
-function afterInvChange(){renderInventory();renderHotbar();updateHeldUI();scheduleInvSave();if(recipePanelOpen&&inventoryOpen)renderRecipeBook();}
+function afterInvChange(){renderInventory();renderHotbar();updateHeldUI();scheduleInvSave();if(recipePanelOpen&&inventoryOpen)renderRecipeBook();if(typeof armorPanelOpen!=='undefined'&&armorPanelOpen&&typeof buildArmorPanel==='function')buildArmorPanel();}
 const heldEl=document.getElementById('held-item');function updateHeldUI(){heldEl.innerHTML='';if(heldStack){heldEl.appendChild(makeItemNode(heldStack.id));if(heldStack.count>1){const c=document.createElement('span');c.className='slot-count';c.textContent=heldStack.count;heldEl.appendChild(c);}
 if(isTool(heldStack.id))heldEl.appendChild(makeDurBar(heldStack));
 heldEl.style.display='block';}else{heldEl.style.display='none';}}
@@ -78,7 +81,7 @@ const hb=document.getElementById('inv-hotbar');for(let i=0;i<9;i++){const loc={k
 document.getElementById('btn-inventory').addEventListener('click',(e)=>{e.stopPropagation();if(started&&!player.dead)toggleInventory();});document.getElementById('btn-inv-close').addEventListener('click',()=>toggleInventory(false));document.getElementById('btn-recipes').addEventListener('click',()=>setRecipePanel(!recipePanelOpen));document.getElementById('btn-recipe-close').addEventListener('click',()=>setRecipePanel(false));document.getElementById('inventory-overlay').addEventListener('click',(e)=>{if(e.target.id==='inventory-overlay')toggleInventory(false);});canvas.addEventListener('click',()=>{if(!isMobile&&started&&!paused&&!inventoryOpen&&document.pointerLockElement!==canvas)lockPointer();});}
 function renderInventory(){for(let i=0;i<craftGrid.length;i++)fillSlotEl(slotEls.craft[i],craftGrid[i]);fillSlotEl(slotEls.result,craftResultNow());for(let i=9;i<INV_SIZE;i++)fillSlotEl(slotEls.main[i-9],inventory[i]);for(let i=0;i<9;i++)fillSlotEl(slotEls.hotbar[i],inventory[i]);}
 function lockPointer(){try{const p=canvas.requestPointerLock();if(p&&p.catch)p.catch(()=>{});}catch(e){}}
-function toggleInventory(force,mode){const open=force!==undefined?force:!inventoryOpen;if(open===inventoryOpen||!started||player.dead)return;inventoryOpen=open;const ov=document.getElementById('inventory-overlay');if(open){if(mode===3&&typeof ACH!=='undefined')ACH.flag('workbench');setCraftMode(mode===3?3:2);mining.active=false;resetMining();clearInterval(actionInterval);ov.style.display='flex';renderInventory();updateHeldUI();document.getElementById('recipe-panel').style.display=recipePanelOpen?'flex':'none';document.getElementById('btn-recipes').classList.toggle('active',recipePanelOpen);if(recipePanelOpen)renderRecipeBook();if(!isMobile&&document.pointerLockElement===canvas)document.exitPointerLock();}else{for(let i=0;i<craftGrid.length;i++){if(craftGrid[i]){addToInventory(craftGrid[i].id,craftGrid[i].count);craftGrid[i]=null;}}
+function toggleInventory(force,mode){const open=force!==undefined?force:!inventoryOpen;if(open===inventoryOpen||!started||player.dead)return;inventoryOpen=open;const ov=document.getElementById('inventory-overlay');if(open){if(mode===3&&typeof ACH!=='undefined')ACH.flag('workbench');setCraftMode(mode===3?3:2);mining.active=false;resetMining();clearInterval(actionInterval);ov.style.display='flex';renderInventory();updateHeldUI();document.getElementById('recipe-panel').style.display=recipePanelOpen?'flex':'none';document.getElementById('btn-recipes').classList.toggle('active',recipePanelOpen);if(recipePanelOpen)renderRecipeBook();if(typeof buildArmorPanel==='function')buildArmorPanel();if(!isMobile&&document.pointerLockElement===canvas)document.exitPointerLock();}else{for(let i=0;i<craftGrid.length;i++){if(craftGrid[i]){addToInventory(craftGrid[i].id,craftGrid[i].count);craftGrid[i]=null;}}
 if(heldStack){addToInventory(heldStack.id,heldStack.count);heldStack=null;}
 updateHeldUI();ov.style.display='none';renderHotbar();scheduleInvSave();if(!isMobile)lockPointer();}}
 let recipePanelOpen=false;function recipeNeeds(rec){const m=new Map();for(const row of rec.pattern)
