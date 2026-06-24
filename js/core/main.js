@@ -176,7 +176,9 @@ updateDayNight(dt);if(worldReady){if(typeof processRelightQueue!=='undefined')pr
 // Periodically persist player position (every ~5s of play) so an unexpected
 // crash / close still resumes near where the player was.
 if(worldReady&&started&&!paused){_posSaveAcc+=dt;if(_posSaveAcc>=5){_posSaveAcc=0;if(typeof savePlayerState==='function')savePlayerState();if(typeof XP!=='undefined'&&typeof XP.save==='function')XP.save();}}
-updateHUD(dt);scene.render();});
+updateHUD(dt);
+if(typeof EXPLORATION!=='undefined'&&worldReady&&started)EXPLORATION.update();
+scene.render();});
 // Cherry-blossom petals & falling leaves now live in js/effects/particles.js
 // Update ambient audio state
 function updateAudioEnvironment(dt){if(typeof SFX==='undefined')return;const px=Math.floor(player.pos.x),py=Math.floor(player.pos.y+1),pz=Math.floor(player.pos.z);const underground=!(typeof skyExposed==='function'&&skyExposed(px,py,pz));

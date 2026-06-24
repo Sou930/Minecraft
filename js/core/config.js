@@ -333,6 +333,11 @@ const ITEM_SHOVEL_WOOD=221,ITEM_SHOVEL_STONE=222,ITEM_SHOVEL_IRON=223,ITEM_SHOVE
 // ---- Redstone item ----
 const ITEM_REDSTONE=260;
 ITEMS[ITEM_REDSTONE]={name:'Redstone',emoji:'🔴',placesBlock:B.REDSTONE_DUST};
+// ---- Exploration tools: Map, Compass, Clock ----
+const ITEM_MAP=270,ITEM_COMPASS=271,ITEM_CLOCK=272;
+ITEMS[ITEM_MAP]    ={name:'Map',     emoji:'🗺',explorationTool:'map'};
+ITEMS[ITEM_COMPASS]={name:'Compass', emoji:'🧭',explorationTool:'compass'};
+ITEMS[ITEM_CLOCK]  ={name:'Clock',   emoji:'🕐',explorationTool:'clock'};
 // Tool helpers
 function isTool(id){return !!(ITEMS[id]&&ITEMS[id].material&&ITEMS[id].toolClass);}
 function toolDef(id){return isTool(id)?ITEMS[id]:null;}
@@ -534,6 +539,14 @@ const RECIPES=[
 {cat:'building',pattern:[[B.IRON_ORE,B.IRON_ORE,B.IRON_ORE],[B.IRON_ORE,B.IRON_ORE,B.IRON_ORE]],out:{id:B.IRON_BARS,count:16}},
 // ---- Glass Pane: 6 glass in 2 rows → 16 panes ----
 {cat:'building',pattern:[[B.GLASS,B.GLASS,B.GLASS],[B.GLASS,B.GLASS,B.GLASS]],out:{id:B.GLASS_PANE,count:16}},
+// ---- Exploration tools ----
+// Map: 8 paper (sugar cane proxy = bamboo) around a compass → 1 map
+// Simplified: 8 sand around 1 iron ore → 1 map (sand = paper proxy, iron = ink)
+{cat:'tools',pattern:[[B.SAND,B.SAND,B.SAND],[B.SAND,B.IRON_ORE,B.SAND],[B.SAND,B.SAND,B.SAND]],out:{id:ITEM_MAP,count:1}},
+// Compass: 4 iron ore in + around 1 redstone → 1 compass
+{cat:'tools',pattern:[[null,B.IRON_ORE,null],[B.IRON_ORE,ITEM_REDSTONE,B.IRON_ORE],[null,B.IRON_ORE,null]],out:{id:ITEM_COMPASS,count:1}},
+// Clock: 4 gold ore in + around 1 redstone → 1 clock
+{cat:'tools',pattern:[[null,B.GOLD_ORE,null],[B.GOLD_ORE,ITEM_REDSTONE,B.GOLD_ORE],[null,B.GOLD_ORE,null]],out:{id:ITEM_CLOCK,count:1}},
 ];
 // Achievement definitions: stat=counter key, goal=target value
 const ACHIEVEMENTS=[
