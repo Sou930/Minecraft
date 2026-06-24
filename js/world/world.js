@@ -158,6 +158,22 @@ function heightAtRaw(x,z,c){
     // shallow water threads between the soggy hummocks.
     h=SEA_LEVEL-1+fbm2(x,z,91,2,1/30,0.5,2.0)*3;
   }
+  // CORAL TIDELANDS: very shallow coastal flat, just at / slightly above sea level
+  if(e>=0.32&&e<0.42&&t>0.52&&m>0.55){
+    h=SEA_LEVEL+fbm2(x,z,241,2,1/40,0.5,2.0)*4-1;
+  }
+  // CRYSTAL PLAINS: gently rolling, slightly elevated (crystal spires poke out)
+  {const cr=fbm2(x,z,229,3,1/100,0.5,2.0);
+   if(cr>0.72&&t>=0.32&&t<=0.55&&m<0.44){
+     h=SEA_LEVEL+6+fbm2(x,z,243,3,1/40,0.5,2.0)*10;
+   }
+  }
+  // WITHERED FOREST: slightly hilly, gloomy terrain
+  {const wf=fbm2(x,z,233,3,1/95,0.5,2.0);
+   if(wf>0.68&&t>=0.32&&t<0.44&&m>=0.50){
+     h=SEA_LEVEL+3+fbm2(x,z,247,3,1/35,0.5,2.0)*14;
+   }
+  }
   // OASIS basin: inside the rare desert oasis pockets, scoop a shallow circular
   // bowl that dips to just below sea level so it fills with a small pool of
   // water, ringed by palms. Detected with the same noise field as biomeAt.
@@ -326,6 +342,8 @@ else if((biome===BIOME.MOUNTAINS)&&highRock){
   else if(y>=h-1&&h<snowLine&&valueNoise(x/4,z/4,307)>0.62)id=B.DIRT;
   else id=B.STONE;
 }
+else if(biome===BIOME.CRYSTAL_PLAINS&&y>=h-soilDepth&&y<h)id=B.CALCITE;
+else if(biome===BIOME.CORAL_TIDELANDS&&y>=h-soilDepth&&y<h)id=B.CORAL_SAND;
 else if(y<h-soilDepth)id=B.STONE;
 else if(y<h)id=beach?B.SAND:B.DIRT;
 else{ // surface block (y===h)
@@ -334,6 +352,9 @@ else{ // surface block (y===h)
   else if(biome===BIOME.OCEAN)id=B.SAND;   // ocean floor
   else if(biome===BIOME.SAVANNA)id=B.DRY_GRASS;  // golden savanna grass
   else if(biome===BIOME.OASIS)id=B.SAND;   // desert oasis pool/banks are sandy
+  else if(biome===BIOME.CRYSTAL_PLAINS)id=B.CALCITE;  // white calcite ground
+  else if(biome===BIOME.WITHERED_FOREST)id=B.MOSS;    // mossy grey ground
+  else if(biome===BIOME.CORAL_TIDELANDS)id=B.CORAL_SAND; // pink coral sand
   else id=B.GRASS;
 }
 world[blockIndex(x,y,z)]=id;}
@@ -1133,6 +1154,66 @@ if(biome===BIOME.FLOWER_FIELD){
   // dense ground-cover flowers placed later.
   if(surf!==B.GRASS||hash2(x+999,z-777,5)<=0.997)continue;
 }
+// ---- NEW BIOME VEGETATION ------------------------------------------------
+if(biome===BIOME.CRYSTAL_PLAINS){
+  // Amethyst crystal clusters burst from the calcite ground, glowing at night.
+  // A few mossy logs and fern stems add ground-level detail.
+  if(surf===B.CALCITE&&world[blockIndex(x,h+1,z)]===B.AIR){
+    const r2=hash2(x+1001,z+2001,40);
+    if(r2>0.94){// amethyst cluster formation (1–4 clusters nearby)
+      world[blockIndex(x,h+1,z)]=B.AMETHYST_CLUSTER;
+    }else if(r2>0.88){
+      world[blockIndex(x,h+1,z)]=B.FERN_STEM;
+    }else if(r2>0.85){
+      world[blockIndex(x,h+1,z)]=B.AMETHYST_BLOCK; // mini amethyst pillar
+    }
+  }
+  continue;
+}
+if(biome===BIOME.WITHERED_FOREST){
+  // Dead withered logs, grey foliage, poison mushrooms and mangrove roots.
+  if(surf!==B.MOSS)continue;
+  if(world[blockIndex(x,h+1,z)]!==B.AIR)continue;
+  const rw=hash2(x+3001,z+4001,41);
+  if(rw>0.965){// withered dead tree
+    if(h+7<WORLD_H){
+      const trunkH=3+Math.floor(hash2(x,z,42)*3);
+      for(let y=1;y<=trunkH;y++)if(world[blockIndex(x,h+y,z)]===B.AIR)world[blockIndex(x,h+y,z)]=B.WITHERED_LOG;
+      // sparse grey canopy
+      const cy=h+trunkH;
+      for(let dx=-2;dx<=2;dx++)for(let dz=-2;dz<=2;dz++){
+        if(Math.abs(dx)+Math.abs(dz)>3)continue;
+        for(let dy=0;dy<=2;dy++){const yy=cy+dy;if(yy<WORLD_H&&world[blockIndex(x+dx,yy,z+dz)]===B.AIR&&hash2(x+dx*5,z+dz*5,43+dy)<0.65)world[blockIndex(x+dx,yy,z+dz)]=B.GRAY_LEAVES;}
+      }
+    }
+  }else if(rw>0.940){// poison mushroom cluster
+    world[blockIndex(x,h+1,z)]=B.POISON_MUSHROOM;
+  }else if(rw>0.920){// mangrove roots crawling on ground
+    world[blockIndex(x,h+1,z)]=B.MANGROVE_ROOTS;
+  }else if(rw>0.900){// fern stem patch
+    world[blockIndex(x,h+1,z)]=B.FERN_STEM;
+  }
+  continue;
+}
+if(biome===BIOME.CORAL_TIDELANDS){
+  // Dense coral clusters on the coral sand.
+  if(surf!==B.CORAL_SAND&&surf!==B.TIDAL_SAND&&surf!==B.SAND)continue;
+  if(world[blockIndex(x,h+1,z)]!==B.AIR&&world[blockIndex(x,h+1,z)]!==B.WATER)continue;
+  if(h>SEA_LEVEL+1)continue; // only near or below tide line
+  const rc=hash2(x+5001,z+6001,44);
+  if(rc>0.85){
+    const coralIds=[B.CORAL_PINK,B.CORAL_PURPLE,B.CORAL_BLUE];
+    const cid=coralIds[Math.floor(rc*100)%3];
+    world[blockIndex(x,h+1,z)]=cid;
+  }else if(rc>0.78){
+    world[blockIndex(x,h+1,z)]=B.SEAWEED;
+  }else if(h===SEA_LEVEL+1&&rc>0.72){
+    world[blockIndex(x,h+1,z)]=B.LOTUS_LEAF;
+  }else if(h===SEA_LEVEL+1&&rc>0.67){
+    world[blockIndex(x,h+1,z)]=B.WATER_LILY;
+  }
+  continue;
+}
 // Tree spawn probability per biome (lower threshold => denser forest).
 const treeP=biome===BIOME.JUNGLE?0.9:(biome===BIOME.FOREST?0.962:(biome===BIOME.SWAMP?0.985:(biome===BIOME.PLAINS?0.995:0.9965)));
 if(hash2(x+999,z-777,5)<=treeP)continue;
@@ -1223,13 +1304,13 @@ const FIELD_FLOWERS=[B.FLOWER_DANDELION,B.FLOWER_POPPY,B.FLOWER_CORNFLOWER,B.FLO
 function placeGroundCover(){for(let x=3;x<WORLD_W-3;x++){for(let z=3;z<WORLD_D-3;z++){
   const biome=biomeMap[colIndex(x,z)];
   // only lush, grassy land gets ground cover
-  if(biome!==BIOME.PLAINS&&biome!==BIOME.FOREST&&biome!==BIOME.JUNGLE&&biome!==BIOME.SWAMP&&biome!==BIOME.SNOWY&&biome!==BIOME.SAVANNA&&biome!==BIOME.TAIGA&&biome!==BIOME.GIANT_FOREST&&biome!==BIOME.CHERRY&&biome!==BIOME.AUTUMN&&biome!==BIOME.FLOWER_FIELD&&biome!==BIOME.MANGROVE)continue;
+  if(biome!==BIOME.PLAINS&&biome!==BIOME.FOREST&&biome!==BIOME.JUNGLE&&biome!==BIOME.SWAMP&&biome!==BIOME.SNOWY&&biome!==BIOME.SAVANNA&&biome!==BIOME.TAIGA&&biome!==BIOME.GIANT_FOREST&&biome!==BIOME.CHERRY&&biome!==BIOME.AUTUMN&&biome!==BIOME.FLOWER_FIELD&&biome!==BIOME.MANGROVE&&biome!==BIOME.WITHERED_FOREST)continue;
   const h=heightMap[colIndex(x,z)];if(h<SEA_LEVEL||h+2>=WORLD_H)continue;
-  const surf=world[blockIndex(x,h,z)];const ground=biome===BIOME.SNOWY?B.SNOW:(biome===BIOME.SAVANNA?B.DRY_GRASS:B.GRASS);
+  const surf=world[blockIndex(x,h,z)];const ground=biome===BIOME.SNOWY?B.SNOW:(biome===BIOME.SAVANNA?B.DRY_GRASS:(biome===BIOME.WITHERED_FOREST?B.MOSS:B.GRASS));
   if(surf!==ground)continue;                       // skip dirt/sand/paths under trees etc.
   if(world[blockIndex(x,h+1,z)]!==B.AIR)continue;   // don't bury trunks/leaves/water
   // Plains are flowery meadows; flower fields are denser still; forests grassy.
-  const density=biome===BIOME.FLOWER_FIELD?0.55:(biome===BIOME.PLAINS?0.30:(biome===BIOME.JUNGLE?0.40:(biome===BIOME.FOREST?0.22:(biome===BIOME.SWAMP?0.20:(biome===BIOME.MANGROVE?0.22:(biome===BIOME.SAVANNA?0.34:(biome===BIOME.TAIGA?0.16:(biome===BIOME.CHERRY?0.30:(biome===BIOME.AUTUMN?0.26:(biome===BIOME.GIANT_FOREST?0.18:0.08))))))))));
+  const density=biome===BIOME.FLOWER_FIELD?0.55:(biome===BIOME.PLAINS?0.30:(biome===BIOME.JUNGLE?0.40:(biome===BIOME.FOREST?0.22:(biome===BIOME.SWAMP?0.20:(biome===BIOME.MANGROVE?0.22:(biome===BIOME.SAVANNA?0.34:(biome===BIOME.TAIGA?0.16:(biome===BIOME.CHERRY?0.30:(biome===BIOME.AUTUMN?0.26:(biome===BIOME.GIANT_FOREST?0.18:(biome===BIOME.WITHERED_FOREST?0.28:0.08)))))))))));
   if(hash2(x+421,z-869,30)>density)continue;
   // Roughly 1 in 7 patches is a flower, the rest are grass tufts. In cherry
   // groves a good share of the cover is fallen pink petals carpeting the floor.
@@ -1241,6 +1322,12 @@ function placeGroundCover(){for(let x=3;x<WORLD_W-3;x++){for(let z=3;z<WORLD_D-3
     if(hash2(x-271,z+613,31)<0.78){
       plant=FIELD_FLOWERS[Math.floor(hash2(x+57,z+91,32)*FIELD_FLOWERS.length)%FIELD_FLOWERS.length];
     }else plant=B.TALL_GRASS;
+  }else if(biome===BIOME.WITHERED_FOREST){
+    const rg=hash2(x-271,z+613,31);
+    if(rg<0.25)plant=B.FERN_STEM;
+    else if(rg<0.45)plant=B.DEAD_BUSH;
+    else if(rg<0.55)plant=B.POISON_MUSHROOM;
+    else plant=B.TALL_GRASS;
   }else if(hash2(x-271,z+613,31)<(biome===BIOME.PLAINS?0.22:(biome===BIOME.AUTUMN?0.18:(biome===BIOME.SAVANNA?0.10:0.12)))){
     const pal=(biome===BIOME.PLAINS||biome===BIOME.AUTUMN)?FIELD_FLOWERS:FLOWERS;
     plant=pal[Math.floor(hash2(x+57,z+91,32)*pal.length)%pal.length];

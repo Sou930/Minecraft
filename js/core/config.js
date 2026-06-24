@@ -23,7 +23,21 @@ OBSERVER_FACE:207,OBSERVER_BACK:208,OBSERVER_SIDE:209,
 // New decorative / interactive block tiles (row 27)
 SIGN_BOARD:210,IRON_BARS:211,FLOWER_POT:212,ITEM_FRAME:213,
 // New ores / rocks / mushrooms (row 27-30)
-EMERALD_ORE:214,RUBY_ORE:215,SAPPHIRE_ORE:216,OBSIDIAN_ORE:217,SULFUR_BLOCK:218,PHOSPHOR_STONE:219,POLISHED_AMETHYST:220,LEAD_ORE:221,TIN_ORE:222,BRONZE_BLOCK:223,LAVA_ROCK:224,TUFF:225,DEEPSLATE:226,HUGE_MUSHROOM_RED:227,HUGE_MUSHROOM_BROWN:228,MUSHROOM_BLOCK:229,MUSHROOM_STEM:230};const B={AIR:0,GRASS:1,DIRT:2,STONE:3,SAND:4,LOG:5,LEAVES:6,PLANKS:7,GLASS:8,BRICK:9,BEDROCK:10,WATER:11,COBBLE:12,COAL_ORE:13,IRON_ORE:14,GOLD_ORE:15,DIAMOND_ORE:16,GRAVEL:17,SANDSTONE:18,SNOW:19,ICE:20,OBSIDIAN:21,CACTUS:22,CRAFTING:23,FURNACE:24,BIRCH_LOG:25,BIRCH_LEAVES:26,LAVA:27,CORAL_PINK:28,CORAL_PURPLE:29,CORAL_BLUE:30,SEAWEED:31,DEAD_LOG:32,STONE_BRICK:33,MOSSY_BRICK:34,CRACKED_BRICK:35,PATH:36,TORCH:37,COBWEB:38,RAIL:39,CHEST:40,WOOL_RED:41,WOOL_WHITE:42,BOOKSHELF:43,LANTERN:44,HAY:45,DRIPSTONE:46,CALCITE:47,AMETHYST_BLOCK:48,AMETHYST_CLUSTER:49,MOSS:50,GLOW_LICHEN:51,SMOOTH_BASALT:52,FARMLAND:53,FARMLAND_WET:54,WHEAT:55,CARROT:56,POTATO:57,PUMPKIN:58,MELON:59,DEAD_BUSH:60,TALL_GRASS:61,FLOWER_DANDELION:62,FLOWER_POPPY:63,FLOWER_CORNFLOWER:64,SPRUCE_LOG:65,SPRUCE_LEAVES:66,ACACIA_LOG:67,ACACIA_LEAVES:68,CHERRY_LOG:69,CHERRY_LEAVES:70,DRY_GRASS:71,CHERRY_PETALS:72,BAMBOO:73,MANGROVE_LOG:74,MANGROVE_LEAVES:75,MANGROVE_ROOTS:76,PALM_LOG:77,PALM_LEAVES:78,MAPLE_LOG:79,MAPLE_LEAVES_RED:80,MAPLE_LEAVES_ORANGE:81,MAPLE_LEAVES_YELLOW:82,FLOWER_ALLIUM:83,FLOWER_TULIP:84,FLOWER_OXEYE:85,DOOR_BOTTOM_N_CLOSED:86,DOOR_BOTTOM_N_OPEN:87,DOOR_BOTTOM_E_CLOSED:88,DOOR_BOTTOM_E_OPEN:89,DOOR_BOTTOM_S_CLOSED:90,DOOR_BOTTOM_S_OPEN:91,DOOR_BOTTOM_W_CLOSED:92,DOOR_BOTTOM_W_OPEN:93,DOOR_TOP_N_CLOSED:94,DOOR_TOP_N_OPEN:95,DOOR_TOP_E_CLOSED:96,DOOR_TOP_E_OPEN:97,DOOR_TOP_S_CLOSED:98,DOOR_TOP_S_OPEN:99,DOOR_TOP_W_CLOSED:100,DOOR_TOP_W_OPEN:101,BED:102,STAIRS_N:103,STAIRS_E:104,STAIRS_S:105,STAIRS_W:106,
+EMERALD_ORE:214,RUBY_ORE:215,SAPPHIRE_ORE:216,OBSIDIAN_ORE:217,SULFUR_BLOCK:218,PHOSPHOR_STONE:219,POLISHED_AMETHYST:220,LEAD_ORE:221,TIN_ORE:222,BRONZE_BLOCK:223,LAVA_ROCK:224,TUFF:225,DEEPSLATE:226,HUGE_MUSHROOM_RED:227,HUGE_MUSHROOM_BROWN:228,MUSHROOM_BLOCK:229,MUSHROOM_STEM:230,
+// New blocks (Crystal Plains / Withered Forest / Coral Tidelands + deco)
+PETRIFIED_LOG_SIDE:231,PETRIFIED_LOG_TOP:232,
+BAMBOO_BLOCK:233,
+FERN_STEM:234,
+LOTUS_LEAF:235,
+WATER_LILY:236,
+MOSSY_LOG_SIDE:237,MOSSY_LOG_TOP:238,
+// Crystal Plains biome ground & crystals (reuse existing CALCITE/AMETHYST tiles)
+POISON_MUSHROOM:239,
+WITHERED_LOG_SIDE:240,WITHERED_LOG_TOP:241,
+GRAY_LEAVES:242,
+CORAL_SAND:243,
+TIDAL_SAND:244,
+};const B={AIR:0,GRASS:1,DIRT:2,STONE:3,SAND:4,LOG:5,LEAVES:6,PLANKS:7,GLASS:8,BRICK:9,BEDROCK:10,WATER:11,COBBLE:12,COAL_ORE:13,IRON_ORE:14,GOLD_ORE:15,DIAMOND_ORE:16,GRAVEL:17,SANDSTONE:18,SNOW:19,ICE:20,OBSIDIAN:21,CACTUS:22,CRAFTING:23,FURNACE:24,BIRCH_LOG:25,BIRCH_LEAVES:26,LAVA:27,CORAL_PINK:28,CORAL_PURPLE:29,CORAL_BLUE:30,SEAWEED:31,DEAD_LOG:32,STONE_BRICK:33,MOSSY_BRICK:34,CRACKED_BRICK:35,PATH:36,TORCH:37,COBWEB:38,RAIL:39,CHEST:40,WOOL_RED:41,WOOL_WHITE:42,BOOKSHELF:43,LANTERN:44,HAY:45,DRIPSTONE:46,CALCITE:47,AMETHYST_BLOCK:48,AMETHYST_CLUSTER:49,MOSS:50,GLOW_LICHEN:51,SMOOTH_BASALT:52,FARMLAND:53,FARMLAND_WET:54,WHEAT:55,CARROT:56,POTATO:57,PUMPKIN:58,MELON:59,DEAD_BUSH:60,TALL_GRASS:61,FLOWER_DANDELION:62,FLOWER_POPPY:63,FLOWER_CORNFLOWER:64,SPRUCE_LOG:65,SPRUCE_LEAVES:66,ACACIA_LOG:67,ACACIA_LEAVES:68,CHERRY_LOG:69,CHERRY_LEAVES:70,DRY_GRASS:71,CHERRY_PETALS:72,BAMBOO:73,MANGROVE_LOG:74,MANGROVE_LEAVES:75,MANGROVE_ROOTS:76,PALM_LOG:77,PALM_LEAVES:78,MAPLE_LOG:79,MAPLE_LEAVES_RED:80,MAPLE_LEAVES_ORANGE:81,MAPLE_LEAVES_YELLOW:82,FLOWER_ALLIUM:83,FLOWER_TULIP:84,FLOWER_OXEYE:85,DOOR_BOTTOM_N_CLOSED:86,DOOR_BOTTOM_N_OPEN:87,DOOR_BOTTOM_E_CLOSED:88,DOOR_BOTTOM_E_OPEN:89,DOOR_BOTTOM_S_CLOSED:90,DOOR_BOTTOM_S_OPEN:91,DOOR_BOTTOM_W_CLOSED:92,DOOR_BOTTOM_W_OPEN:93,DOOR_TOP_N_CLOSED:94,DOOR_TOP_N_OPEN:95,DOOR_TOP_E_CLOSED:96,DOOR_TOP_E_OPEN:97,DOOR_TOP_S_CLOSED:98,DOOR_TOP_S_OPEN:99,DOOR_TOP_W_CLOSED:100,DOOR_TOP_W_OPEN:101,BED:102,STAIRS_N:103,STAIRS_E:104,STAIRS_S:105,STAIRS_W:106,
 COPPER:107,COPPER_EXPOSED:108,COPPER_WEATHERED:109,COPPER_OXIDIZED:110,
 SLAB_WOOD:111,SLAB_STONE:112,SLAB_SANDSTONE:113,SLAB_BRICK:114,
 FENCE_OAK:115,FENCE_STONE:116,FENCE_GATE_OAK:117,FENCE_GATE_STONE:118,
@@ -59,7 +73,20 @@ IRON_BARS:210,
 GLASS_PANE:211,
 TORCH_WALL_N:212,TORCH_WALL_S:213,TORCH_WALL_E:214,TORCH_WALL_W:215,TORCH_CEILING:216,
 // New ores / rocks / mushrooms
-EMERALD_ORE:217,RUBY_ORE:218,SAPPHIRE_ORE:219,OBSIDIAN_ORE:220,SULFUR_BLOCK:221,PHOSPHOR_STONE:222,POLISHED_AMETHYST:223,LEAD_ORE:224,TIN_ORE:225,BRONZE_BLOCK:226,LAVA_ROCK:227,TUFF:228,DEEPSLATE:229,HUGE_MUSHROOM_RED:230,HUGE_MUSHROOM_BROWN:231,MUSHROOM_BLOCK:232,MUSHROOM_STEM:233};const BLOCKS={[B.GRASS]:{name:"Grass",top:T.GRASS_TOP,side:T.GRASS_SIDE,bottom:T.DIRT,breakTime:0.9},[B.DIRT]:{name:"Dirt",all:T.DIRT,breakTime:0.75},[B.STONE]:{name:"Stone",all:T.STONE,breakTime:7.5},[B.SAND]:{name:"Sand",all:T.SAND,breakTime:0.75},[B.LOG]:{name:"Oak Log",top:T.LOG_TOP,side:T.LOG_SIDE,bottom:T.LOG_TOP,breakTime:3.0},[B.LEAVES]:{name:"Leaves",all:T.LEAVES,transparent:true,breakTime:0.3},[B.PLANKS]:{name:"Planks",all:T.PLANKS,breakTime:3.0},[B.GLASS]:{name:"Glass",all:T.GLASS,transparent:true,breakTime:0.45},[B.BRICK]:{name:"Brick",all:T.BRICK,breakTime:10.0},[B.BEDROCK]:{name:"Bedrock",all:T.BEDROCK,unbreakable:true},[B.WATER]:{name:"Water",all:T.WATER,transparent:true,fluid:true},[B.COBBLE]:{name:"Cobblestone",all:T.COBBLE,breakTime:10.0},[B.COAL_ORE]:{name:"Coal Ore",all:T.COAL_ORE,breakTime:8.0},[B.IRON_ORE]:{name:"Iron Ore",all:T.IRON_ORE,breakTime:9.0},[B.GOLD_ORE]:{name:"Gold Ore",all:T.GOLD_ORE,breakTime:9.0},[B.DIAMOND_ORE]:{name:"Diamond Ore",all:T.DIAMOND_ORE,breakTime:11.0},[B.GRAVEL]:{name:"Gravel",all:T.GRAVEL,breakTime:0.9},[B.SANDSTONE]:{name:"Sandstone",top:T.SANDSTONE_TOP,side:T.SANDSTONE_SIDE,bottom:T.SANDSTONE_TOP,breakTime:4.0},[B.SNOW]:{name:"Snow Block",all:T.SNOW,breakTime:1.0},[B.ICE]:{name:"Ice",all:T.ICE,breakTime:0.75},[B.OBSIDIAN]:{name:"Obsidian",all:T.OBSIDIAN,breakTime:45.0},[B.CACTUS]:{name:"Cactus",top:T.CACTUS_TOP,side:T.CACTUS_SIDE,bottom:T.CACTUS_TOP,breakTime:0.6},[B.CRAFTING]:{name:"Crafting Table",top:T.CRAFT_TOP,side:T.CRAFT_SIDE,bottom:T.PLANKS,breakTime:3.75},[B.FURNACE]:{name:"Furnace",top:T.FURNACE_TOP,side:T.FURNACE_FRONT,bottom:T.FURNACE_TOP,breakTime:13.0},[B.BIRCH_LOG]:{name:"Birch Log",top:T.BIRCH_TOP,side:T.BIRCH_SIDE,bottom:T.BIRCH_TOP,breakTime:3.0},[B.BIRCH_LEAVES]:{name:"Birch Leaves",all:T.BIRCH_LEAVES,transparent:true,breakTime:0.3},[B.LAVA]:{name:"Lava",all:T.LAVA,fluid:true,emissive:true,damage:true},[B.CORAL_PINK]:{name:"Pink Coral",all:T.CORAL_PINK,transparent:true,cross:true,breakTime:0.4},[B.CORAL_PURPLE]:{name:"Purple Coral",all:T.CORAL_PURPLE,transparent:true,cross:true,breakTime:0.4},[B.CORAL_BLUE]:{name:"Blue Coral",all:T.CORAL_BLUE,transparent:true,cross:true,breakTime:0.4},[B.SEAWEED]:{name:"Seaweed",all:T.SEAWEED,transparent:true,cross:true,breakTime:0.2},[B.DEAD_LOG]:{name:"Dead Log",top:T.DEAD_LOG_TOP,side:T.DEAD_LOG_SIDE,bottom:T.DEAD_LOG_TOP,breakTime:2.4},[B.STONE_BRICK]:{name:"Stone Bricks",all:T.STONE_BRICK,breakTime:9.0},[B.MOSSY_BRICK]:{name:"Mossy Bricks",all:T.MOSSY_BRICK,breakTime:9.0},[B.CRACKED_BRICK]:{name:"Cracked Bricks",all:T.CRACKED_BRICK,breakTime:9.0},[B.PATH]:{name:"Path",top:T.PATH_TOP,side:T.PATH_SIDE,bottom:T.DIRT,breakTime:0.7},[B.TORCH]:{name:"Torch",all:T.TORCH,transparent:true,emissive:true,breakTime:0.1,torch:true},[B.COBWEB]:{name:"Cobweb",all:T.COBWEB,transparent:true,breakTime:1.2,cross:true},[B.RAIL]:{name:"Rail",all:T.RAIL,transparent:true,breakTime:0.5,flat:true},[B.CHEST]:{name:"Chest",top:T.CHEST_TOP,side:T.CHEST_SIDE,bottom:T.CHEST_TOP,front:T.CHEST_FRONT,breakTime:4.0},[B.WOOL_RED]:{name:"Red Wool",all:T.WOOL_RED,breakTime:1.0},[B.WOOL_WHITE]:{name:"White Wool",all:T.WOOL_WHITE,breakTime:1.0},[B.BOOKSHELF]:{name:"Bookshelf",top:T.PLANKS,side:T.BOOKSHELF,bottom:T.PLANKS,breakTime:4.0},[B.LANTERN]:{name:"Lantern",all:T.LANTERN,transparent:true,emissive:true,breakTime:0.8,lanternBox:true},[B.HAY]:{name:"Hay Bale",top:T.HAY_TOP,side:T.HAY_SIDE,bottom:T.HAY_TOP,breakTime:1.2},[B.DRIPSTONE]:{name:"Dripstone",all:T.DRIPSTONE,breakTime:8.0},[B.CALCITE]:{name:"Calcite",all:T.CALCITE,breakTime:5.0},[B.AMETHYST_BLOCK]:{name:"Amethyst Block",all:T.AMETHYST_BLOCK,breakTime:6.0},[B.AMETHYST_CLUSTER]:{name:"Amethyst Cluster",all:T.AMETHYST_CLUSTER,transparent:true,emissive:true,cross:true,breakTime:2.0},[B.MOSS]:{name:"Moss Block",all:T.MOSS,breakTime:0.6},[B.GLOW_LICHEN]:{name:"Glow Lichen",all:T.GLOW_LICHEN,transparent:true,emissive:true,cross:true,breakTime:0.4},[B.SMOOTH_BASALT]:{name:"Smooth Basalt",all:T.SMOOTH_BASALT,breakTime:7.0},
+EMERALD_ORE:217,RUBY_ORE:218,SAPPHIRE_ORE:219,OBSIDIAN_ORE:220,SULFUR_BLOCK:221,PHOSPHOR_STONE:222,POLISHED_AMETHYST:223,LEAD_ORE:224,TIN_ORE:225,BRONZE_BLOCK:226,LAVA_ROCK:227,TUFF:228,DEEPSLATE:229,HUGE_MUSHROOM_RED:230,HUGE_MUSHROOM_BROWN:231,MUSHROOM_BLOCK:232,MUSHROOM_STEM:233,
+// New decorative / biome blocks
+PETRIFIED_LOG:234,
+BAMBOO_BLOCK:235,
+FERN_STEM:236,
+LOTUS_LEAF:237,
+WATER_LILY:238,
+MOSSY_LOG:239,
+POISON_MUSHROOM:240,
+WITHERED_LOG:241,
+GRAY_LEAVES:242,
+CORAL_SAND:243,
+TIDAL_SAND:244,
+};const BLOCKS={[B.GRASS]:{name:"Grass",top:T.GRASS_TOP,side:T.GRASS_SIDE,bottom:T.DIRT,breakTime:0.9},[B.DIRT]:{name:"Dirt",all:T.DIRT,breakTime:0.75},[B.STONE]:{name:"Stone",all:T.STONE,breakTime:7.5},[B.SAND]:{name:"Sand",all:T.SAND,breakTime:0.75},[B.LOG]:{name:"Oak Log",top:T.LOG_TOP,side:T.LOG_SIDE,bottom:T.LOG_TOP,breakTime:3.0},[B.LEAVES]:{name:"Leaves",all:T.LEAVES,transparent:true,breakTime:0.3},[B.PLANKS]:{name:"Planks",all:T.PLANKS,breakTime:3.0},[B.GLASS]:{name:"Glass",all:T.GLASS,transparent:true,breakTime:0.45},[B.BRICK]:{name:"Brick",all:T.BRICK,breakTime:10.0},[B.BEDROCK]:{name:"Bedrock",all:T.BEDROCK,unbreakable:true},[B.WATER]:{name:"Water",all:T.WATER,transparent:true,fluid:true},[B.COBBLE]:{name:"Cobblestone",all:T.COBBLE,breakTime:10.0},[B.COAL_ORE]:{name:"Coal Ore",all:T.COAL_ORE,breakTime:8.0},[B.IRON_ORE]:{name:"Iron Ore",all:T.IRON_ORE,breakTime:9.0},[B.GOLD_ORE]:{name:"Gold Ore",all:T.GOLD_ORE,breakTime:9.0},[B.DIAMOND_ORE]:{name:"Diamond Ore",all:T.DIAMOND_ORE,breakTime:11.0},[B.GRAVEL]:{name:"Gravel",all:T.GRAVEL,breakTime:0.9},[B.SANDSTONE]:{name:"Sandstone",top:T.SANDSTONE_TOP,side:T.SANDSTONE_SIDE,bottom:T.SANDSTONE_TOP,breakTime:4.0},[B.SNOW]:{name:"Snow Block",all:T.SNOW,breakTime:1.0},[B.ICE]:{name:"Ice",all:T.ICE,breakTime:0.75},[B.OBSIDIAN]:{name:"Obsidian",all:T.OBSIDIAN,breakTime:45.0},[B.CACTUS]:{name:"Cactus",top:T.CACTUS_TOP,side:T.CACTUS_SIDE,bottom:T.CACTUS_TOP,breakTime:0.6},[B.CRAFTING]:{name:"Crafting Table",top:T.CRAFT_TOP,side:T.CRAFT_SIDE,bottom:T.PLANKS,breakTime:3.75},[B.FURNACE]:{name:"Furnace",top:T.FURNACE_TOP,side:T.FURNACE_FRONT,bottom:T.FURNACE_TOP,breakTime:13.0},[B.BIRCH_LOG]:{name:"Birch Log",top:T.BIRCH_TOP,side:T.BIRCH_SIDE,bottom:T.BIRCH_TOP,breakTime:3.0},[B.BIRCH_LEAVES]:{name:"Birch Leaves",all:T.BIRCH_LEAVES,transparent:true,breakTime:0.3},[B.LAVA]:{name:"Lava",all:T.LAVA,fluid:true,emissive:true,damage:true},[B.CORAL_PINK]:{name:"Pink Coral",all:T.CORAL_PINK,transparent:true,cross:true,breakTime:0.4},[B.CORAL_PURPLE]:{name:"Purple Coral",all:T.CORAL_PURPLE,transparent:true,cross:true,breakTime:0.4},[B.CORAL_BLUE]:{name:"Blue Coral",all:T.CORAL_BLUE,transparent:true,cross:true,breakTime:0.4},[B.SEAWEED]:{name:"Seaweed",all:T.SEAWEED,transparent:true,cross:true,breakTime:0.2},[B.DEAD_LOG]:{name:"Dead Log",top:T.DEAD_LOG_TOP,side:T.DEAD_LOG_SIDE,bottom:T.DEAD_LOG_TOP,breakTime:2.4},[B.STONE_BRICK]:{name:"Stone Bricks",all:T.STONE_BRICK,breakTime:9.0},[B.MOSSY_BRICK]:{name:"Mossy Bricks",all:T.MOSSY_BRICK,breakTime:9.0},[B.CRACKED_BRICK]:{name:"Cracked Bricks",all:T.CRACKED_BRICK,breakTime:9.0},[B.PATH]:{name:"Path",top:T.PATH_TOP,side:T.PATH_SIDE,bottom:T.DIRT,breakTime:0.7},[B.TORCH]:{name:"Torch",all:T.TORCH,transparent:true,emissive:true,breakTime:0.1,torch:true},[B.COBWEB]:{name:"Cobweb",all:T.COBWEB,transparent:true,breakTime:1.2,cross:true},[B.RAIL]:{name:"Rail",all:T.RAIL,transparent:true,breakTime:0.5,flat:true},[B.CHEST]:{name:"Chest",top:T.CHEST_TOP,side:T.CHEST_SIDE,bottom:T.CHEST_TOP,front:T.CHEST_FRONT,breakTime:4.0},[B.WOOL_RED]:{name:"Red Wool",all:T.WOOL_RED,breakTime:1.0},[B.WOOL_WHITE]:{name:"White Wool",all:T.WOOL_WHITE,breakTime:1.0},[B.BOOKSHELF]:{name:"Bookshelf",top:T.PLANKS,side:T.BOOKSHELF,bottom:T.PLANKS,breakTime:4.0},[B.LANTERN]:{name:"Lantern",all:T.LANTERN,transparent:true,emissive:true,breakTime:0.8,lanternBox:true},[B.HAY]:{name:"Hay Bale",top:T.HAY_TOP,side:T.HAY_SIDE,bottom:T.HAY_TOP,breakTime:1.2},[B.DRIPSTONE]:{name:"Dripstone",all:T.DRIPSTONE,breakTime:8.0},[B.CALCITE]:{name:"Calcite",all:T.CALCITE,breakTime:5.0},[B.AMETHYST_BLOCK]:{name:"Amethyst Block",all:T.AMETHYST_BLOCK,breakTime:6.0},[B.AMETHYST_CLUSTER]:{name:"Amethyst Cluster",all:T.AMETHYST_CLUSTER,transparent:true,emissive:true,cross:true,breakTime:2.0},[B.MOSS]:{name:"Moss Block",all:T.MOSS,breakTime:0.6},[B.GLOW_LICHEN]:{name:"Glow Lichen",all:T.GLOW_LICHEN,transparent:true,emissive:true,cross:true,breakTime:0.4},[B.SMOOTH_BASALT]:{name:"Smooth Basalt",all:T.SMOOTH_BASALT,breakTime:7.0},
 [B.DEAD_BUSH]:{name:"Dead Bush",all:T.DEAD_BUSH,transparent:true,crossPlant:true,breakTime:0.2},
 [B.TALL_GRASS]:{name:"Grass",all:T.TALL_GRASS,transparent:true,crossPlant:true,breakTime:0.2},
 [B.FLOWER_DANDELION]:{name:"Dandelion",all:T.FLOWER_DANDELION,transparent:true,crossPlant:true,breakTime:0.2},
@@ -275,6 +302,29 @@ BLOCKS[B.HUGE_MUSHROOM_BROWN]={name:'Brown Mushroom',all:T.HUGE_MUSHROOM_BROWN,b
 BLOCKS[B.MUSHROOM_BLOCK]={name:'Mushroom Block',all:T.MUSHROOM_BLOCK,breakTime:1.2,toolClass:'axe'};
 // Mushroom stem (the trunk of a giant mushroom)
 BLOCKS[B.MUSHROOM_STEM]={name:'Mushroom Stem',all:T.MUSHROOM_STEM,breakTime:1.2,toolClass:'axe'};
+// ---- New decorative / biome blocks ----
+// 12. Petrified Log (化石化した木) — stone-hard petrified wood, grey-brown stone texture
+BLOCKS[B.PETRIFIED_LOG]={name:'Petrified Log',top:T.PETRIFIED_LOG_TOP,side:T.PETRIFIED_LOG_SIDE,bottom:T.PETRIFIED_LOG_TOP,breakTime:14.0,toolClass:'pickaxe'};
+// 13. Bamboo Block (竹細工ブロック) — compressed bamboo block, woven surface
+BLOCKS[B.BAMBOO_BLOCK]={name:'Bamboo Block',all:T.BAMBOO_BLOCK,breakTime:2.5,toolClass:'axe'};
+// 14. Fern Stem (シダの茎) — tall jungle fern decoration, cross plant
+BLOCKS[B.FERN_STEM]={name:'Fern Stem',all:T.FERN_STEM,transparent:true,crossPlant:true,breakTime:0.2};
+// 15. Lotus Leaf (蓮の葉) — flat leaf floating on water surface
+BLOCKS[B.LOTUS_LEAF]={name:'Lotus Leaf',all:T.LOTUS_LEAF,transparent:true,flat:true,breakTime:0.2};
+// 16. Water Lily (睡蓮) — lotus leaf with a flower on top, flat
+BLOCKS[B.WATER_LILY]={name:'Water Lily',all:T.WATER_LILY,transparent:true,flat:true,breakTime:0.2};
+// 17. Mossy Log (苔むした丸太) — mossy oak log
+BLOCKS[B.MOSSY_LOG]={name:'Mossy Log',top:T.MOSSY_LOG_TOP,side:T.MOSSY_LOG_SIDE,bottom:T.MOSSY_LOG_TOP,breakTime:3.0,toolClass:'axe'};
+// Poison Mushroom — eerie cross-plant for Withered Forest
+BLOCKS[B.POISON_MUSHROOM]={name:'Poison Mushroom',all:T.POISON_MUSHROOM,transparent:true,crossPlant:true,breakTime:0.2};
+// Withered Log — for Withered Forest dead trees
+BLOCKS[B.WITHERED_LOG]={name:'Withered Log',top:T.WITHERED_LOG_TOP,side:T.WITHERED_LOG_SIDE,bottom:T.WITHERED_LOG_TOP,breakTime:3.0,toolClass:'axe'};
+// Gray Leaves — for Withered Forest canopy
+BLOCKS[B.GRAY_LEAVES]={name:'Gray Leaves',all:T.GRAY_LEAVES,transparent:true,breakTime:0.3};
+// Coral Sand — wet sand for Coral Tidelands beach/floor
+BLOCKS[B.CORAL_SAND]={name:'Coral Sand',all:T.CORAL_SAND,breakTime:0.75,toolClass:'shovel'};
+// Tidal Sand — the exposed tidal flat sand
+BLOCKS[B.TIDAL_SAND]={name:'Tidal Sand',all:T.TIDAL_SAND,breakTime:0.75,toolClass:'shovel'};
 // Wooden doors: half(top/bottom) x facing(N/E/S/W) x open/closed = 16 block IDs.
 // Stored as distinct numeric IDs (no metadata), mirroring the WHEAT0../CARROT0.. pattern.
 // Rendered flat for now (placeholder look); real geometry comes in a later pass.
@@ -346,7 +396,7 @@ const ITEM_SHOVEL_WOOD=221,ITEM_SHOVEL_STONE=222,ITEM_SHOVEL_IRON=223,ITEM_SHOVE
     B.SLAB_STONE,B.SLAB_SANDSTONE,B.SLAB_BRICK,
     B.FENCE_STONE,B.FENCE_GATE_STONE,
     B.WALL_STONE,B.WALL_BRICK,B.WALL_MOSSY,
-    B.NETHER_BRICK,B.NETHERRACK,B.CHISELED_STONE_BRICK,B.MOSSY_COBBLE,B.BLUE_ICE,
+    B.NETHER_BRICK,B.NETHERRACK,B.CHISELED_STONE_BRICK,B.MOSSY_COBBLE,B.BLUE_ICE,B.PETRIFIED_LOG,
     B.TERRACOTTA,B.TERRACOTTA_RED,B.TERRACOTTA_ORANGE,B.TERRACOTTA_YELLOW,B.TERRACOTTA_LIME,
     B.TERRACOTTA_GREEN,B.TERRACOTTA_CYAN,B.TERRACOTTA_LIGHT_BLUE,B.TERRACOTTA_BLUE,B.TERRACOTTA_PURPLE,
     B.TERRACOTTA_MAGENTA,B.TERRACOTTA_PINK,B.TERRACOTTA_BROWN,B.TERRACOTTA_GRAY,B.TERRACOTTA_LIGHT_GRAY,
@@ -358,8 +408,9 @@ const ITEM_SHOVEL_WOOD=221,ITEM_SHOVEL_STONE=222,ITEM_SHOVEL_IRON=223,ITEM_SHOVE
     B.GLAZED_TERRACOTTA_CYAN,B.GLAZED_TERRACOTTA_BLUE,B.GLAZED_TERRACOTTA_LIME,
     B.PRESSURE_PLATE_STONE,B.BUTTON_STONE];
   const axe=[B.LOG,B.PLANKS,B.BIRCH_LOG,B.CRAFTING,B.BOOKSHELF,B.CHEST,B.DEAD_LOG,B.MANGROVE_LOG,B.PALM_LOG,B.MAPLE_LOG,B.MANGROVE_ROOTS,
-    B.SLAB_WOOD,B.FENCE_OAK,B.FENCE_GATE_OAK];
-  const shovel=[B.GRASS,B.DIRT,B.SAND,B.GRAVEL,B.SNOW,B.PATH,B.FARMLAND,B.FARMLAND_WET];
+    B.SLAB_WOOD,B.FENCE_OAK,B.FENCE_GATE_OAK,
+    B.BAMBOO_BLOCK,B.MOSSY_LOG,B.WITHERED_LOG];
+  const shovel=[B.GRASS,B.DIRT,B.SAND,B.GRAVEL,B.SNOW,B.PATH,B.FARMLAND,B.FARMLAND_WET,B.CORAL_SAND,B.TIDAL_SAND];
   // Minimum tool tier required to get a drop
   const minTier={[B.IRON_ORE]:2,[B.GOLD_ORE]:3,[B.DIAMOND_ORE]:3,[B.OBSIDIAN]:4,[B.STONE]:1,[B.COBBLE]:1,
     [B.COAL_ORE]:1,[B.AMETHYST_BLOCK]:1,[B.AMETHYST_CLUSTER]:1};
@@ -595,6 +646,13 @@ const RECIPES=[
 {cat:'deco',pattern:[[B.HUGE_MUSHROOM_RED,B.HUGE_MUSHROOM_RED],[B.HUGE_MUSHROOM_RED,B.HUGE_MUSHROOM_RED]],out:{id:B.MUSHROOM_BLOCK,count:1}},
 // ---- Sulfur block: 4 sulfur blocks from netherrack+glow lichen (volcanic craft) ----
 {cat:'building',pattern:[[B.NETHERRACK,B.GLOW_LICHEN],[B.GLOW_LICHEN,B.NETHERRACK]],out:{id:B.SULFUR_BLOCK,count:4}},
+// ---- New deco block recipes ----
+// Bamboo Block: 4 bamboo → 1 bamboo block (compressed)
+{cat:'building',pattern:[[B.BAMBOO,B.BAMBOO],[B.BAMBOO,B.BAMBOO]],out:{id:B.BAMBOO_BLOCK,count:1}},
+// Mossy Log: log + moss → mossy log
+{cat:'deco',pattern:[[B.LOG,B.MOSS]],out:{id:B.MOSSY_LOG,count:1}},
+// Petrified Log: log + stone → petrified log
+{cat:'building',pattern:[[B.LOG,B.STONE],[B.STONE,B.LOG]],out:{id:B.PETRIFIED_LOG,count:2}},
 ];
 // Achievement definitions: stat=counter key, goal=target value
 const ACHIEVEMENTS=[
@@ -648,6 +706,10 @@ const ACHIEVEMENTS=[
   {id:'xp_level5', icon:'⭐',name:'Apprentice',    desc:'Reach level 5',    stat:'xp_level5', goal:1},
   {id:'xp_level10',icon:'🌟',name:'Journeyman',    desc:'Reach level 10',   stat:'xp_level10',goal:1},
   {id:'xp_level20',icon:'💫',name:'Expert',        desc:'Reach level 20',   stat:'xp_level20',goal:1},
+  // New biome achievements
+  {id:'biome_crystal',icon:'💎',name:'Crystal Horizon',desc:'Reach the Crystal Plains',stat:'biome_crystal',goal:1},
+  {id:'biome_withered',icon:'🍄',name:'Into the Gloom',desc:'Reach the Withered Forest',stat:'biome_withered',goal:1},
+  {id:'biome_coral',icon:'🪸',name:'Tidal Wanderer',desc:'Reach the Coral Tidelands',stat:'biome_coral',goal:1},
   // Slime achievements
   {id:'kill_slime',icon:'🟩',name:'Slime Buster',  desc:'Defeat a Slime',   stat:'kill_slime',goal:1},
   {id:'split_slime',icon:'🟩',name:'Split Decision',desc:'Watch a Slime split',stat:'slime_split',goal:1},
@@ -658,7 +720,7 @@ const ACHIEVEMENTS=[
 ];
 const isMobile=('ontouchstart'in window)&&/Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac|iPad/i.test(navigator.userAgent));if(isMobile)document.body.classList.add('is-mobile');
 // World schema version — bump when dimensions change to invalidate saved data.
-const WORLD_VERSION="16-sign-itemframe-flowerpot-ironbars-torch6dir";
+const WORLD_VERSION="17-crystal-withered-coral-newblocks";
 // SEED is resolved per active world (see worlds.js). If no world is active yet
 // (home screen showing), fall back to a temporary random seed; it is replaced
 // once a world is actually loaded via loadActiveWorld().

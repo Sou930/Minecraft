@@ -747,6 +747,134 @@ ctx.fillStyle='#c8a878';ctx.fillRect(ox+10,oy+12,2,2);ctx.fillRect(ox+18,oy+12,2
 // Mushroom stem (pale mycelium trunk)
 {noisy(T.MUSHROOM_STEM,'#e8dcc0',['#dcd0b0','#f0e4cc','#d0c4a4'],0.5);const[ox,oy]=tileOrigin(T.MUSHROOM_STEM);const rnd=mulberry32(3115);ctx.fillStyle='#c8b890';for(let i=0;i<6;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
 
+// ==========================================================================
+//  NEW BIOME / DECO TILES (Crystal Plains, Withered Forest, Coral Tidelands)
+// ==========================================================================
+
+// 12. Petrified Log Side — stone-grey wood grain, fossilised rings
+{const[ox,oy]=tileOrigin(T.PETRIFIED_LOG_SIDE);const rnd=mulberry32(3200);
+ ctx.fillStyle='#7a7268';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);
+ for(let x=0;x<TILE_PX;x+=4){ctx.fillStyle=['#6e6860','#867e74','#726a62','#7e7670'][Math.floor(rnd()*4)];ctx.fillRect(ox+x,oy,2,TILE_PX);}
+ ctx.fillStyle='#585250';for(let i=0;i<8;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,3);
+ ctx.fillStyle='#9a9490';for(let i=0;i<5;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+// Petrified Log Top — concentric stone-grey rings
+{const[ox,oy]=tileOrigin(T.PETRIFIED_LOG_TOP);
+ ctx.fillStyle='#7a7268';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);
+ ctx.fillStyle='#9a9490';ctx.fillRect(ox+4,oy+4,24,24);
+ ctx.strokeStyle='#585250';ctx.lineWidth=2;ctx.strokeRect(ox+8,oy+8,16,16);ctx.strokeRect(ox+13,oy+13,6,6);}
+
+// 13. Bamboo Block — compressed woven bamboo
+{const[ox,oy]=tileOrigin(T.BAMBOO_BLOCK);const rnd=mulberry32(3201);
+ ctx.fillStyle='#9ab040';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);
+ // horizontal fibre bands
+ for(let y=0;y<TILE_PX;y+=4){ctx.fillStyle=['#88a035','#a8c050','#809030','#b0d058'][Math.floor(rnd()*4)];ctx.fillRect(ox,oy+y,TILE_PX,2);}
+ // vertical cane column dividers
+ ctx.fillStyle='#6a7c20';for(let x=0;x<TILE_PX;x+=8)ctx.fillRect(ox+x,oy,2,TILE_PX);
+ // highlight
+ ctx.fillStyle='#c4e070';for(let i=0;i<6;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+
+// 14. Fern Stem — delicate serrated fern frond on transparent tile
+{const[ox,oy]=tileOrigin(T.FERN_STEM);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);const rnd=mulberry32(3202);
+ const stemX=15,cols=['#2d7a1c','#38922a','#1e6010','#4aaa38'];
+ ctx.fillStyle=cols[0];for(let y=TILE_PX-2;y>6;y-=2)ctx.fillRect(ox+stemX,oy+y,2,2);
+ // left fronds
+ for(let i=0;i<5;i++){const fy=TILE_PX-6-i*5;const fw=5+i*1;ctx.fillStyle=cols[i%4];
+   for(let dx=0;dx<fw;dx+=2){const angle=Math.round(Math.sin(dx/fw*Math.PI)*2);ctx.fillRect(ox+stemX-1-dx,oy+fy+angle,2,2);}
+   ctx.fillStyle='#5abd42';ctx.fillRect(ox+stemX-fw,oy+fy,2,2);}
+ // right fronds
+ for(let i=0;i<5;i++){const fy=TILE_PX-8-i*5;const fw=4+i*1;ctx.fillStyle=cols[(i+2)%4];
+   for(let dx=0;dx<fw;dx+=2){const angle=Math.round(Math.sin(dx/fw*Math.PI)*2);ctx.fillRect(ox+stemX+3+dx,oy+fy+angle,2,2);}}}
+
+// 15. Lotus Leaf — large round flat dark-green leaf with radial veins
+{const[ox,oy]=tileOrigin(T.LOTUS_LEAF);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);const rnd=mulberry32(3203);
+ // leaf disc
+ ctx.fillStyle='#2a7834';
+ for(let y=0;y<TILE_PX;y+=2)for(let x=0;x<TILE_PX;x+=2){const dx=x-14,dy=y-14;if(dx*dx+dy*dy<130)ctx.fillRect(ox+x,oy+y,2,2);}
+ // radial veins
+ ctx.fillStyle='#1a5e24';const cx2=ox+14,cy2=oy+14;
+ for(let a=0;a<8;a++){const ang=a*Math.PI/4;const ex=cx2+Math.cos(ang)*10,ey=cy2+Math.sin(ang)*10;
+   let px2=cx2,py2=cy2;for(let t=0;t<1;t+=0.15){ctx.fillRect(Math.round(px2+(ex-cx2)*t),Math.round(py2+(ey-cy2)*t),2,2);}
+ }
+ // highlight
+ ctx.fillStyle='#4aad5e';ctx.fillRect(ox+12,oy+8,4,4);}
+
+// 16. Water Lily — lotus leaf + pink flower petals
+{const[ox,oy]=tileOrigin(T.WATER_LILY);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);const rnd=mulberry32(3204);
+ // reuse the leaf look
+ ctx.fillStyle='#2a7834';
+ for(let y=0;y<TILE_PX;y+=2)for(let x=0;x<TILE_PX;x+=2){const dx=x-14,dy=y-14;if(dx*dx+dy*dy<130)ctx.fillRect(ox+x,oy+y,2,2);}
+ ctx.fillStyle='#1a5e24';const cx3=ox+14,cy3=oy+14;
+ for(let a=0;a<6;a++){const ang=a*Math.PI/3;for(let r=0;r<8;r+=2)ctx.fillRect(Math.round(cx3+Math.cos(ang)*r),Math.round(cy3+Math.sin(ang)*r),2,2);}
+ // flower petals (cross pattern around centre)
+ const pc=ox+14,pr=oy+10;
+ ctx.fillStyle='#f0a8c0';
+ ctx.fillRect(pc-4,pr-2,4,4);ctx.fillRect(pc+2,pr-2,4,4);
+ ctx.fillRect(pc-2,pr-6,4,4);ctx.fillRect(pc-2,pr+2,4,4);
+ ctx.fillStyle='#ffe0ee';ctx.fillRect(pc-2,pr-2,4,4); // centre
+ ctx.fillStyle='#ffd700';ctx.fillRect(pc,pr,2,2);       // stamen}
+ // stamen fix
+ ctx.fillStyle='#f7d000';ctx.fillRect(ox+14,oy+10,2,2);}
+
+// 17. Mossy Log Side — oak log with green moss patches
+{const[ox,oy]=tileOrigin(T.MOSSY_LOG_SIDE);const rnd=mulberry32(3205);
+ ctx.fillStyle='#6b4a2a';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);
+ for(let x=0;x<TILE_PX;x+=4){ctx.fillStyle=['#5c3f23','#7a5631','#634526','#71502d'][Math.floor(rnd()*4)];ctx.fillRect(ox+x,oy,2,TILE_PX);}
+ // moss patches
+ ctx.fillStyle='#3d7a28';
+ for(let i=0;i<20;i++){const mx=Math.floor(rnd()*16)*2,my=Math.floor(rnd()*16)*2;if(rnd()<0.55)ctx.fillRect(ox+mx,oy+my,4,2);}
+ ctx.fillStyle='#52a030';for(let i=0;i<10;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+// Mossy Log Top
+{const[ox,oy]=tileOrigin(T.MOSSY_LOG_TOP);ctx.fillStyle='#6b4a2a';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);
+ ctx.fillStyle='#c9a86b';ctx.fillRect(ox+4,oy+4,24,24);
+ ctx.strokeStyle='#8a6a3c';ctx.lineWidth=2;ctx.strokeRect(ox+8,oy+8,16,16);ctx.strokeRect(ox+13,oy+13,6,6);
+ const rnd=mulberry32(3206);ctx.fillStyle='#3d7a28';
+ for(let i=0;i<12;i++){const mx=4+Math.floor(rnd()*14)*2-4,my=4+Math.floor(rnd()*14)*2-4;ctx.fillRect(ox+Math.max(2,Math.min(28,mx)),oy+Math.max(2,Math.min(28,my)),2,2);}}
+
+// Poison Mushroom — eerie violet-purple cross plant (Withered Forest)
+{const[ox,oy]=tileOrigin(T.POISON_MUSHROOM);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);const rnd=mulberry32(3207);
+ // stem
+ ctx.fillStyle='#7a5080';ctx.fillRect(ox+13,oy+16,6,14);
+ ctx.fillStyle='#6a3a70';ctx.fillRect(ox+14,oy+16,2,14);
+ // cap dome (wide, flattened)
+ ctx.fillStyle='#a040c0';
+ ctx.fillRect(ox+6,oy+10,20,8);ctx.fillRect(ox+8,oy+8,16,4);ctx.fillRect(ox+10,oy+6,12,4);
+ ctx.fillStyle='#be60e0';ctx.fillRect(ox+8,oy+8,4,2);ctx.fillRect(ox+16,oy+8,4,2);
+ // spots
+ ctx.fillStyle='#e8c0f0';ctx.fillRect(ox+10,oy+12,2,2);ctx.fillRect(ox+18,oy+12,2,2);ctx.fillRect(ox+14,oy+10,2,2);
+ // glow tinge at base
+ ctx.fillStyle='rgba(180,60,220,0.25)';ctx.fillRect(ox+6,oy+18,20,6);}
+
+// Withered Log Side — gnarled, dark, ashy grey-brown
+{const[ox,oy]=tileOrigin(T.WITHERED_LOG_SIDE);const rnd=mulberry32(3208);
+ ctx.fillStyle='#4a3e3a';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);
+ for(let x=0;x<TILE_PX;x+=4){ctx.fillStyle=['#3e3230','#5a4a44','#443836','#504440'][Math.floor(rnd()*4)];ctx.fillRect(ox+x,oy,2,TILE_PX);}
+ ctx.fillStyle='#2c2420';for(let i=0;i<8;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,4+Math.floor(rnd()*2)*2);
+ ctx.fillStyle='#7a6e66';for(let i=0;i<5;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+// Withered Log Top
+{const[ox,oy]=tileOrigin(T.WITHERED_LOG_TOP);ctx.fillStyle='#4a3e3a';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);
+ ctx.fillStyle='#6a5c56';ctx.fillRect(ox+4,oy+4,24,24);
+ ctx.strokeStyle='#2c2420';ctx.lineWidth=2;ctx.strokeRect(ox+8,oy+8,16,16);ctx.strokeRect(ox+13,oy+13,6,6);}
+
+// Gray Leaves — grey-blue desaturated leaves for Withered Forest
+{noisy(T.GRAY_LEAVES,'#7a7e80',['#70747a','#868a8e','#646870','#7e8286'],0.9);
+ const[ox,oy]=tileOrigin(T.GRAY_LEAVES);const rnd=mulberry32(3209);
+ ctx.fillStyle='#4e5256';for(let i=0;i<14;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);
+ ctx.fillStyle='#a0a4a8';for(let i=0;i<10;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);
+ for(let i=0;i<10;i++)ctx.clearRect(ox+Math.floor(rnd()*TILE_PX/2)*2,oy+Math.floor(rnd()*TILE_PX/2)*2,2,2);}
+
+// Coral Sand — pinkish-white sand with tiny coral fragments (Coral Tidelands floor)
+{noisy(T.CORAL_SAND,'#e8d8cc',['#deccbe','#f2e4da','#d4c4b4','#eadacc'],0.65);
+ const[ox,oy]=tileOrigin(T.CORAL_SAND);const rnd=mulberry32(3210);
+ ctx.fillStyle='#f09898';for(let i=0;i<8;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);
+ ctx.fillStyle='#c060c0';for(let i=0;i<5;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);
+ ctx.fillStyle='#80c0f0';for(let i=0;i<5;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+
+// Tidal Sand — damp, slightly greenish sand exposed at low tide
+{noisy(T.TIDAL_SAND,'#c8c0a0',['#beb894','#d4ccac','#b8b090','#ccc4a8'],0.65);
+ const[ox,oy]=tileOrigin(T.TIDAL_SAND);const rnd=mulberry32(3211);
+ ctx.fillStyle='#80a060';for(let i=0;i<10;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);
+ ctx.fillStyle='rgba(60,100,160,0.22)';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);}
+
 })();function tileUV(t){const col=t%ATLAS_TILES,row=Math.floor(t/ATLAS_TILES);const padU=0.5/ATLAS_W,padV=0.5/ATLAS_H;return{u1:col/ATLAS_TILES+padU,u2:(col+1)/ATLAS_TILES-padU,v1:1-(row+1)/ATLAS_ROWS+padV,v2:1-row/ATLAS_ROWS-padV,};}
 /* ---------------------------------------------------------------------------
  * Per-material tool textures (pickaxe / axe / shovel / hoe + stick).

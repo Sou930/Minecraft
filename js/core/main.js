@@ -91,7 +91,12 @@ if(view===1)camera.rotation.set(player.pitch,player.yaw,0);
 else camera.rotation.set(-player.pitch,player.yaw+Math.PI,0);}
 let hudTimer=0;function updateHUD(dt){if(!worldReady)return;hudTimer+=dt;if(hudTimer<0.25)return;hudTimer=0;{const fps=engine.getFps();let txt=`FPS: ${fps.toFixed(0)}`;if(typeof PERF!=='undefined'&&PERF.isEnabled()){const s=PERF.stats();txt+=` · D${s.dist}`;}document.getElementById('fps-display').textContent=txt;}document.getElementById('pos-display').textContent=`X: ${player.pos.x.toFixed(0)} Y: ${player.pos.y.toFixed(0)} Z: ${player.pos.z.toFixed(0)}`;const bx=Math.floor(player.pos.x),bz=Math.floor(player.pos.z);const bio=(bx>=0&&bx<WORLD_W&&bz>=0&&bz<WORLD_D)?biomeMap[colIndex(bx,bz)]:biomeAt(bx,bz);document.getElementById('biome-display').textContent=BIOME_NAME[bio];
 // Flag the current biome as visited for exploration achievements.
-if(started&&worldReady&&typeof ACH!=='undefined'&&typeof BIOME!=='undefined'){const BIOME_ACH=['biome_plains','biome_forest','biome_desert','biome_snowy','biome_mountains','biome_ocean','biome_jungle','biome_swamp','biome_mesa','biome_volcano'];if(BIOME_ACH[bio])ACH.flag(BIOME_ACH[bio]);}
+if(started&&worldReady&&typeof ACH!=='undefined'&&typeof BIOME!=='undefined'){
+  const BIOME_ACH=['biome_plains','biome_forest','biome_desert','biome_snowy','biome_mountains','biome_ocean','biome_jungle','biome_swamp','biome_mesa','biome_volcano',
+    null,null,null,null,null,null,null,null,null,null,
+    'biome_crystal','biome_withered','biome_coral'];
+  if(BIOME_ACH[bio])ACH.flag(BIOME_ACH[bio]);
+}
 updateChunkStreaming(6);}
 // Render loop is started immediately, but gameplay (update) is gated by the
 // `started` flag and `worldReady`, so the loop just paints the loading sky
