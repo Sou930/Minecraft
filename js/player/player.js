@@ -90,6 +90,8 @@ if(typeof tryEnterNearbyBoat==='function'&&tryEnterNearbyBoat()){clearInterval(a
 // Right-click an existing minecart on a rail to board it.
 if(typeof tryEnterNearbyMinecart==='function'&&tryEnterNearbyMinecart()){clearInterval(actionInterval);return;}
 if(currentTarget&&currentTarget.id===B.CRAFTING){clearInterval(actionInterval);toggleInventory(true,3);return;}
+// Redstone interactions: lever toggle, repeater delay cycle
+if(currentTarget&&typeof REDSTONE!=='undefined'){if(REDSTONE.onInteract(currentTarget.x,currentTarget.y,currentTarget.z)){clearInterval(actionInterval);return;}}
 // Right-click a fence gate to toggle it open/closed
 if(currentTarget){const fgDef=BLOCKS[currentTarget.id];if(fgDef&&fgDef.fenceGate){clearInterval(actionInterval);const d=BLOCKS[currentTarget.id];const newOpen=!d.fenceGateOpen;// Create a modified version of the block with toggled open state
 const newDef=Object.assign({},d,{fenceGateOpen:newOpen});BLOCKS[currentTarget.id]=newDef;const cx2=Math.floor(currentTarget.x/CHUNK),cz2=Math.floor(currentTarget.z/CHUNK);buildChunk(cx2,cz2);return;}}
@@ -115,6 +117,8 @@ if(itemDef&&itemDef.minecart){clearInterval(actionInterval);if(typeof tryPlaceMi
 if(itemDef&&itemDef.door){clearInterval(actionInterval);if(tryPlaceDoor())consumeFromSlot(selectedSlot,1);return;}
 // Fishing rod: cast / reel in on water.
 if(itemDef&&itemDef.fishingRod){clearInterval(actionInterval);if(typeof useFishingRod==='function')useFishingRod();return;}
+// Items that place a specific block (e.g. Redstone Dust from redstone item)
+if(itemDef&&itemDef.placesBlock!==undefined){if(currentTarget){const{px,py,pz}=currentTarget;if(px>=0&&px<WORLD_W&&py>=0&&py<WORLD_H&&pz>=0&&pz<WORLD_D){const cur=getBlock(px,py,pz);if(!isSolid(cur)){setBlock(px,py,pz,itemDef.placesBlock);if(typeof SFX!=='undefined')SFX.place(itemDef.placesBlock);consumeFromSlot(selectedSlot,1);if(typeof ACH!=='undefined'){ACH.track('placed');ACH.track('redstone_placed');}return;}}}return;}
 if(itemDef&&itemDef.tool==='hoe'){tillSoil();return;}
 if(itemDef&&itemDef.plant!==undefined){if(plantSeed(slot.id,itemDef.plant))return;}
 // Feeding raw meat to a wolf you're aiming at tames / heals it instead of
@@ -124,7 +128,7 @@ if(itemDef){if(itemDef.food)eatFood(selectedSlot);return;}
 if(!currentTarget)return;const{px,py,pz}=currentTarget;if(px<0||px>=WORLD_W||py<0||py>=WORLD_H||pz<0||pz>=WORLD_D)return;const cur=getBlock(px,py,pz);if(isSolid(cur))return;const box=playerAABB(player.pos);if(px+1>box.minX&&px<box.maxX&&py+1>box.minY&&py<box.maxY&&pz+1>box.minZ&&pz<box.maxZ)return;
 // Stairs orient themselves: the low/open side faces the player so you climb away.
 let placeId=slot.id;if(BLOCKS[placeId]&&BLOCKS[placeId].stairs)placeId=stairBlockId(playerFacingDir());
-setBlock(px,py,pz,placeId);if(typeof SFX!=='undefined')SFX.place(placeId);consumeFromSlot(selectedSlot,1);if(typeof ACH!=='undefined')ACH.track('placed');}
+setBlock(px,py,pz,placeId);if(typeof SFX!=='undefined')SFX.place(placeId);consumeFromSlot(selectedSlot,1);if(typeof ACH!=='undefined'){ACH.track('placed');if(typeof isRedstoneBlock==='function'&&isRedstoneBlock(placeId))ACH.track('redstone_placed');}}
 // Stair facing constants matching stairFacing in config (N=0,E=1,S=2,W=3).
 const STAIR_FACING_IDS=[B.STAIRS_N,B.STAIRS_E,B.STAIRS_S,B.STAIRS_W];
 function stairBlockId(facing){return STAIR_FACING_IDS[facing]||B.STAIRS_N;}

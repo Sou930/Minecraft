@@ -1,4 +1,4 @@
-"use strict";const WORLD_W=2416,WORLD_H=128,WORLD_D=2416,CHUNK=16,SEA_LEVEL=40,ATLAS_TILES=8,ATLAS_ROWS=24,TILE_PX=32,ATLAS_W=ATLAS_TILES*TILE_PX,ATLAS_H=ATLAS_ROWS*TILE_PX,ATLAS_PX=ATLAS_W;const T={GRASS_TOP:0,GRASS_SIDE:1,DIRT:2,STONE:3,SAND:4,LOG_SIDE:5,LOG_TOP:6,LEAVES:7,PLANKS:8,GLASS:9,BRICK:10,BEDROCK:11,WATER:12,COBBLE:13,COAL_ORE:14,IRON_ORE:15,GOLD_ORE:16,DIAMOND_ORE:17,GRAVEL:18,SANDSTONE_TOP:19,SANDSTONE_SIDE:20,SNOW:21,ICE:22,OBSIDIAN:23,CACTUS_SIDE:24,CACTUS_TOP:25,CRAFT_TOP:26,CRAFT_SIDE:27,FURNACE_TOP:28,FURNACE_FRONT:29,BIRCH_SIDE:30,BIRCH_TOP:31,BIRCH_LEAVES:32,LAVA:33,CORAL_PINK:34,CORAL_PURPLE:35,CORAL_BLUE:36,SEAWEED:37,DEAD_LOG_SIDE:38,DEAD_LOG_TOP:39,STONE_BRICK:40,MOSSY_BRICK:41,CRACKED_BRICK:42,PATH_TOP:43,PATH_SIDE:44,TORCH:45,COBWEB:46,RAIL:47,CHEST_TOP:48,CHEST_SIDE:49,CHEST_FRONT:50,WOOL_RED:51,WOOL_WHITE:52,BOOKSHELF:53,LANTERN:54,HAY_SIDE:55,HAY_TOP:56,DRIPSTONE:57,CALCITE:58,AMETHYST_BLOCK:59,AMETHYST_CLUSTER:60,MOSS:61,GLOW_LICHEN:62,SMOOTH_BASALT:63,FARMLAND_DRY:64,FARMLAND_WET:65,WHEAT0:66,WHEAT1:67,WHEAT2:68,WHEAT3:69,CARROT0:70,CARROT1:71,CARROT2:72,POTATO0:73,POTATO1:74,POTATO2:75,PUMPKIN_TOP:76,PUMPKIN_SIDE:77,PUMPKIN_FACE:78,MELON_TOP:79,MELON_SIDE:80,PUMPKIN_STEM:81,DEAD_BUSH:82,TALL_GRASS:83,FLOWER_DANDELION:84,FLOWER_POPPY:85,FLOWER_CORNFLOWER:86,SPRUCE_SIDE:87,SPRUCE_TOP:88,SPRUCE_LEAVES:89,ACACIA_SIDE:90,ACACIA_TOP:91,ACACIA_LEAVES:92,CHERRY_SIDE:93,CHERRY_TOP:94,CHERRY_LEAVES:95,DRY_GRASS_TOP:96,DRY_GRASS_SIDE:97,BAMBOO:98,MANGROVE_SIDE:99,MANGROVE_TOP:100,MANGROVE_LEAVES:101,MANGROVE_ROOTS:102,PALM_SIDE:103,PALM_TOP:104,PALM_LEAVES:105,MAPLE_SIDE:106,MAPLE_TOP:107,MAPLE_LEAVES_RED:108,MAPLE_LEAVES_ORANGE:109,MAPLE_LEAVES_YELLOW:110,FLOWER_ALLIUM:111,FLOWER_TULIP:112,FLOWER_OXEYE:113,DOOR_WOOD:114,DOOR_TOP:115,DOOR_BOTTOM:116,BED_TOP:117,BED_SIDE:118,BED_END:119,
+"use strict";const WORLD_W=2416,WORLD_H=128,WORLD_D=2416,CHUNK=16,SEA_LEVEL=40,ATLAS_TILES=8,ATLAS_ROWS=27,TILE_PX=32,ATLAS_W=ATLAS_TILES*TILE_PX,ATLAS_H=ATLAS_ROWS*TILE_PX,ATLAS_PX=ATLAS_W;const T={GRASS_TOP:0,GRASS_SIDE:1,DIRT:2,STONE:3,SAND:4,LOG_SIDE:5,LOG_TOP:6,LEAVES:7,PLANKS:8,GLASS:9,BRICK:10,BEDROCK:11,WATER:12,COBBLE:13,COAL_ORE:14,IRON_ORE:15,GOLD_ORE:16,DIAMOND_ORE:17,GRAVEL:18,SANDSTONE_TOP:19,SANDSTONE_SIDE:20,SNOW:21,ICE:22,OBSIDIAN:23,CACTUS_SIDE:24,CACTUS_TOP:25,CRAFT_TOP:26,CRAFT_SIDE:27,FURNACE_TOP:28,FURNACE_FRONT:29,BIRCH_SIDE:30,BIRCH_TOP:31,BIRCH_LEAVES:32,LAVA:33,CORAL_PINK:34,CORAL_PURPLE:35,CORAL_BLUE:36,SEAWEED:37,DEAD_LOG_SIDE:38,DEAD_LOG_TOP:39,STONE_BRICK:40,MOSSY_BRICK:41,CRACKED_BRICK:42,PATH_TOP:43,PATH_SIDE:44,TORCH:45,COBWEB:46,RAIL:47,CHEST_TOP:48,CHEST_SIDE:49,CHEST_FRONT:50,WOOL_RED:51,WOOL_WHITE:52,BOOKSHELF:53,LANTERN:54,HAY_SIDE:55,HAY_TOP:56,DRIPSTONE:57,CALCITE:58,AMETHYST_BLOCK:59,AMETHYST_CLUSTER:60,MOSS:61,GLOW_LICHEN:62,SMOOTH_BASALT:63,FARMLAND_DRY:64,FARMLAND_WET:65,WHEAT0:66,WHEAT1:67,WHEAT2:68,WHEAT3:69,CARROT0:70,CARROT1:71,CARROT2:72,POTATO0:73,POTATO1:74,POTATO2:75,PUMPKIN_TOP:76,PUMPKIN_SIDE:77,PUMPKIN_FACE:78,MELON_TOP:79,MELON_SIDE:80,PUMPKIN_STEM:81,DEAD_BUSH:82,TALL_GRASS:83,FLOWER_DANDELION:84,FLOWER_POPPY:85,FLOWER_CORNFLOWER:86,SPRUCE_SIDE:87,SPRUCE_TOP:88,SPRUCE_LEAVES:89,ACACIA_SIDE:90,ACACIA_TOP:91,ACACIA_LEAVES:92,CHERRY_SIDE:93,CHERRY_TOP:94,CHERRY_LEAVES:95,DRY_GRASS_TOP:96,DRY_GRASS_SIDE:97,BAMBOO:98,MANGROVE_SIDE:99,MANGROVE_TOP:100,MANGROVE_LEAVES:101,MANGROVE_ROOTS:102,PALM_SIDE:103,PALM_TOP:104,PALM_LEAVES:105,MAPLE_SIDE:106,MAPLE_TOP:107,MAPLE_LEAVES_RED:108,MAPLE_LEAVES_ORANGE:109,MAPLE_LEAVES_YELLOW:110,FLOWER_ALLIUM:111,FLOWER_TULIP:112,FLOWER_OXEYE:113,DOOR_WOOD:114,DOOR_TOP:115,DOOR_BOTTOM:116,BED_TOP:117,BED_SIDE:118,BED_END:119,
 COPPER:120,COPPER_EXPOSED:121,COPPER_WEATHERED:122,COPPER_OXIDIZED:123,
 // New decorative / structural tiles
 TNT_SIDE:124,
@@ -8,7 +8,18 @@ CONCRETE_RED:156,CONCRETE_ORANGE:157,CONCRETE_YELLOW:158,CONCRETE_LIME:159,CONCR
 GLAZED_WHITE:172,GLAZED_ORANGE:173,GLAZED_MAGENTA:174,GLAZED_CYAN:175,GLAZED_BLUE:176,GLAZED_LIME:177,
 BANNER_WHITE:178,BANNER_RED:179,BANNER_BLUE:180,BANNER_GREEN:181,BANNER_YELLOW:182,BANNER_BLACK:183,
 NETHER_BRICK:184,NETHERRACK:185,CRYING_OBSIDIAN:186,
-CHISELED_STONE_BRICK:187,MOSSY_COBBLE:188};const B={AIR:0,GRASS:1,DIRT:2,STONE:3,SAND:4,LOG:5,LEAVES:6,PLANKS:7,GLASS:8,BRICK:9,BEDROCK:10,WATER:11,COBBLE:12,COAL_ORE:13,IRON_ORE:14,GOLD_ORE:15,DIAMOND_ORE:16,GRAVEL:17,SANDSTONE:18,SNOW:19,ICE:20,OBSIDIAN:21,CACTUS:22,CRAFTING:23,FURNACE:24,BIRCH_LOG:25,BIRCH_LEAVES:26,LAVA:27,CORAL_PINK:28,CORAL_PURPLE:29,CORAL_BLUE:30,SEAWEED:31,DEAD_LOG:32,STONE_BRICK:33,MOSSY_BRICK:34,CRACKED_BRICK:35,PATH:36,TORCH:37,COBWEB:38,RAIL:39,CHEST:40,WOOL_RED:41,WOOL_WHITE:42,BOOKSHELF:43,LANTERN:44,HAY:45,DRIPSTONE:46,CALCITE:47,AMETHYST_BLOCK:48,AMETHYST_CLUSTER:49,MOSS:50,GLOW_LICHEN:51,SMOOTH_BASALT:52,FARMLAND:53,FARMLAND_WET:54,WHEAT:55,CARROT:56,POTATO:57,PUMPKIN:58,MELON:59,DEAD_BUSH:60,TALL_GRASS:61,FLOWER_DANDELION:62,FLOWER_POPPY:63,FLOWER_CORNFLOWER:64,SPRUCE_LOG:65,SPRUCE_LEAVES:66,ACACIA_LOG:67,ACACIA_LEAVES:68,CHERRY_LOG:69,CHERRY_LEAVES:70,DRY_GRASS:71,CHERRY_PETALS:72,BAMBOO:73,MANGROVE_LOG:74,MANGROVE_LEAVES:75,MANGROVE_ROOTS:76,PALM_LOG:77,PALM_LEAVES:78,MAPLE_LOG:79,MAPLE_LEAVES_RED:80,MAPLE_LEAVES_ORANGE:81,MAPLE_LEAVES_YELLOW:82,FLOWER_ALLIUM:83,FLOWER_TULIP:84,FLOWER_OXEYE:85,DOOR_BOTTOM_N_CLOSED:86,DOOR_BOTTOM_N_OPEN:87,DOOR_BOTTOM_E_CLOSED:88,DOOR_BOTTOM_E_OPEN:89,DOOR_BOTTOM_S_CLOSED:90,DOOR_BOTTOM_S_OPEN:91,DOOR_BOTTOM_W_CLOSED:92,DOOR_BOTTOM_W_OPEN:93,DOOR_TOP_N_CLOSED:94,DOOR_TOP_N_OPEN:95,DOOR_TOP_E_CLOSED:96,DOOR_TOP_E_OPEN:97,DOOR_TOP_S_CLOSED:98,DOOR_TOP_S_OPEN:99,DOOR_TOP_W_CLOSED:100,DOOR_TOP_W_OPEN:101,BED:102,STAIRS_N:103,STAIRS_E:104,STAIRS_S:105,STAIRS_W:106,
+CHISELED_STONE_BRICK:187,MOSSY_COBBLE:188,
+// Redstone component tiles
+REDSTONE_DUST_OFF:189,REDSTONE_DUST_ON:190,
+REDSTONE_TORCH_OFF:191,REDSTONE_TORCH_ON:192,
+LEVER_SIDE:193,LEVER_ON:194,
+REPEATER_OFF:195,REPEATER_ON:196,
+PISTON_SIDE:197,PISTON_TOP:198,PISTON_FACE:199,PISTON_STICKY_FACE:200,
+PISTON_EXTENSION:201,
+DISPENSER_FRONT:202,DISPENSER_SIDE:203,
+DROPPER_FRONT:204,
+HOPPER_SIDE:205,HOPPER_INSIDE:206,
+OBSERVER_FACE:207,OBSERVER_BACK:208,OBSERVER_SIDE:209};const B={AIR:0,GRASS:1,DIRT:2,STONE:3,SAND:4,LOG:5,LEAVES:6,PLANKS:7,GLASS:8,BRICK:9,BEDROCK:10,WATER:11,COBBLE:12,COAL_ORE:13,IRON_ORE:14,GOLD_ORE:15,DIAMOND_ORE:16,GRAVEL:17,SANDSTONE:18,SNOW:19,ICE:20,OBSIDIAN:21,CACTUS:22,CRAFTING:23,FURNACE:24,BIRCH_LOG:25,BIRCH_LEAVES:26,LAVA:27,CORAL_PINK:28,CORAL_PURPLE:29,CORAL_BLUE:30,SEAWEED:31,DEAD_LOG:32,STONE_BRICK:33,MOSSY_BRICK:34,CRACKED_BRICK:35,PATH:36,TORCH:37,COBWEB:38,RAIL:39,CHEST:40,WOOL_RED:41,WOOL_WHITE:42,BOOKSHELF:43,LANTERN:44,HAY:45,DRIPSTONE:46,CALCITE:47,AMETHYST_BLOCK:48,AMETHYST_CLUSTER:49,MOSS:50,GLOW_LICHEN:51,SMOOTH_BASALT:52,FARMLAND:53,FARMLAND_WET:54,WHEAT:55,CARROT:56,POTATO:57,PUMPKIN:58,MELON:59,DEAD_BUSH:60,TALL_GRASS:61,FLOWER_DANDELION:62,FLOWER_POPPY:63,FLOWER_CORNFLOWER:64,SPRUCE_LOG:65,SPRUCE_LEAVES:66,ACACIA_LOG:67,ACACIA_LEAVES:68,CHERRY_LOG:69,CHERRY_LEAVES:70,DRY_GRASS:71,CHERRY_PETALS:72,BAMBOO:73,MANGROVE_LOG:74,MANGROVE_LEAVES:75,MANGROVE_ROOTS:76,PALM_LOG:77,PALM_LEAVES:78,MAPLE_LOG:79,MAPLE_LEAVES_RED:80,MAPLE_LEAVES_ORANGE:81,MAPLE_LEAVES_YELLOW:82,FLOWER_ALLIUM:83,FLOWER_TULIP:84,FLOWER_OXEYE:85,DOOR_BOTTOM_N_CLOSED:86,DOOR_BOTTOM_N_OPEN:87,DOOR_BOTTOM_E_CLOSED:88,DOOR_BOTTOM_E_OPEN:89,DOOR_BOTTOM_S_CLOSED:90,DOOR_BOTTOM_S_OPEN:91,DOOR_BOTTOM_W_CLOSED:92,DOOR_BOTTOM_W_OPEN:93,DOOR_TOP_N_CLOSED:94,DOOR_TOP_N_OPEN:95,DOOR_TOP_E_CLOSED:96,DOOR_TOP_E_OPEN:97,DOOR_TOP_S_CLOSED:98,DOOR_TOP_S_OPEN:99,DOOR_TOP_W_CLOSED:100,DOOR_TOP_W_OPEN:101,BED:102,STAIRS_N:103,STAIRS_E:104,STAIRS_S:105,STAIRS_W:106,
 COPPER:107,COPPER_EXPOSED:108,COPPER_WEATHERED:109,COPPER_OXIDIZED:110,
 SLAB_WOOD:111,SLAB_STONE:112,SLAB_SANDSTONE:113,SLAB_BRICK:114,
 FENCE_OAK:115,FENCE_STONE:116,FENCE_GATE_OAK:117,FENCE_GATE_STONE:118,
@@ -24,7 +35,18 @@ PRESSURE_PLATE_WOOD:182,PRESSURE_PLATE_STONE:183,
 BUTTON_WOOD:184,BUTTON_STONE:185,
 NETHER_BRICK:186,NETHERRACK:187,CRYING_OBSIDIAN:188,
 CHISELED_STONE_BRICK:189,MOSSY_COBBLE:190,VINE:191,
-SNOW_BLOCK:192,BLUE_ICE:193};const BLOCKS={[B.GRASS]:{name:"Grass",top:T.GRASS_TOP,side:T.GRASS_SIDE,bottom:T.DIRT,breakTime:0.9},[B.DIRT]:{name:"Dirt",all:T.DIRT,breakTime:0.75},[B.STONE]:{name:"Stone",all:T.STONE,breakTime:7.5},[B.SAND]:{name:"Sand",all:T.SAND,breakTime:0.75},[B.LOG]:{name:"Oak Log",top:T.LOG_TOP,side:T.LOG_SIDE,bottom:T.LOG_TOP,breakTime:3.0},[B.LEAVES]:{name:"Leaves",all:T.LEAVES,transparent:true,breakTime:0.3},[B.PLANKS]:{name:"Planks",all:T.PLANKS,breakTime:3.0},[B.GLASS]:{name:"Glass",all:T.GLASS,transparent:true,breakTime:0.45},[B.BRICK]:{name:"Brick",all:T.BRICK,breakTime:10.0},[B.BEDROCK]:{name:"Bedrock",all:T.BEDROCK,unbreakable:true},[B.WATER]:{name:"Water",all:T.WATER,transparent:true,fluid:true},[B.COBBLE]:{name:"Cobblestone",all:T.COBBLE,breakTime:10.0},[B.COAL_ORE]:{name:"Coal Ore",all:T.COAL_ORE,breakTime:8.0},[B.IRON_ORE]:{name:"Iron Ore",all:T.IRON_ORE,breakTime:9.0},[B.GOLD_ORE]:{name:"Gold Ore",all:T.GOLD_ORE,breakTime:9.0},[B.DIAMOND_ORE]:{name:"Diamond Ore",all:T.DIAMOND_ORE,breakTime:11.0},[B.GRAVEL]:{name:"Gravel",all:T.GRAVEL,breakTime:0.9},[B.SANDSTONE]:{name:"Sandstone",top:T.SANDSTONE_TOP,side:T.SANDSTONE_SIDE,bottom:T.SANDSTONE_TOP,breakTime:4.0},[B.SNOW]:{name:"Snow Block",all:T.SNOW,breakTime:1.0},[B.ICE]:{name:"Ice",all:T.ICE,breakTime:0.75},[B.OBSIDIAN]:{name:"Obsidian",all:T.OBSIDIAN,breakTime:45.0},[B.CACTUS]:{name:"Cactus",top:T.CACTUS_TOP,side:T.CACTUS_SIDE,bottom:T.CACTUS_TOP,breakTime:0.6},[B.CRAFTING]:{name:"Crafting Table",top:T.CRAFT_TOP,side:T.CRAFT_SIDE,bottom:T.PLANKS,breakTime:3.75},[B.FURNACE]:{name:"Furnace",top:T.FURNACE_TOP,side:T.FURNACE_FRONT,bottom:T.FURNACE_TOP,breakTime:13.0},[B.BIRCH_LOG]:{name:"Birch Log",top:T.BIRCH_TOP,side:T.BIRCH_SIDE,bottom:T.BIRCH_TOP,breakTime:3.0},[B.BIRCH_LEAVES]:{name:"Birch Leaves",all:T.BIRCH_LEAVES,transparent:true,breakTime:0.3},[B.LAVA]:{name:"Lava",all:T.LAVA,fluid:true,emissive:true,damage:true},[B.CORAL_PINK]:{name:"Pink Coral",all:T.CORAL_PINK,transparent:true,cross:true,breakTime:0.4},[B.CORAL_PURPLE]:{name:"Purple Coral",all:T.CORAL_PURPLE,transparent:true,cross:true,breakTime:0.4},[B.CORAL_BLUE]:{name:"Blue Coral",all:T.CORAL_BLUE,transparent:true,cross:true,breakTime:0.4},[B.SEAWEED]:{name:"Seaweed",all:T.SEAWEED,transparent:true,cross:true,breakTime:0.2},[B.DEAD_LOG]:{name:"Dead Log",top:T.DEAD_LOG_TOP,side:T.DEAD_LOG_SIDE,bottom:T.DEAD_LOG_TOP,breakTime:2.4},[B.STONE_BRICK]:{name:"Stone Bricks",all:T.STONE_BRICK,breakTime:9.0},[B.MOSSY_BRICK]:{name:"Mossy Bricks",all:T.MOSSY_BRICK,breakTime:9.0},[B.CRACKED_BRICK]:{name:"Cracked Bricks",all:T.CRACKED_BRICK,breakTime:9.0},[B.PATH]:{name:"Path",top:T.PATH_TOP,side:T.PATH_SIDE,bottom:T.DIRT,breakTime:0.7},[B.TORCH]:{name:"Torch",all:T.TORCH,transparent:true,emissive:true,breakTime:0.1,torch:true},[B.COBWEB]:{name:"Cobweb",all:T.COBWEB,transparent:true,breakTime:1.2,cross:true},[B.RAIL]:{name:"Rail",all:T.RAIL,transparent:true,breakTime:0.5,flat:true},[B.CHEST]:{name:"Chest",top:T.CHEST_TOP,side:T.CHEST_SIDE,bottom:T.CHEST_TOP,front:T.CHEST_FRONT,breakTime:4.0},[B.WOOL_RED]:{name:"Red Wool",all:T.WOOL_RED,breakTime:1.0},[B.WOOL_WHITE]:{name:"White Wool",all:T.WOOL_WHITE,breakTime:1.0},[B.BOOKSHELF]:{name:"Bookshelf",top:T.PLANKS,side:T.BOOKSHELF,bottom:T.PLANKS,breakTime:4.0},[B.LANTERN]:{name:"Lantern",all:T.LANTERN,transparent:true,emissive:true,breakTime:0.8,lanternBox:true},[B.HAY]:{name:"Hay Bale",top:T.HAY_TOP,side:T.HAY_SIDE,bottom:T.HAY_TOP,breakTime:1.2},[B.DRIPSTONE]:{name:"Dripstone",all:T.DRIPSTONE,breakTime:8.0},[B.CALCITE]:{name:"Calcite",all:T.CALCITE,breakTime:5.0},[B.AMETHYST_BLOCK]:{name:"Amethyst Block",all:T.AMETHYST_BLOCK,breakTime:6.0},[B.AMETHYST_CLUSTER]:{name:"Amethyst Cluster",all:T.AMETHYST_CLUSTER,transparent:true,emissive:true,cross:true,breakTime:2.0},[B.MOSS]:{name:"Moss Block",all:T.MOSS,breakTime:0.6},[B.GLOW_LICHEN]:{name:"Glow Lichen",all:T.GLOW_LICHEN,transparent:true,emissive:true,cross:true,breakTime:0.4},[B.SMOOTH_BASALT]:{name:"Smooth Basalt",all:T.SMOOTH_BASALT,breakTime:7.0},
+SNOW_BLOCK:192,BLUE_ICE:193,
+// ---- Redstone components ----
+LEVER:194,
+REDSTONE_DUST:195,
+REDSTONE_TORCH_OFF:196,REDSTONE_TORCH_ON:197,
+REPEATER:198,
+PISTON:199,PISTON_STICKY:200,
+PISTON_HEAD:201,PISTON_HEAD_STICKY:202,
+DISPENSER:203,
+DROPPER:204,
+HOPPER:205,
+OBSERVER:206};const BLOCKS={[B.GRASS]:{name:"Grass",top:T.GRASS_TOP,side:T.GRASS_SIDE,bottom:T.DIRT,breakTime:0.9},[B.DIRT]:{name:"Dirt",all:T.DIRT,breakTime:0.75},[B.STONE]:{name:"Stone",all:T.STONE,breakTime:7.5},[B.SAND]:{name:"Sand",all:T.SAND,breakTime:0.75},[B.LOG]:{name:"Oak Log",top:T.LOG_TOP,side:T.LOG_SIDE,bottom:T.LOG_TOP,breakTime:3.0},[B.LEAVES]:{name:"Leaves",all:T.LEAVES,transparent:true,breakTime:0.3},[B.PLANKS]:{name:"Planks",all:T.PLANKS,breakTime:3.0},[B.GLASS]:{name:"Glass",all:T.GLASS,transparent:true,breakTime:0.45},[B.BRICK]:{name:"Brick",all:T.BRICK,breakTime:10.0},[B.BEDROCK]:{name:"Bedrock",all:T.BEDROCK,unbreakable:true},[B.WATER]:{name:"Water",all:T.WATER,transparent:true,fluid:true},[B.COBBLE]:{name:"Cobblestone",all:T.COBBLE,breakTime:10.0},[B.COAL_ORE]:{name:"Coal Ore",all:T.COAL_ORE,breakTime:8.0},[B.IRON_ORE]:{name:"Iron Ore",all:T.IRON_ORE,breakTime:9.0},[B.GOLD_ORE]:{name:"Gold Ore",all:T.GOLD_ORE,breakTime:9.0},[B.DIAMOND_ORE]:{name:"Diamond Ore",all:T.DIAMOND_ORE,breakTime:11.0},[B.GRAVEL]:{name:"Gravel",all:T.GRAVEL,breakTime:0.9},[B.SANDSTONE]:{name:"Sandstone",top:T.SANDSTONE_TOP,side:T.SANDSTONE_SIDE,bottom:T.SANDSTONE_TOP,breakTime:4.0},[B.SNOW]:{name:"Snow Block",all:T.SNOW,breakTime:1.0},[B.ICE]:{name:"Ice",all:T.ICE,breakTime:0.75},[B.OBSIDIAN]:{name:"Obsidian",all:T.OBSIDIAN,breakTime:45.0},[B.CACTUS]:{name:"Cactus",top:T.CACTUS_TOP,side:T.CACTUS_SIDE,bottom:T.CACTUS_TOP,breakTime:0.6},[B.CRAFTING]:{name:"Crafting Table",top:T.CRAFT_TOP,side:T.CRAFT_SIDE,bottom:T.PLANKS,breakTime:3.75},[B.FURNACE]:{name:"Furnace",top:T.FURNACE_TOP,side:T.FURNACE_FRONT,bottom:T.FURNACE_TOP,breakTime:13.0},[B.BIRCH_LOG]:{name:"Birch Log",top:T.BIRCH_TOP,side:T.BIRCH_SIDE,bottom:T.BIRCH_TOP,breakTime:3.0},[B.BIRCH_LEAVES]:{name:"Birch Leaves",all:T.BIRCH_LEAVES,transparent:true,breakTime:0.3},[B.LAVA]:{name:"Lava",all:T.LAVA,fluid:true,emissive:true,damage:true},[B.CORAL_PINK]:{name:"Pink Coral",all:T.CORAL_PINK,transparent:true,cross:true,breakTime:0.4},[B.CORAL_PURPLE]:{name:"Purple Coral",all:T.CORAL_PURPLE,transparent:true,cross:true,breakTime:0.4},[B.CORAL_BLUE]:{name:"Blue Coral",all:T.CORAL_BLUE,transparent:true,cross:true,breakTime:0.4},[B.SEAWEED]:{name:"Seaweed",all:T.SEAWEED,transparent:true,cross:true,breakTime:0.2},[B.DEAD_LOG]:{name:"Dead Log",top:T.DEAD_LOG_TOP,side:T.DEAD_LOG_SIDE,bottom:T.DEAD_LOG_TOP,breakTime:2.4},[B.STONE_BRICK]:{name:"Stone Bricks",all:T.STONE_BRICK,breakTime:9.0},[B.MOSSY_BRICK]:{name:"Mossy Bricks",all:T.MOSSY_BRICK,breakTime:9.0},[B.CRACKED_BRICK]:{name:"Cracked Bricks",all:T.CRACKED_BRICK,breakTime:9.0},[B.PATH]:{name:"Path",top:T.PATH_TOP,side:T.PATH_SIDE,bottom:T.DIRT,breakTime:0.7},[B.TORCH]:{name:"Torch",all:T.TORCH,transparent:true,emissive:true,breakTime:0.1,torch:true},[B.COBWEB]:{name:"Cobweb",all:T.COBWEB,transparent:true,breakTime:1.2,cross:true},[B.RAIL]:{name:"Rail",all:T.RAIL,transparent:true,breakTime:0.5,flat:true},[B.CHEST]:{name:"Chest",top:T.CHEST_TOP,side:T.CHEST_SIDE,bottom:T.CHEST_TOP,front:T.CHEST_FRONT,breakTime:4.0},[B.WOOL_RED]:{name:"Red Wool",all:T.WOOL_RED,breakTime:1.0},[B.WOOL_WHITE]:{name:"White Wool",all:T.WOOL_WHITE,breakTime:1.0},[B.BOOKSHELF]:{name:"Bookshelf",top:T.PLANKS,side:T.BOOKSHELF,bottom:T.PLANKS,breakTime:4.0},[B.LANTERN]:{name:"Lantern",all:T.LANTERN,transparent:true,emissive:true,breakTime:0.8,lanternBox:true},[B.HAY]:{name:"Hay Bale",top:T.HAY_TOP,side:T.HAY_SIDE,bottom:T.HAY_TOP,breakTime:1.2},[B.DRIPSTONE]:{name:"Dripstone",all:T.DRIPSTONE,breakTime:8.0},[B.CALCITE]:{name:"Calcite",all:T.CALCITE,breakTime:5.0},[B.AMETHYST_BLOCK]:{name:"Amethyst Block",all:T.AMETHYST_BLOCK,breakTime:6.0},[B.AMETHYST_CLUSTER]:{name:"Amethyst Cluster",all:T.AMETHYST_CLUSTER,transparent:true,emissive:true,cross:true,breakTime:2.0},[B.MOSS]:{name:"Moss Block",all:T.MOSS,breakTime:0.6},[B.GLOW_LICHEN]:{name:"Glow Lichen",all:T.GLOW_LICHEN,transparent:true,emissive:true,cross:true,breakTime:0.4},[B.SMOOTH_BASALT]:{name:"Smooth Basalt",all:T.SMOOTH_BASALT,breakTime:7.0},
 [B.DEAD_BUSH]:{name:"Dead Bush",all:T.DEAD_BUSH,transparent:true,crossPlant:true,breakTime:0.2},
 [B.TALL_GRASS]:{name:"Grass",all:T.TALL_GRASS,transparent:true,crossPlant:true,breakTime:0.2},
 [B.FLOWER_DANDELION]:{name:"Dandelion",all:T.FLOWER_DANDELION,transparent:true,crossPlant:true,breakTime:0.2},
@@ -176,6 +198,20 @@ BLOCKS[B.MOSSY_COBBLE]={name:'Mossy Cobblestone',all:T.MOSSY_COBBLE,breakTime:10
 BLOCKS[B.VINE]={name:'Vine',all:T.LEAVES,transparent:true,crossPlant:true,breakTime:0.2};
 BLOCKS[B.SNOW_BLOCK]={name:'Snow Block',all:T.SNOW,breakTime:1.0,toolClass:'shovel'};
 BLOCKS[B.BLUE_ICE]={name:'Blue Ice',all:T.ICE,breakTime:2.8,toolClass:'pickaxe'};
+// ---- Redstone components ----
+BLOCKS[B.LEVER]={name:'Lever',all:T.LEVER_SIDE,transparent:true,flat:true,breakTime:0.5,lever:true,powered:false};
+BLOCKS[B.REDSTONE_DUST]={name:'Redstone Dust',all:T.REDSTONE_DUST_OFF,transparent:true,flat:true,breakTime:0.0,redstoneDust:true,powered:false,signal:0};
+BLOCKS[B.REDSTONE_TORCH_OFF]={name:'Redstone Torch',all:T.REDSTONE_TORCH_OFF,transparent:true,breakTime:0.0,redstoneTorch:true,powered:false};
+BLOCKS[B.REDSTONE_TORCH_ON]={name:'Redstone Torch (On)',all:T.REDSTONE_TORCH_ON,transparent:true,breakTime:0.0,redstoneTorch:true,powered:true,emissive:true};
+BLOCKS[B.REPEATER]={name:'Repeater',all:T.REPEATER_OFF,transparent:true,flat:true,breakTime:0.0,repeater:true,powered:false,facing:0,delay:1};
+BLOCKS[B.PISTON]={name:'Piston',top:T.PISTON_FACE,side:T.PISTON_SIDE,bottom:T.PISTON_SIDE,breakTime:1.5,piston:true,sticky:false,extended:false,facing:1};
+BLOCKS[B.PISTON_STICKY]={name:'Sticky Piston',top:T.PISTON_STICKY_FACE,side:T.PISTON_SIDE,bottom:T.PISTON_SIDE,breakTime:1.5,piston:true,sticky:true,extended:false,facing:1};
+BLOCKS[B.PISTON_HEAD]={name:'Piston Head',all:T.PISTON_EXTENSION,transparent:true,breakTime:0.0,pistonHead:true,sticky:false};
+BLOCKS[B.PISTON_HEAD_STICKY]={name:'Sticky Piston Head',all:T.PISTON_EXTENSION,transparent:true,breakTime:0.0,pistonHead:true,sticky:true};
+BLOCKS[B.DISPENSER]={name:'Dispenser',top:T.DISPENSER_SIDE,side:T.DISPENSER_SIDE,front:T.DISPENSER_FRONT,bottom:T.DISPENSER_SIDE,breakTime:3.5,toolClass:'pickaxe',dispenser:true,facing:0,inventory:[]};
+BLOCKS[B.DROPPER]={name:'Dropper',top:T.DISPENSER_SIDE,side:T.DISPENSER_SIDE,front:T.DROPPER_FRONT,bottom:T.DISPENSER_SIDE,breakTime:3.5,toolClass:'pickaxe',dropper:true,facing:0,inventory:[]};
+BLOCKS[B.HOPPER]={name:'Hopper',top:T.HOPPER_INSIDE,side:T.HOPPER_SIDE,bottom:T.HOPPER_SIDE,breakTime:3.0,toolClass:'pickaxe',hopper:true,inventory:[],cooldown:0};
+BLOCKS[B.OBSERVER]={name:'Observer',top:T.OBSERVER_SIDE,side:T.OBSERVER_SIDE,front:T.OBSERVER_FACE,back:T.OBSERVER_BACK,bottom:T.OBSERVER_SIDE,breakTime:3.0,toolClass:'pickaxe',observer:true,facing:0,powered:false};
 // Wooden doors: half(top/bottom) x facing(N/E/S/W) x open/closed = 16 block IDs.
 // Stored as distinct numeric IDs (no metadata), mirroring the WHEAT0../CARROT0.. pattern.
 // Rendered flat for now (placeholder look); real geometry comes in a later pass.
@@ -269,6 +305,9 @@ const ITEM_SHOVEL_WOOD=221,ITEM_SHOVEL_STONE=222,ITEM_SHOVEL_IRON=223,ITEM_SHOVE
   for(const id of shovel)if(BLOCKS[id])BLOCKS[id].toolClass='shovel';
   for(const id in minTier)if(BLOCKS[id])BLOCKS[id].minTier=minTier[id];
 })();
+// ---- Redstone item ----
+const ITEM_REDSTONE=260;
+ITEMS[ITEM_REDSTONE]={name:'Redstone',emoji:'🔴',placesBlock:B.REDSTONE_DUST};
 // Tool helpers
 function isTool(id){return !!(ITEMS[id]&&ITEMS[id].material&&ITEMS[id].toolClass);}
 function toolDef(id){return isTool(id)?ITEMS[id]:null;}
@@ -277,6 +316,12 @@ const STACK_MAX=64;
 function maxStackOf(id){return isTool(id)?1:STACK_MAX;}function dropFor(id){if(id===B.GRASS)return Math.random()<0.18?ITEM_SEEDS:B.DIRT;if(id===B.STONE)return B.COBBLE;if(id===B.GLASS)return null;if(id===B.ICE)return null;if(id===B.LAVA)return null;if(id===B.LEAVES||id===B.BIRCH_LEAVES||id===B.MANGROVE_LEAVES||id===B.PALM_LEAVES||id===B.MAPLE_LEAVES_RED||id===B.MAPLE_LEAVES_ORANGE||id===B.MAPLE_LEAVES_YELLOW)return Math.random()<0.2?ITEM_APPLE:null;if(id===B.COBWEB)return null;if(id===B.PATH)return B.DIRT;if(id===B.GLOW_LICHEN)return null;if(id===B.FARMLAND||id===B.FARMLAND_WET)return B.DIRT;if(id===B.MELON)return null;if(id===B.DEAD_BUSH)return null;if(id===B.TALL_GRASS)return Math.random()<0.125?ITEM_SEEDS:null;if(id===B.STAIRS_E||id===B.STAIRS_S||id===B.STAIRS_W)return B.STAIRS_N;
 // Copper: always drops the raw copper block (no stage change on break)
 if(id===B.COPPER_EXPOSED||id===B.COPPER_WEATHERED||id===B.COPPER_OXIDIZED)return id;
+// Redstone torch: drop the on-version as item
+if(id===B.REDSTONE_TORCH_OFF)return B.REDSTONE_TORCH_ON;
+// Redstone dust: drop redstone item
+if(id===B.REDSTONE_DUST)return ITEM_REDSTONE;
+// Piston head cannot be broken by player directly
+if(id===B.PISTON_HEAD||id===B.PISTON_HEAD_STICKY)return null;
 return id;}
 // Recipe categories for tab filtering
 const RECIPE_CATEGORIES=[
@@ -285,6 +330,7 @@ const RECIPE_CATEGORIES=[
   {id:'tools',name:'Tools',emoji:'⛏'},
   {id:'food',name:'Food',emoji:'🍞'},
   {id:'deco',name:'Deco',emoji:'✨'},
+  {id:'redstone',name:'Redstone',emoji:'🔴'},
 ];
 const RECIPES=[
 {cat:'building',pattern:[[B.LOG]],out:{id:B.PLANKS,count:4}},
@@ -427,6 +473,27 @@ const RECIPES=[
 // ---- Buttons: 1 plank/stone → 1 button ----
 {cat:'building',pattern:[[B.PLANKS]],out:{id:B.BUTTON_WOOD,count:1}},
 {cat:'building',pattern:[[B.STONE]],out:{id:B.BUTTON_STONE,count:1}},
+// ---- Redstone components ----
+// Lever: cobble + stick
+{cat:'redstone',pattern:[[ITEM_STICK],[B.COBBLE]],out:{id:B.LEVER,count:1}},
+// Redstone Torch: redstone on a stick
+{cat:'redstone',pattern:[[ITEM_REDSTONE],[ITEM_STICK]],out:{id:B.REDSTONE_TORCH_ON,count:1}},
+// Repeater: 2 redstone torches + 1 redstone dust + 3 stone
+{cat:'redstone',pattern:[[B.REDSTONE_TORCH_ON,ITEM_REDSTONE,B.REDSTONE_TORCH_ON],[B.STONE,B.STONE,B.STONE]],out:{id:B.REPEATER,count:1}},
+// Piston: 3 planks + 4 cobble + 1 iron + 1 redstone
+{cat:'redstone',pattern:[[B.PLANKS,B.PLANKS,B.PLANKS],[B.COBBLE,B.IRON_ORE,B.COBBLE],[B.COBBLE,ITEM_REDSTONE,B.COBBLE]],out:{id:B.PISTON,count:1}},
+// Sticky Piston: piston + slime (use seaweed as slime proxy)
+{cat:'redstone',pattern:[[B.SEAWEED],[B.PISTON]],out:{id:B.PISTON_STICKY,count:1}},
+// Dispenser: 7 cobble + 1 bow (cobweb proxy) + 1 redstone
+{cat:'redstone',pattern:[[B.COBBLE,B.COBBLE,B.COBBLE],[B.COBBLE,B.COBWEB,B.COBBLE],[B.COBBLE,ITEM_REDSTONE,B.COBBLE]],out:{id:B.DISPENSER,count:1}},
+// Dropper: 7 cobble + 1 redstone
+{cat:'redstone',pattern:[[B.COBBLE,B.COBBLE,B.COBBLE],[B.COBBLE,null,B.COBBLE],[B.COBBLE,ITEM_REDSTONE,B.COBBLE]],out:{id:B.DROPPER,count:1}},
+// Hopper: 5 iron + 1 chest
+{cat:'redstone',pattern:[[B.IRON_ORE,null,B.IRON_ORE],[B.IRON_ORE,B.CHEST,B.IRON_ORE],[null,B.IRON_ORE,null]],out:{id:B.HOPPER,count:1}},
+// Observer: 6 cobble + 2 redstone + 1 quartz (amethyst proxy)
+{cat:'redstone',pattern:[[B.COBBLE,B.COBBLE,B.COBBLE],[ITEM_REDSTONE,B.AMETHYST_BLOCK,ITEM_REDSTONE],[B.COBBLE,B.COBBLE,B.COBBLE]],out:{id:B.OBSERVER,count:1}},
+// Redstone dust: from coal ore as a proxy drop recipe
+{cat:'redstone',pattern:[[B.COAL_ORE,B.IRON_ORE]],out:{id:ITEM_REDSTONE,count:4}},
 ];
 // Achievement definitions: stat=counter key, goal=target value
 const ACHIEVEMENTS=[
@@ -472,10 +539,14 @@ const ACHIEVEMENTS=[
   {id:'minecart_ride',icon:'\ud83d\uded2',name:'\u30c8\u30ed\u30c3\u30b3\u4e57\u308a',desc:'Ride a minecart',stat:'minecart',goal:1},
   {id:'globetrotter',icon:'\ud83e\udded',name:'Globetrotter',desc:'Visit 5 different biomes',stat:'biomes_visited',goal:5},
   {id:'explorer_all',icon:'\ud83c\udf0d',name:'World Explorer',desc:'Visit all 10 biomes',stat:'biomes_visited',goal:10},
+  // Redstone achievements
+  {id:'redstone_lever',icon:'🔴',name:'Power On',desc:'Flip a lever for the first time',stat:'lever_flip',goal:1},
+  {id:'redstone_piston',icon:'🟫',name:'Push It',desc:'Activate a piston',stat:'piston_fire',goal:1},
+  {id:'redstone_builder',icon:'⚙',name:'Circuit Builder',desc:'Place 10 redstone components',stat:'redstone_placed',goal:10},
 ];
 const isMobile=('ontouchstart'in window)&&/Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac|iPad/i.test(navigator.userAgent));if(isMobile)document.body.classList.add('is-mobile');
 // World schema version — bump when dimensions change to invalidate saved data.
-const WORLD_VERSION="14-structures-temples-portals-igloo";
+const WORLD_VERSION="15-redstone-piston-hopper-observer";
 // SEED is resolved per active world (see worlds.js). If no world is active yet
 // (home screen showing), fall back to a temporary random seed; it is replaced
 // once a world is actually loaded via loadActiveWorld().

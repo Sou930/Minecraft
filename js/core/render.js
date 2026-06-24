@@ -317,7 +317,17 @@ if(def&&def.cross){const sh=(def.emissive?1:0.94*cellMul);pushCross(buf,x,y,z,de
 if(def&&def.door){const tile=(def.doorHalf==='top')?T.DOOR_TOP:T.DOOR_BOTTOM;pushDoor(buf,x,y,z,tile,def.doorFacing,def.doorOpen,0.9*cellMul);continue;}
 // Wooden stairs: two-box stepped shape oriented by stairFacing.
 if(def&&def.stairs){pushStairs(buf,x,y,z,def.all,def.stairFacing,0.95*cellMul);continue;}
-if(def&&def.flat){pushFlat(buf,x,y,z,def.all,0.95*cellMul);continue;}
+if(def&&def.flat){
+// Redstone-aware flat rendering: choose tile based on powered state
+let flatTile=def.all;
+if(def.redstoneDust&&typeof REDSTONE!=='undefined')flatTile=REDSTONE.dustTile(x,y,z);
+else if(def.lever&&typeof REDSTONE!=='undefined')flatTile=REDSTONE.leverTile(x,y,z);
+else if(def.repeater&&typeof REDSTONE!=='undefined')flatTile=REDSTONE.repeaterTile(x,y,z);
+pushFlat(buf,x,y,z,flatTile,0.95*cellMul);continue;}
+// Redstone torch: thin column (emissive when on)
+if(def&&def.redstoneTorch){const sh=(def.powered?1:0.85*cellMul);pushColumn(buf,x,y,z,def.all,sh,0.12,0.62);continue;}
+// Piston head: thin column extension
+if(def&&def.pistonHead){pushColumn(buf,x,y,z,def.all,0.95*cellMul,0.35,0.25);continue;}
 // Slab: lower half-height block
 if(def&&def.slab){pushSlab(buf,x,y,z,def,0.95*cellMul);continue;}
 // Fence: post + connecting rails
@@ -389,7 +399,8 @@ function setBlock(x,y,z,id){if(x<0||x>=WORLD_W||y<0||y>=WORLD_H||z<0||z>=WORLD_D
 const opacityChanged=(typeof lightPasses!=='undefined')&&(lightPasses(prevId)!==lightPasses(id));
 if(emitNow>0||emitPrev>0||opacityChanged){const R=(typeof BLOCKLIGHT_MAX!=='undefined')?BLOCKLIGHT_MAX:15;const rc=Math.ceil(R/CHUNK);for(let dz=-rc;dz<=rc;dz++)for(let dx=-rc;dx<=rc;dx++){if(dx===0&&dz===0)continue;const ncx=cx+dx,ncz=cz+dz;if(ncx<0||ncx>=CHUNKS_X||ncz<0||ncz>=CHUNKS_Z)continue;if(!chunkBuilt[ncz*CHUNKS_X+ncx])continue;buildChunk(ncx,ncz);}}}
 if(typeof FLUID!=='undefined')FLUID.notifyBlockChanged(x,y,z);
-if(typeof LIGHTING!=='undefined')LIGHTING.notifyBlockChanged(x,y,z);}
+if(typeof LIGHTING!=='undefined')LIGHTING.notifyBlockChanged(x,y,z);
+if(typeof REDSTONE!=='undefined')REDSTONE.onBlockChanged(x,y,z,id);}
 const highlightLines=(function(){const p=[[0,0,0],[1,0,0],[1,0,1],[0,0,1],[0,1,0],[1,1,0],[1,1,1],[0,1,1]];const e=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];const lines=e.map(([a,b])=>[new BABYLON.Vector3(p[a][0],p[a][1],p[a][2]).scaleInPlace(1.002),new BABYLON.Vector3(p[b][0],p[b][1],p[b][2]).scaleInPlace(1.002),]);const mesh=BABYLON.MeshBuilder.CreateLineSystem('highlight',{lines},scene);mesh.color=new BABYLON.Color3(0.05,0.05,0.05);mesh.isPickable=false;mesh.setEnabled(false);return mesh;})();function raycastVoxel(origin,dir,maxDist){let x=Math.floor(origin.x),y=Math.floor(origin.y),z=Math.floor(origin.z);const stepX=dir.x>0?1:-1,stepY=dir.y>0?1:-1,stepZ=dir.z>0?1:-1;const tDX=dir.x!==0?Math.abs(1/dir.x):Infinity;const tDY=dir.y!==0?Math.abs(1/dir.y):Infinity;const tDZ=dir.z!==0?Math.abs(1/dir.z):Infinity;let tMaxX=dir.x!==0?((dir.x>0?x+1-origin.x:origin.x-x)*tDX):Infinity;let tMaxY=dir.y!==0?((dir.y>0?y+1-origin.y:origin.y-y)*tDY):Infinity;let tMaxZ=dir.z!==0?((dir.z>0?z+1-origin.z:origin.z-z)*tDZ):Infinity;let px=x,py=y,pz=z,t=0;for(let i=0;i<256;i++){const id=getBlock(x,y,z);if(isTargetable(id)&&!(i===0))return{x,y,z,px,py,pz,id};px=x;py=y;pz=z;if(tMaxX<tMaxY&&tMaxX<tMaxZ){t=tMaxX;tMaxX+=tDX;x+=stepX;}
 else if(tMaxY<tMaxZ){t=tMaxY;tMaxY+=tDY;y+=stepY;}
 else{t=tMaxZ;tMaxZ+=tDZ;z+=stepZ;}

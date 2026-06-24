@@ -455,6 +455,185 @@ ctx.fillStyle='#6a6a6a';ctx.strokeStyle='#6a6a6a';ctx.lineWidth=2;ctx.beginPath(
 // ---- Mossy Cobblestone ----
 {noisy(T.MOSSY_COBBLE,'#6c7a62',['#5e6c55','#7a8870','#566050','#70826a'],0.5);const[ox,oy]=tileOrigin(T.MOSSY_COBBLE);const rnd=mulberry32(9504);for(let i=0;i<7;i++){const cx=4+Math.floor(rnd()*12)*2,cy=4+Math.floor(rnd()*12)*2,r=3+Math.floor(rnd()*3)*2;ctx.fillStyle=rnd()<0.5?'#5e6c55':'#606040';ctx.fillRect(ox+cx-r/2,oy+cy-r/2,r,r);ctx.strokeStyle='#404830';ctx.lineWidth=1;ctx.strokeRect(ox+cx-r/2,oy+cy-r/2,r,r);}ctx.fillStyle='#4e7a3a';for(let i=0;i<16;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
 
+// =====================================================================
+//  REDSTONE COMPONENT TILES (rows 24-26 of the expanded atlas)
+// =====================================================================
+
+// ---- Redstone Dust (off) ----
+{const[ox,oy]=tileOrigin(T.REDSTONE_DUST_OFF);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+ // faint grey X cross
+ ctx.fillStyle='#5a3a3a';ctx.fillRect(ox+14,oy+2,4,28);ctx.fillRect(ox+2,oy+14,28,4);
+ ctx.fillStyle='#4a2a2a';ctx.fillRect(ox+14,oy+2,2,28);ctx.fillRect(ox+2,oy+14,28,2);}
+
+// ---- Redstone Dust (on) ----
+{const[ox,oy]=tileOrigin(T.REDSTONE_DUST_ON);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+ // bright red X cross with glow
+ ctx.fillStyle='#d43030';ctx.fillRect(ox+13,oy+2,6,28);ctx.fillRect(ox+2,oy+13,28,6);
+ ctx.fillStyle='#ff5050';ctx.fillRect(ox+14,oy+2,4,28);ctx.fillRect(ox+2,oy+14,28,4);
+ ctx.fillStyle='#ff8080';ctx.fillRect(ox+15,oy+3,2,26);ctx.fillRect(ox+3,oy+15,26,2);
+ // corner dots
+ ctx.fillStyle='#ff4040';for(const[cx,cy]of[[6,6],[24,6],[6,24],[24,24]])ctx.fillRect(ox+cx,oy+cy,4,4);}
+
+// ---- Redstone Torch (off) ----
+{const[ox,oy]=tileOrigin(T.REDSTONE_TORCH_OFF);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+ ctx.fillStyle='#6b4a2a';ctx.fillRect(ox+10,oy+14,12,18);
+ ctx.fillStyle='#553820';ctx.fillRect(ox+19,oy+14,3,18);
+ ctx.fillStyle='#4a3018';ctx.fillRect(ox+10,oy+14,12,2);
+ // dark ember (off)
+ ctx.fillStyle='#5a1a1a';ctx.fillRect(ox+9,oy+6,14,9);
+ ctx.fillStyle='#3a0808';ctx.fillRect(ox+11,oy+4,10,9);
+ ctx.fillStyle='#4a1010';ctx.fillRect(ox+13,oy+4,6,7);}
+
+// ---- Redstone Torch (on) ----
+{const[ox,oy]=tileOrigin(T.REDSTONE_TORCH_ON);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+ ctx.fillStyle='#6b4a2a';ctx.fillRect(ox+10,oy+14,12,18);
+ ctx.fillStyle='#7d5836';ctx.fillRect(ox+10,oy+14,4,18);
+ ctx.fillStyle='#553820';ctx.fillRect(ox+19,oy+14,3,18);
+ ctx.fillStyle='#2c2016';ctx.fillRect(ox+11,oy+13,10,2);
+ // red flame
+ ctx.fillStyle='#c02010';ctx.fillRect(ox+9,oy+4,14,11);
+ ctx.fillStyle='#e83018';ctx.fillRect(ox+11,oy+2,10,11);
+ ctx.fillStyle='#ff5030';ctx.fillRect(ox+13,oy+2,6,9);
+ ctx.fillStyle='#ff8060';ctx.fillRect(ox+14,oy+3,4,5);
+ ctx.fillStyle='#ffb090';ctx.fillRect(ox+15,oy+4,2,2);}
+
+// ---- Lever (side, off) ----
+{const[ox,oy]=tileOrigin(T.LEVER_SIDE);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+ // stone base
+ noisy(T.LEVER_SIDE,'#8a8a8a',['#7d7d7d','#969696'],0.4);
+ const[ox2,oy2]=tileOrigin(T.LEVER_SIDE);
+ // lever handle (pointing down = off)
+ ctx.fillStyle='#5e3a10';ctx.fillRect(ox2+13,oy2+18,6,12);
+ ctx.fillStyle='#8a5a22';ctx.fillRect(ox2+14,oy2+18,3,10);
+ // pivot block
+ ctx.fillStyle='#3a3a3a';ctx.fillRect(ox2+10,oy2+14,12,6);
+ ctx.fillStyle='#555';ctx.fillRect(ox2+11,oy2+15,10,4);
+ ctx.fillStyle='#666';ctx.fillRect(ox2+11,oy2+15,2,4);}
+
+// ---- Lever (on) ----
+{const[ox,oy]=tileOrigin(T.LEVER_ON);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+ noisy(T.LEVER_ON,'#8a8a8a',['#7d7d7d','#969696'],0.4);
+ const[ox2,oy2]=tileOrigin(T.LEVER_ON);
+ // lever handle (pointing up = on)
+ ctx.fillStyle='#5e3a10';ctx.fillRect(ox2+13,oy2+2,6,12);
+ ctx.fillStyle='#8a5a22';ctx.fillRect(ox2+14,oy2+2,3,10);
+ ctx.fillStyle='#3a3a3a';ctx.fillRect(ox2+10,oy2+14,12,6);
+ ctx.fillStyle='#555';ctx.fillRect(ox2+11,oy2+15,10,4);
+ // red glow dot
+ ctx.fillStyle='#e03020';ctx.fillRect(ox2+15,oy2+15,2,2);}
+
+// ---- Repeater (off) ----
+{const[ox,oy]=tileOrigin(T.REPEATER_OFF);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+ // stone slab base
+ ctx.fillStyle='#7c7c7c';ctx.fillRect(ox,oy+16,TILE_PX,16);
+ ctx.fillStyle='#8e8e8e';ctx.fillRect(ox,oy+16,TILE_PX,2);
+ // two small torches (off)
+ ctx.fillStyle='#6b4a2a';ctx.fillRect(ox+4,oy+8,4,10);ctx.fillRect(ox+24,oy+8,4,10);
+ ctx.fillStyle='#5a1a1a';ctx.fillRect(ox+3,oy+4,6,6);ctx.fillRect(ox+23,oy+4,6,6);
+ // dust line
+ ctx.fillStyle='#5a3a3a';ctx.fillRect(ox+2,oy+18,28,3);}
+
+// ---- Repeater (on) ----
+{const[ox,oy]=tileOrigin(T.REPEATER_ON);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+ ctx.fillStyle='#7c7c7c';ctx.fillRect(ox,oy+16,TILE_PX,16);
+ ctx.fillStyle='#8e8e8e';ctx.fillRect(ox,oy+16,TILE_PX,2);
+ ctx.fillStyle='#6b4a2a';ctx.fillRect(ox+4,oy+8,4,10);ctx.fillRect(ox+24,oy+8,4,10);
+ // on torches
+ ctx.fillStyle='#c02010';ctx.fillRect(ox+3,oy+4,6,6);ctx.fillRect(ox+23,oy+4,6,6);
+ ctx.fillStyle='#ff5030';ctx.fillRect(ox+4,oy+5,4,3);ctx.fillRect(ox+24,oy+5,4,3);
+ // bright dust line
+ ctx.fillStyle='#e83018';ctx.fillRect(ox+2,oy+18,28,3);}
+
+// ---- Piston side ----
+{noisy(T.PISTON_SIDE,'#7c7c7c',['#6e6e6e','#8b8b8b'],0.5);const[ox,oy]=tileOrigin(T.PISTON_SIDE);
+ // wooden planks visible at the top
+ ctx.fillStyle='#b08a4f';ctx.fillRect(ox,oy,TILE_PX,10);
+ ctx.fillStyle='#9c7840';ctx.fillRect(ox,oy,TILE_PX,2);ctx.fillRect(ox,oy+8,TILE_PX,2);}
+
+// ---- Piston top (normal face) ----
+{const[ox,oy]=tileOrigin(T.PISTON_FACE);
+ ctx.fillStyle='#b08a4f';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);
+ const rnd=mulberry32(9600);for(let i=0;i<40;i++){ctx.fillStyle=['#a37e45','#bb945a','#9c7840'][Math.floor(rnd()*3)];ctx.fillRect(ox+Math.floor(rnd()*TILE_PX/2)*2,oy+Math.floor(rnd()*TILE_PX/2)*2,2,2);}
+ ctx.fillStyle='#7d5d30';for(let y=0;y<TILE_PX;y+=8)ctx.fillRect(ox,oy+y,TILE_PX,2);
+ // iron cross in the center
+ ctx.fillStyle='#aaaaaa';ctx.fillRect(ox+12,oy+6,8,20);ctx.fillRect(ox+6,oy+12,20,8);
+ ctx.fillStyle='#cccccc';ctx.fillRect(ox+13,oy+7,6,18);ctx.fillRect(ox+7,oy+13,18,6);}
+
+// ---- Piston sticky face ----
+{const[ox,oy]=tileOrigin(T.PISTON_STICKY_FACE);
+ ctx.fillStyle='#b08a4f';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);
+ const rnd=mulberry32(9601);for(let i=0;i<40;i++){ctx.fillStyle=['#a37e45','#bb945a','#9c7840'][Math.floor(rnd()*3)];ctx.fillRect(ox+Math.floor(rnd()*TILE_PX/2)*2,oy+Math.floor(rnd()*TILE_PX/2)*2,2,2);}
+ ctx.fillStyle='#7d5d30';for(let y=0;y<TILE_PX;y+=8)ctx.fillRect(ox,oy+y,TILE_PX,2);
+ // green slime blob
+ ctx.fillStyle='#3a9a4a';ctx.fillRect(ox+8,oy+8,16,16);
+ ctx.fillStyle='#4ab85a';ctx.fillRect(ox+10,oy+10,12,12);
+ ctx.fillStyle='#5cd66c';ctx.fillRect(ox+12,oy+12,8,8);}
+
+// ---- Piston extension rod ----
+{const[ox,oy]=tileOrigin(T.PISTON_EXTENSION);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+ // vertical wooden rod
+ ctx.fillStyle='#b08a4f';ctx.fillRect(ox+10,oy,12,TILE_PX);
+ ctx.fillStyle='#9c7840';ctx.fillRect(ox+10,oy,2,TILE_PX);ctx.fillRect(ox+20,oy,2,TILE_PX);
+ // iron band at top
+ ctx.fillStyle='#aaaaaa';ctx.fillRect(ox+8,oy,16,6);ctx.fillRect(ox+8,oy+TILE_PX-6,16,6);}
+
+// ---- Dispenser front ----
+{noisy(T.DISPENSER_FRONT,'#7c7c7c',['#6e6e6e','#8b8b8b'],0.5);const[ox,oy]=tileOrigin(T.DISPENSER_FRONT);
+ // dark nozzle hole in the center
+ ctx.fillStyle='#1a1a1a';ctx.fillRect(ox+8,oy+8,16,16);
+ ctx.fillStyle='#0a0a0a';ctx.fillRect(ox+10,oy+10,12,12);
+ // grey border around nozzle
+ ctx.fillStyle='#555';ctx.fillRect(ox+6,oy+6,20,2);ctx.fillRect(ox+6,oy+24,20,2);ctx.fillRect(ox+6,oy+6,2,20);ctx.fillRect(ox+24,oy+6,2,20);}
+
+// ---- Dispenser/Dropper side ----
+{noisy(T.DISPENSER_SIDE,'#7c7c7c',['#6e6e6e','#8b8b8b'],0.5);const[ox,oy]=tileOrigin(T.DISPENSER_SIDE);
+ // faint lines
+ ctx.fillStyle='rgba(0,0,0,0.25)';ctx.fillRect(ox,oy+15,TILE_PX,2);}
+
+// ---- Dropper front (smaller hole) ----
+{noisy(T.DROPPER_FRONT,'#7c7c7c',['#6e6e6e','#8b8b8b'],0.5);const[ox,oy]=tileOrigin(T.DROPPER_FRONT);
+ ctx.fillStyle='#1a1a1a';ctx.fillRect(ox+10,oy+10,12,12);
+ ctx.fillStyle='#0a0a0a';ctx.fillRect(ox+12,oy+12,8,8);
+ // triangle pointing down to distinguish from dispenser
+ ctx.fillStyle='#888';ctx.beginPath();ctx.moveTo(ox+12,oy+8);ctx.lineTo(ox+20,oy+8);ctx.lineTo(ox+16,oy+12);ctx.closePath();ctx.fill();}
+
+// ---- Hopper side ----
+{noisy(T.HOPPER_SIDE,'#5a5a5a',['#4e4e4e','#686868'],0.5);const[ox,oy]=tileOrigin(T.HOPPER_SIDE);
+ // funnel shape outline
+ ctx.fillStyle='#333';ctx.fillRect(ox+2,oy+2,28,4);  // top bar
+ ctx.fillRect(ox+2,oy+2,4,20);ctx.fillRect(ox+26,oy+2,4,20); // sides
+ // narrowing funnel
+ ctx.fillStyle='#404040';ctx.fillRect(ox+6,oy+22,20,4);ctx.fillRect(ox+8,oy+26,16,2);
+ ctx.fillStyle='#333';ctx.fillRect(ox+10,oy+28,12,4);}// output pipe
+
+// ---- Hopper inside (top) ----
+{const[ox,oy]=tileOrigin(T.HOPPER_INSIDE);
+ ctx.fillStyle='#4a4a4a';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);
+ ctx.fillStyle='#333';ctx.fillRect(ox+4,oy+4,24,24);
+ ctx.fillStyle='#222';ctx.fillRect(ox+8,oy+8,16,16);}
+
+// ---- Observer face (has eye/sensor) ----
+{noisy(T.OBSERVER_FACE,'#5a5a5a',['#4e4e4e','#686868'],0.5);const[ox,oy]=tileOrigin(T.OBSERVER_FACE);
+ // eye / sensor lens
+ ctx.fillStyle='#1a1a2a';ctx.fillRect(ox+8,oy+8,16,16);
+ ctx.fillStyle='#3a3a6a';ctx.fillRect(ox+10,oy+10,12,12);
+ ctx.fillStyle='#5a5aaa';ctx.fillRect(ox+12,oy+12,8,8);
+ ctx.fillStyle='#8080cc';ctx.fillRect(ox+14,oy+14,4,4);
+ ctx.fillStyle='#aaaaff';ctx.fillRect(ox+15,oy+15,2,2);}
+
+// ---- Observer back (output, emits signal) ----
+{noisy(T.OBSERVER_BACK,'#5a5a5a',['#4e4e4e','#686868'],0.5);const[ox,oy]=tileOrigin(T.OBSERVER_BACK);
+ // redstone signal dot
+ ctx.fillStyle='#8a2a2a';ctx.fillRect(ox+10,oy+10,12,12);
+ ctx.fillStyle='#c03030';ctx.fillRect(ox+12,oy+12,8,8);
+ ctx.fillStyle='#e84040';ctx.fillRect(ox+14,oy+14,4,4);}
+
+// ---- Observer side ----
+{noisy(T.OBSERVER_SIDE,'#5a5a5a',['#4e4e4e','#686868'],0.5);const[ox,oy]=tileOrigin(T.OBSERVER_SIDE);
+ // arrow indicating detection direction
+ ctx.fillStyle='#888';ctx.fillRect(ox+4,oy+14,16,4);
+ ctx.fillStyle='#aaa';ctx.beginPath();ctx.moveTo(ox+20,oy+10);ctx.lineTo(ox+28,oy+16);ctx.lineTo(ox+20,oy+22);ctx.closePath();ctx.fill();}
+
 })();function tileUV(t){const col=t%ATLAS_TILES,row=Math.floor(t/ATLAS_TILES);const padU=0.5/ATLAS_W,padV=0.5/ATLAS_H;return{u1:col/ATLAS_TILES+padU,u2:(col+1)/ATLAS_TILES-padU,v1:1-(row+1)/ATLAS_ROWS+padV,v2:1-row/ATLAS_ROWS-padV,};}
 /* ---------------------------------------------------------------------------
  * Per-material tool textures (pickaxe / axe / shovel / hoe + stick).
