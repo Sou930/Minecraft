@@ -83,6 +83,18 @@ Place a crafting table and right-click to open 3×3 crafting
       </div>
     </div>
   </div>
+  <!-- Sign editor overlay -->
+  <div id="sign-editor-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:3000;align-items:center;justify-content:center;">
+    <div id="sign-editor-panel" style="background:#5c3d1e;border:4px solid #3a2510;border-radius:8px;padding:20px;display:flex;flex-direction:column;gap:12px;min-width:320px;">
+      <h3 style="color:#f5dfa0;margin:0;font-family:monospace;text-align:center;">📋 Edit Sign</h3>
+      <div id="sign-preview" style="background:#c9a06a;border:3px solid #6b4a20;padding:10px;font-family:monospace;font-size:14px;color:#3a2810;min-height:60px;white-space:pre-wrap;word-break:break-word;border-radius:4px;"></div>
+      <textarea id="sign-editor-input" maxlength="80" rows="3" style="font-family:monospace;font-size:14px;background:#ede0c0;border:2px solid #8a6030;border-radius:4px;padding:8px;color:#3a2810;resize:none;" placeholder="Enter sign text..."></textarea>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button id="sign-editor-cancel" style="padding:8px 16px;background:#8b4a2a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:monospace;">Cancel</button>
+        <button id="sign-editor-ok" style="padding:8px 16px;background:#2a7a2a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-family:monospace;">✔ Done</button>
+      </div>
+    </div>
+  </div>
   <button id="btn-screenshot" class="screenshot-btn" aria-label="Screenshot mode" title="Screenshot mode (P)">📷</button>
   <button id="btn-screenshot-exit" aria-label="Exit screenshot mode" title="Exit (P / Esc)">✕ <span id="ss-exit-label">Exit</span></button>
   <script src="https://cdn.jsdelivr.net/npm/babylonjs@7/babylon.min.js"></script>
@@ -117,6 +129,8 @@ Place a crafting table and right-click to open 3×3 crafting
   <script src="js/systems/fishing.js"></script>
   <!-- Redstone system (lever, dust, torch, repeater, piston, dispenser, dropper, hopper, observer) -->
   <script src="js/systems/redstone.js"></script>
+  <!-- Decorations system (sign text, item frame display) -->
+  <script src="js/systems/decorations.js"></script>
   <!-- Visual effects -->
   <script src="js/effects/particles.js"></script>
   <!-- PBR material: atlas AO enhancement + normal-map-style shading -->

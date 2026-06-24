@@ -19,6 +19,9 @@ function isInLava(offsetY){return getBlock(Math.floor(player.pos.x),Math.floor(p
 const keys={};let started=false,paused=true;let selectedSlot=0;const joy={active:false,x:0,y:0};document.addEventListener('keydown',(e)=>{if(e.code==='Space')e.preventDefault();keys[e.code]=true;
 // O: open/close the settings menu (works even while paused or in inventory).
 if(e.code==='KeyO'&&typeof toggleSettings==='function'){toggleSettings();return;}
+// Close sign editor with Escape
+const _seo=document.getElementById('sign-editor-overlay');if(_seo&&_seo.style.display!=='none'&&e.code==='Escape'){if(typeof closeSignEditor==='function')closeSignEditor(false);return;}
+if(_seo&&_seo.style.display!=='none'){e.stopPropagation();return;} // block gameplay keys when sign editor open
 if(typeof settingsOpen!=='undefined'&&settingsOpen){if(e.code==='Escape')toggleSettings(false);return;}
 if(!started||paused)return;if(e.code==='KeyE'){toggleInventory();return;}
 if(inventoryOpen){if(e.code==='Escape')toggleInventory(false);return;}
@@ -65,7 +68,10 @@ if(typeof ACH!=='undefined'){ACH.track('mined');if(minedId===B.DIAMOND_ORE)ACH.f
 if(minedDef&&minedDef.crop&&typeof FARM!=='undefined'){FARM.harvest(mx,my,mz,minedId);setBlock(mx,my,mz,B.AIR);if(typeof ACH!=='undefined')ACH.track('harvest');}
 // Door: break both halves (top+bottom) and drop a single Wooden Door item.
 else if(minedDef&&minedDef.door){const oy=minedDef.doorHalf==='top'?my-1:my;setBlock(mx,oy,mz,B.AIR);setBlock(mx,oy+1,mz,B.AIR);addToInventory(ITEM_DOOR,1);}
-else{if(typeof FARM!=='undefined')FARM.onBlockChanged(mx,my,mz,B.AIR);setBlock(mx,my,mz,B.AIR);
+else{if(typeof FARM!=='undefined')FARM.onBlockChanged(mx,my,mz,B.AIR);
+// Remove decoration mesh if sign/item-frame
+if(minedDef&&(minedDef.sign||minedDef.itemFrame)&&typeof DECORATIONS!=='undefined')DECORATIONS.removeAt(mx,my,mz);
+setBlock(mx,my,mz,B.AIR);
 const harvestOK=canHarvest(minedId);
 if(harvestOK){const drop=dropFor(minedId);if(drop!==null&&drop!==undefined)addToInventory(drop,1);
 if(minedDef&&minedDef.harvestItem){const hi=minedDef.harvestItem;const n=hi.min+Math.floor(Math.random()*(hi.max-hi.min+1));for(let i=0;i<n;i++)addToInventory(hi.id,1);} } }
@@ -90,6 +96,12 @@ if(typeof tryEnterNearbyBoat==='function'&&tryEnterNearbyBoat()){clearInterval(a
 // Right-click an existing minecart on a rail to board it.
 if(typeof tryEnterNearbyMinecart==='function'&&tryEnterNearbyMinecart()){clearInterval(actionInterval);return;}
 if(currentTarget&&currentTarget.id===B.CRAFTING){clearInterval(actionInterval);toggleInventory(true,3);return;}
+// Sign interaction: right-click to edit text
+if(currentTarget){const _sd=BLOCKS[currentTarget.id];if(_sd&&_sd.sign){clearInterval(actionInterval);openSignEditor(currentTarget.x,currentTarget.y,currentTarget.z);return;}}
+// Item frame interaction: right-click to place/remove held item
+if(currentTarget){const _fd=BLOCKS[currentTarget.id];if(_fd&&_fd.itemFrame){clearInterval(actionInterval);interactItemFrame(currentTarget.x,currentTarget.y,currentTarget.z);return;}}
+// Flower pot interaction: right-click to plant/remove flower
+if(currentTarget){const _pd=BLOCKS[currentTarget.id];if(_pd&&_pd.flowerPot){clearInterval(actionInterval);interactFlowerPot(currentTarget.x,currentTarget.y,currentTarget.z);return;}}
 // Redstone interactions: lever toggle, repeater delay cycle
 if(currentTarget&&typeof REDSTONE!=='undefined'){if(REDSTONE.onInteract(currentTarget.x,currentTarget.y,currentTarget.z)){clearInterval(actionInterval);return;}}
 // Right-click a fence gate to toggle it open/closed
@@ -128,7 +140,32 @@ if(itemDef){if(itemDef.food)eatFood(selectedSlot);return;}
 if(!currentTarget)return;const{px,py,pz}=currentTarget;if(px<0||px>=WORLD_W||py<0||py>=WORLD_H||pz<0||pz>=WORLD_D)return;const cur=getBlock(px,py,pz);if(isSolid(cur))return;const box=playerAABB(player.pos);if(px+1>box.minX&&px<box.maxX&&py+1>box.minY&&py<box.maxY&&pz+1>box.minZ&&pz<box.maxZ)return;
 // Stairs orient themselves: the low/open side faces the player so you climb away.
 let placeId=slot.id;if(BLOCKS[placeId]&&BLOCKS[placeId].stairs)placeId=stairBlockId(playerFacingDir());
-setBlock(px,py,pz,placeId);if(typeof SFX!=='undefined')SFX.place(placeId);consumeFromSlot(selectedSlot,1);if(typeof ACH!=='undefined'){ACH.track('placed');if(typeof isRedstoneBlock==='function'&&isRedstoneBlock(placeId))ACH.track('redstone_placed');}}
+// Sign: orient face toward the player when placed
+if(BLOCKS[placeId]&&BLOCKS[placeId].sign){
+  const signFace=playerFacingDir();// place facing player direction
+  BLOCKS[B.SIGN]=Object.assign({},BLOCKS[B.SIGN],{signFacing:signFace,signText:''});
+}
+// Torch: place on wall if the target block is a solid wall; else place upright
+if(placeId===B.TORCH){
+  const tx=currentTarget.x,ty=currentTarget.y,tz=currentTarget.z;
+  // Determine which face was hit: compare placed position to targeted block
+  const dx=px-tx,dy=py-ty,dz=pz-tz;
+  if(dy===1){placeId=B.TORCH;} // place on top surface → upright
+  else if(dy===-1){placeId=B.TORCH_CEILING;} // place on underside → ceiling
+  else if(dz===-1){// south face of target → torch on south wall of placed cell
+    placeId=B.TORCH_WALL_S;BLOCKS[B.TORCH_WALL_S]=Object.assign({},BLOCKS[B.TORCH_WALL_S],{torchFacing:'S'});
+  }else if(dz===1){placeId=B.TORCH_WALL_N;BLOCKS[B.TORCH_WALL_N]=Object.assign({},BLOCKS[B.TORCH_WALL_N],{torchFacing:'N'});}
+  else if(dx===-1){placeId=B.TORCH_WALL_E;BLOCKS[B.TORCH_WALL_E]=Object.assign({},BLOCKS[B.TORCH_WALL_E],{torchFacing:'E'});}
+  else if(dx===1){placeId=B.TORCH_WALL_W;BLOCKS[B.TORCH_WALL_W]=Object.assign({},BLOCKS[B.TORCH_WALL_W],{torchFacing:'W'});}
+}
+// Item frame: orient to face the player
+if(BLOCKS[placeId]&&BLOCKS[placeId].itemFrame){
+  const ff=playerFacingDir();
+  BLOCKS[B.ITEM_FRAME]=Object.assign({},BLOCKS[B.ITEM_FRAME],{frameFacing:ff,frameItem:null});
+}
+setBlock(px,py,pz,placeId);if(typeof SFX!=='undefined')SFX.place(placeId);consumeFromSlot(selectedSlot,1);if(typeof ACH!=='undefined'){ACH.track('placed');if(typeof isRedstoneBlock==='function'&&isRedstoneBlock(placeId))ACH.track('redstone_placed');}
+// Auto-open sign editor when placing a sign
+if(BLOCKS[placeId]&&BLOCKS[placeId].sign){openSignEditor(px,py,pz);}}
 // Stair facing constants matching stairFacing in config (N=0,E=1,S=2,W=3).
 const STAIR_FACING_IDS=[B.STAIRS_N,B.STAIRS_E,B.STAIRS_S,B.STAIRS_W];
 function stairBlockId(facing){return STAIR_FACING_IDS[facing]||B.STAIRS_N;}
@@ -152,6 +189,88 @@ function toggleDoor(x,y,z){const id=getBlock(x,y,z);const def=BLOCKS[id];if(!def
 const by=def.doorHalf==='top'?y-1:y;const ty=by+1;const facing=def.doorFacing;const open=!def.doorOpen;
 setBlock(x,by,z,doorBlockId(facing,'bottom',open));setBlock(x,ty,z,doorBlockId(facing,'top',open));
 if(typeof SFX!=='undefined')SFX.place(id);}
+// Sign editor: show UI to type text on a sign
+let _signEditorTarget=null;
+function openSignEditor(x,y,z){
+  _signEditorTarget={x,y,z};
+  const overlay=document.getElementById('sign-editor-overlay');
+  const input=document.getElementById('sign-editor-input');
+  if(!overlay||!input)return;
+  const def=BLOCKS[getBlock(x,y,z)];
+  input.value=(def&&def.signText)||'';
+  overlay.style.display='flex';overlay.style.alignItems='center';overlay.style.justifyContent='center';
+  setTimeout(()=>input.focus(),80);
+}
+function closeSignEditor(save){
+  const overlay=document.getElementById('sign-editor-overlay');
+  if(!overlay)return;
+  overlay.style.display='none';
+  if(save&&_signEditorTarget){
+    const{x,y,z}=_signEditorTarget;
+    const id=getBlock(x,y,z);
+    const def=BLOCKS[id];
+    if(def&&def.sign){
+      // Store text in a per-position map
+      if(!window._signTexts)window._signTexts={};
+      const input=document.getElementById('sign-editor-input');
+      const text=(input&&input.value)||'';
+      window._signTexts[x+','+y+','+z]=text;
+      // Update def so the renderer can read it via BLOCKS lookup (shared ref)
+      BLOCKS[id]=Object.assign({},def,{signText:text});
+      // Update decoration mesh
+      if(typeof DECORATIONS!=='undefined')DECORATIONS.updateSign(x,y,z);
+      // Rebuild affected chunk
+      const cx2=Math.floor(x/CHUNK),cz2=Math.floor(z/CHUNK);
+      if(typeof buildChunk==='function')buildChunk(cx2,cz2);
+    }
+  }
+  _signEditorTarget=null;
+}
+// Item frame: place held item into frame, or remove existing item
+function interactItemFrame(x,y,z){
+  const id=getBlock(x,y,z);
+  const def=BLOCKS[id];
+  if(!def||!def.itemFrame)return;
+  if(def.frameItem!==null&&def.frameItem!==undefined){
+    // Remove: give item back
+    addToInventory(def.frameItem,1);
+    BLOCKS[id]=Object.assign({},def,{frameItem:null});
+  }else{
+    // Place: take item from hand
+    const slot=inventory[selectedSlot];
+    if(!slot)return;
+    BLOCKS[id]=Object.assign({},def,{frameItem:slot.id});
+    consumeFromSlot(selectedSlot,1);
+  }
+  const cx2=Math.floor(x/CHUNK),cz2=Math.floor(z/CHUNK);
+  if(typeof buildChunk==='function')buildChunk(cx2,cz2);
+  if(typeof SFX!=='undefined')SFX.place(id);
+}
+// Flower pot: plant/remove a flower
+const _PLANTABLE_IN_POT=new Set([B.FLOWER_DANDELION,B.FLOWER_POPPY,B.FLOWER_CORNFLOWER,B.FLOWER_ALLIUM,B.FLOWER_TULIP,B.FLOWER_OXEYE,B.DEAD_BUSH,B.TALL_GRASS,B.CACTUS,B.BAMBOO]);
+function interactFlowerPot(x,y,z){
+  const id=getBlock(x,y,z);
+  const def=BLOCKS[id];
+  if(!def||!def.flowerPot)return;
+  if(def.potPlant&&def.potPlant!==0){
+    // Remove plant: give it back (use flower tile to map back to block)
+    addToInventory(def.potPlant,1);
+    BLOCKS[id]=Object.assign({},def,{potPlant:0});
+  }else{
+    // Plant: use held item if it's a plantable plant
+    const slot=inventory[selectedSlot];
+    if(!slot)return;
+    const blockId=slot.id;
+    if(BLOCKS[blockId]&&(BLOCKS[blockId].crossPlant||BLOCKS[blockId].bamboo||_PLANTABLE_IN_POT.has(blockId))){
+      const plantTile=BLOCKS[blockId]?BLOCKS[blockId].all:T.FLOWER_DANDELION;
+      BLOCKS[id]=Object.assign({},def,{potPlant:blockId,_potPlantTile:plantTile});
+      consumeFromSlot(selectedSlot,1);
+    }
+  }
+  const cx2=Math.floor(x/CHUNK),cz2=Math.floor(z/CHUNK);
+  if(typeof buildChunk==='function')buildChunk(cx2,cz2);
+  if(typeof SFX!=='undefined')SFX.place(id);
+}
 // Till soil with hoe
 function tillSoil(){if(!currentTarget)return;const{x,y,z}=currentTarget;const id=getBlock(x,y,z);if(id!==B.GRASS&&id!==B.DIRT&&id!==B.PATH)return;if(getBlock(x,y+1,z)!==B.AIR)return;setBlock(x,y,z,B.FARMLAND);}
 // Plant seed on farmland

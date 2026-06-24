@@ -634,6 +634,68 @@ ctx.fillStyle='#6a6a6a';ctx.strokeStyle='#6a6a6a';ctx.lineWidth=2;ctx.beginPath(
  ctx.fillStyle='#888';ctx.fillRect(ox+4,oy+14,16,4);
  ctx.fillStyle='#aaa';ctx.beginPath();ctx.moveTo(ox+20,oy+10);ctx.lineTo(ox+28,oy+16);ctx.lineTo(ox+20,oy+22);ctx.closePath();ctx.fill();}
 
+// =====================================================================
+//  NEW TILES (row 27 of the expanded atlas)
+// =====================================================================
+
+// ---- Sign board (看板) ----
+{const[ox,oy]=tileOrigin(T.SIGN_BOARD);
+ // warm oak plank background
+ ctx.fillStyle='#c9a06a';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);
+ const rnd=mulberry32(10001);
+ for(let i=0;i<40;i++){ctx.fillStyle=['#b8924d','#d9b07a','#bc9558'][Math.floor(rnd()*3)];ctx.fillRect(ox+Math.floor(rnd()*TILE_PX/2)*2,oy+Math.floor(rnd()*TILE_PX/2)*2,2,2);}
+ // wood grain lines
+ ctx.fillStyle='#a07840';for(let y=0;y<TILE_PX;y+=8)ctx.fillRect(ox,oy+y,TILE_PX,2);
+ // dark border frame
+ ctx.fillStyle='#6b4a20';ctx.fillRect(ox,oy,TILE_PX,3);ctx.fillRect(ox,oy+TILE_PX-3,TILE_PX,3);ctx.fillRect(ox,oy,3,TILE_PX);ctx.fillRect(ox+TILE_PX-3,oy,3,TILE_PX);
+ // text lines (decorative placeholder)
+ ctx.fillStyle='#3a2810';ctx.fillRect(ox+6,oy+10,20,2);ctx.fillRect(ox+6,oy+16,16,2);ctx.fillRect(ox+6,oy+22,18,2);}
+
+// ---- Iron Bars (鉄格子) ----
+{const[ox,oy]=tileOrigin(T.IRON_BARS);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+ // vertical iron bars with shading
+ const barColor='#b0b0b0',barHi='#d4d4d4',barShadow='#787878';
+ for(let x=4;x<TILE_PX;x+=8){
+   ctx.fillStyle=barShadow;ctx.fillRect(ox+x+2,oy,2,TILE_PX);
+   ctx.fillStyle=barColor;ctx.fillRect(ox+x,oy,4,TILE_PX);
+   ctx.fillStyle=barHi;ctx.fillRect(ox+x,oy,1,TILE_PX);}
+ // horizontal connecting bars near top and bottom
+ ctx.fillStyle=barColor;ctx.fillRect(ox,oy+6,TILE_PX,3);ctx.fillRect(ox,oy+23,TILE_PX,3);
+ ctx.fillStyle=barShadow;ctx.fillRect(ox,oy+8,TILE_PX,1);ctx.fillRect(ox,oy+25,TILE_PX,1);}
+
+// ---- Flower Pot (花瓶・植木鉢) ----
+{const[ox,oy]=tileOrigin(T.FLOWER_POT);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+ // terracotta pot body
+ ctx.fillStyle='#9e4f2a';ctx.fillRect(ox+8,oy+16,16,14);
+ // wider rim at the top
+ ctx.fillStyle='#b85c30';ctx.fillRect(ox+6,oy+14,20,4);
+ ctx.fillStyle='#c86838';ctx.fillRect(ox+6,oy+14,20,2);
+ // rim highlight
+ ctx.fillStyle='#d07040';ctx.fillRect(ox+7,oy+14,18,1);
+ // shading on pot body
+ ctx.fillStyle='#7a3c1e';ctx.fillRect(ox+21,oy+16,3,14);
+ ctx.fillStyle='#c06030';ctx.fillRect(ox+8,oy+16,3,12);
+ // bottom
+ ctx.fillStyle='#7a3c1e';ctx.fillRect(ox+8,oy+28,16,2);
+ // dirt inside the pot
+ ctx.fillStyle='#6b4020';ctx.fillRect(ox+9,oy+12,14,4);
+ ctx.fillStyle='#7a5030';ctx.fillRect(ox+10,oy+12,12,2);}
+
+// ---- Item Frame (額縁) ----
+{const[ox,oy]=tileOrigin(T.ITEM_FRAME);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+ // wooden frame border
+ ctx.fillStyle='#9c7040';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);
+ // inner cutout (cream background)
+ ctx.fillStyle='#e8d8b0';ctx.fillRect(ox+5,oy+5,22,22);
+ // leather center backing
+ ctx.fillStyle='#c8a868';ctx.fillRect(ox+7,oy+7,18,18);
+ ctx.fillStyle='#d8b878';ctx.fillRect(ox+8,oy+8,16,14);
+ // frame edge detail
+ ctx.fillStyle='#7a5428';ctx.fillRect(ox,oy,TILE_PX,3);ctx.fillRect(ox,oy+TILE_PX-3,TILE_PX,3);ctx.fillRect(ox,oy,3,TILE_PX);ctx.fillRect(ox+TILE_PX-3,oy,3,TILE_PX);
+ ctx.fillStyle='#b88a4a';ctx.fillRect(ox+1,oy+1,TILE_PX-2,2);ctx.fillRect(ox+1,oy,2,TILE_PX-2);
+ // corner studs
+ ctx.fillStyle='#5a3c18';ctx.fillRect(ox+3,oy+3,3,3);ctx.fillRect(ox+TILE_PX-6,oy+3,3,3);ctx.fillRect(ox+3,oy+TILE_PX-6,3,3);ctx.fillRect(ox+TILE_PX-6,oy+TILE_PX-6,3,3);}
+
 })();function tileUV(t){const col=t%ATLAS_TILES,row=Math.floor(t/ATLAS_TILES);const padU=0.5/ATLAS_W,padV=0.5/ATLAS_H;return{u1:col/ATLAS_TILES+padU,u2:(col+1)/ATLAS_TILES-padU,v1:1-(row+1)/ATLAS_ROWS+padV,v2:1-row/ATLAS_ROWS-padV,};}
 /* ---------------------------------------------------------------------------
  * Per-material tool textures (pickaxe / axe / shovel / hoe + stick).

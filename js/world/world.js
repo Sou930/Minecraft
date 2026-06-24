@@ -11,11 +11,13 @@ function isFence(id){const d=BLOCKS[id];return!!(d&&(d.fence||d.fenceGate));}
 function isWall(id){const d=BLOCKS[id];return!!(d&&d.wall);}
 function isSolid(id){if(id===B.AIR||id===B.WATER||id===B.LAVA||id===B.SEAWEED)return false;if(isCrossPlant(id)||isCrop(id)||isBamboo(id)||isDoorOpen(id))return false;// flat redstone components are not solid (walkable through)
 if(id===B.LEVER||id===B.REDSTONE_DUST||id===B.REPEATER||id===B.PISTON_HEAD||id===B.PISTON_HEAD_STICKY)return false;
+// New non-solid blocks
+const _d=BLOCKS[id];if(_d&&(_d.sign||_d.itemFrame||_d.flowerPot||_d.torchWall||_d.torchCeiling))return false;
 return true;}
 // Crops, cross-shaped plants (grass/flowers) and thin bamboo stalks are
 // targetable even though non-solid (so they can be broken / passed through).
 function isRedstoneBlock(id){return id===B.LEVER||id===B.REDSTONE_DUST||id===B.REDSTONE_TORCH_OFF||id===B.REDSTONE_TORCH_ON||id===B.REPEATER||id===B.PISTON||id===B.PISTON_STICKY||id===B.PISTON_HEAD||id===B.PISTON_HEAD_STICKY||id===B.DISPENSER||id===B.DROPPER||id===B.HOPPER||id===B.OBSERVER;}
-function isTargetable(id){return isSolid(id)||isCrop(id)||isCrossPlant(id)||isBamboo(id)||isDoor(id)||isRedstoneBlock(id);}
+function isTargetable(id){if(isSolid(id)||isCrop(id)||isCrossPlant(id)||isBamboo(id)||isDoor(id)||isRedstoneBlock(id))return true;const _d=BLOCKS[id];return!!((_d)&&(_d.sign||_d.itemFrame||_d.flowerPot||_d.torchWall||_d.torchCeiling||_d.ironBars||_d.glassPane));}
 // Skylight: returns 0 if block above is opaque (underground)
 function blocksSky(id){if(id===B.AIR||id===B.WATER||id===B.LAVA)return false;const d=BLOCKS[id];if(d&&(d.transparent||d.crop||d.crossPlant||d.bamboo))return false;return true;}
 function skyExposed(x,y,z){for(let yy=y+1;yy<WORLD_H;yy++){if(blocksSky(getBlock(x,yy,z)))return false;}return true;}
@@ -29,14 +31,14 @@ function blockLightEmission(id){
   let v=0;
   if(id===B.LAVA)v=15;
   else if(id===B.LANTERN)v=15;
-  else if(id===B.TORCH)v=15;
+  else if(id===B.TORCH||id===B.TORCH_WALL_N||id===B.TORCH_WALL_S||id===B.TORCH_WALL_E||id===B.TORCH_WALL_W||id===B.TORCH_CEILING)v=15;
   else if(id===B.REDSTONE_TORCH_ON)v=7;
   else if(id===B.AMETHYST_CLUSTER)v=8;
   else if(id===B.GLOW_LICHEN)v=7;
   BLOCKLIGHT_DEFS_CACHE[id]=v;return v;
 }
 // Returns true if light can pass through this block
-function lightPasses(id){if(id===B.AIR)return true;const d=BLOCKS[id];if(!d)return true;if(d.transparent||d.crop||d.crossPlant||d.cross||d.fluid||d.torch||d.redstoneTorch||d.lanternBox||d.flat||d.bamboo||d.slab||d.fence||d.fenceGate||d.wall||d.pistonHead)return true;return false;}
+function lightPasses(id){if(id===B.AIR)return true;const d=BLOCKS[id];if(!d)return true;if(d.transparent||d.crop||d.crossPlant||d.cross||d.fluid||d.torch||d.redstoneTorch||d.lanternBox||d.flat||d.bamboo||d.slab||d.fence||d.fenceGate||d.wall||d.pistonHead||d.sign||d.itemFrame||d.flowerPot||d.torchWall||d.torchCeiling||d.ironBars||d.glassPane)return true;return false;}
 
 // Compute block light for a region using BFS flood-fill
 function computeBlockLight(bx0,by0,bz0,sx,sy,sz){

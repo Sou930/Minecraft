@@ -283,6 +283,95 @@ function pushStairs(b,x,y,z,tile,facing,shade){
   }
   pushBox(b,x,y,z,sx0,0.5,sz0,sx1,1,sz1,tile,shade*0.97);
 }
+// Sign (看板): thin flat board standing upright, facing based on signFacing (0=N,1=E,2=S,3=W)
+function pushSign(b,x,y,z,def,shade){
+  const tile=T.SIGN_BOARD;
+  const TH=0.08; // board thickness
+  const f=def.signFacing||0;
+  // Board fills most of the cell width, centered at y=0.5..0.92
+  let ax,az,bx,bz;
+  switch(f){
+    case 1: ax=1-TH;az=0.1;bx=1;bz=0.9; break; // east wall
+    case 2: ax=0.1;az=1-TH;bx=0.9;bz=1; break; // south wall
+    case 3: ax=0;az=0.1;bx=TH;bz=0.9; break;   // west wall
+    default:ax=0.1;az=0;bx=0.9;bz=TH; break;   // north wall (0)
+  }
+  pushBox(b,x,y,z,ax,0.42,az,bx,0.92,bz,tile,shade);}
+// Item Frame (額縁): flat thin frame on a wall
+function pushItemFrame(b,x,y,z,def,shade){
+  const tile=T.ITEM_FRAME;
+  const TH=0.06;
+  const f=def.frameFacing||0;
+  let ax,az,bx,bz;
+  switch(f){
+    case 1: ax=1-TH;az=0.1;bx=1;bz=0.9; break;
+    case 2: ax=0.1;az=1-TH;bx=0.9;bz=1; break;
+    case 3: ax=0;az=0.1;bx=TH;bz=0.9; break;
+    default:ax=0.1;az=0;bx=0.9;bz=TH; break;
+  }
+  pushBox(b,x,y,z,ax,0.15,az,bx,0.85,bz,tile,shade);}
+// Flower Pot (花瓶・植木鉢): small terracotta pot in the center of the cell
+function pushFlowerPot(b,x,y,z,def,shade){
+  const tile=T.FLOWER_POT;
+  // Pot body: 0.375..0.625 wide, 0..0.375 tall, centered
+  pushBox(b,x,y,z,0.3125,0,0.3125,0.6875,0.375,0.6875,tile,shade);
+  // Rim slightly wider at top
+  pushBox(b,x,y,z,0.25,0.3125,0.25,0.75,0.4375,0.75,tile,shade*0.95);
+  // Plant inside if present
+  if(def.potPlant&&def.potPlant!==0){
+    const plantDef=BLOCKS[def.potPlant];
+    const plantTile=(def._potPlantTile!==undefined?def._potPlantTile:(plantDef?plantDef.all:T.FLOWER_DANDELION));
+    pushCross(b,x,y,z,plantTile,shade*0.98,0.2,0.85);}}
+// Iron Bars / Glass Pane: thin vertical slabs connecting to adjacent same-type blocks
+function pushThinPanel(b,x,y,z,def,shade){
+  const tile=def.all;
+  const TH=0.1; // panel half-thickness
+  const isGlass=def.glassPane;
+  // Check neighbors for connections
+  const N=getBlock(x,y,z-1),S=getBlock(x,y,z+1),E=getBlock(x+1,y,z),W=getBlock(x-1,y,z);
+  function panelConnects(id){if(id===B.AIR)return false;const d=BLOCKS[id];if(!d)return false;return d.ironBars||d.glassPane||(!d.transparent&&!d.crossPlant&&!d.cross&&!d.bamboo&&!d.flat&&!d.torch&&!d.torchWall&&!d.sign&&!d.itemFrame&&!d.flowerPot);}
+  const cn=panelConnects(N),cs=panelConnects(S),ce=panelConnects(E),cw=panelConnects(W);
+  const hasAny=cn||cs||ce||cw;
+  // Center post always present
+  pushBox(b,x,y,z,0.5-TH,0,0.5-TH,0.5+TH,1,0.5+TH,tile,shade);
+  if(cn||(!hasAny)) pushBox(b,x,y,z,0.5-TH,0,0,0.5+TH,1,0.5-TH,tile,shade*0.85);
+  if(cs||(!hasAny)) pushBox(b,x,y,z,0.5-TH,0,0.5+TH,0.5+TH,1,1,tile,shade*0.85);
+  if(ce||(!hasAny)) pushBox(b,x,y,z,0.5+TH,0,0.5-TH,1,1,0.5+TH,tile,shade*0.75);
+  if(cw||(!hasAny)) pushBox(b,x,y,z,0,0,0.5-TH,0.5-TH,1,0.5+TH,tile,shade*0.75);}
+// Wall torch: tilted torch on a wall (facing stored in torchFacing: N/S/E/W)
+function pushWallTorch(b,x,y,z,def,shade){
+  const tile=T.TORCH;
+  const f=def.torchFacing||'N';
+  const hw=0.08,top=0.65;
+  // Offset the torch from the wall it's on, tilting it slightly
+  let ox2=0.5,oz2=0.5;
+  const tilt=0.18;
+  switch(f){
+    case 'N': oz2=0.5-tilt; break; // torch on north wall, stick out toward south a bit
+    case 'S': oz2=0.5+tilt; break;
+    case 'E': ox2=0.5+tilt; break;
+    case 'W': ox2=0.5-tilt; break;
+  }
+  // Base of torch lower on wall side
+  const yBase=0.22;
+  const {u1,u2,v1,v2}=tileUV(tile);
+  const t2=top;
+  // Emit a small column from (ox2-hw, yBase, oz2-hw) to (ox2+hw, yBase+t2, oz2+hw)
+  const faces=[
+    {n:[0,0,1], q:[[ox2-hw,yBase,oz2+hw],[ox2+hw,yBase,oz2+hw],[ox2+hw,yBase+t2,oz2+hw],[ox2-hw,yBase+t2,oz2+hw]]},
+    {n:[0,0,-1],q:[[ox2+hw,yBase,oz2-hw],[ox2-hw,yBase,oz2-hw],[ox2-hw,yBase+t2,oz2-hw],[ox2+hw,yBase+t2,oz2-hw]]},
+    {n:[1,0,0], q:[[ox2+hw,yBase,oz2+hw],[ox2+hw,yBase,oz2-hw],[ox2+hw,yBase+t2,oz2-hw],[ox2+hw,yBase+t2,oz2+hw]]},
+    {n:[-1,0,0],q:[[ox2-hw,yBase,oz2-hw],[ox2-hw,yBase,oz2+hw],[ox2-hw,yBase+t2,oz2+hw],[ox2-hw,yBase+t2,oz2-hw]]},
+    {n:[0,1,0], q:[[ox2-hw,yBase+t2,oz2+hw],[ox2+hw,yBase+t2,oz2+hw],[ox2+hw,yBase+t2,oz2-hw],[ox2-hw,yBase+t2,oz2-hw]]},
+  ];
+  const uvs=[[u1,v1],[u2,v1],[u2,v2],[u1,v2]];
+  for(const fc of faces){const base=b.pos.length/3;for(let i=0;i<4;i++){b.pos.push(x+fc.q[i][0],y+fc.q[i][1],z+fc.q[i][2]);b.nrm.push(fc.n[0],fc.n[1],fc.n[2]);b.uv.push(uvs[i][0],uvs[i][1]);b.col.push(shade,shade,shade,1);}b.idx.push(base,base+1,base+2,base,base+2,base+3);}}
+// Ceiling torch: upside-down torch hanging from above
+function pushCeilingTorch(b,x,y,z,shade){
+  const tile=T.TORCH;
+  // Hang from y=1 downward, flame at the bottom
+  pushColumn(b,x,y,z,tile,shade,0.08,0.65);}
+
 // Cave darkness: min brightness for underground areas
 const CAVE_MIN=0.10;
 // Sky-light multiplier for one cell, scaled by the module-level day factor so
@@ -311,6 +400,17 @@ if(def&&def.bamboo){const above=getBlock(x,y+1,z);pushColumn(buf,x,y,z,def.all,0
 // Torch/lantern: thin column
 if(def&&def.torch){const sh=(def.emissive?1:0.95*cellMul);pushColumn(buf,x,y,z,def.all,sh,0.12,0.62);continue;}
 if(def&&def.lanternBox){const sh=(def.emissive?1:0.95*cellMul);pushColumn(buf,x,y,z,def.all,sh,0.20,0.72);continue;}
+// Wall torch (6-direction)
+if(def&&def.torchWall){pushWallTorch(buf,x,y,z,def,1.0);continue;}
+if(def&&def.torchCeiling){pushCeilingTorch(buf,x,y,z,1.0);continue;}
+// Sign (看板)
+if(def&&def.sign){pushSign(buf,x,y,z,def,0.90*cellMul);continue;}
+// Item Frame (額縁)
+if(def&&def.itemFrame){pushItemFrame(buf,x,y,z,def,0.90*cellMul);continue;}
+// Flower Pot (花瓶・植木鉢)
+if(def&&def.flowerPot){pushFlowerPot(buf,x,y,z,def,0.92*cellMul);continue;}
+// Iron Bars / Glass Pane (thin panel)
+if(def&&(def.ironBars||def.glassPane)){pushThinPanel(buf,x,y,z,def,0.90*cellMul);continue;}
 if(def&&def.cross){const sh=(def.emissive?1:0.94*cellMul);pushCross(buf,x,y,z,def.all,sh,0.04,1);continue;}
 // Wooden door: thin slab using the top/bottom texture chosen by doorHalf,
 // placed/rotated per doorFacing & doorOpen (geometry handled by pushDoor).
