@@ -208,10 +208,12 @@ const FLUID = (function () {
     active = nextActive;
     nextActive = new Set();
 
+    // FIX: Skip sort when the active set is small — sort is O(n log n) and
+    // unnecessary for correctness; it only affects flow aesthetics.
     const cells = Array.from(active);
     active.clear();
 
-    cells.sort((a, b) => a - b);
+    if (cells.length > 64) cells.sort((a, b) => a - b);
 
     for (const i of cells) {
       const x = i % WORLD_W;
