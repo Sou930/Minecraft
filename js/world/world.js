@@ -165,14 +165,14 @@ function heightAtRaw(x,z,c){
     h=SEA_LEVEL+fbm2(x,z,241,2,1/40,0.5,2.0)*4-1;
   }
   // CRYSTAL PLAINS: gently rolling, slightly elevated (crystal spires poke out)
-  {const cr=fbm2(x,z,229,3,1/100,0.5,2.0);
-   if(cr>0.72&&t>=0.32&&t<=0.55&&m<0.44){
+  {const cr=fbm2(x,z,229,3,1/200,0.5,2.0);
+   if(cr>0.68&&t>=0.32&&t<=0.55&&m<0.44){
      h=SEA_LEVEL+6+fbm2(x,z,243,3,1/40,0.5,2.0)*10;
    }
   }
   // WITHERED FOREST: slightly hilly, gloomy terrain
-  {const wf=fbm2(x,z,233,3,1/95,0.5,2.0);
-   if(wf>0.68&&t>=0.32&&t<0.44&&m>=0.50){
+  {const wf=fbm2(x,z,233,3,1/190,0.5,2.0);
+   if(wf>0.63&&t>=0.32&&t<0.44&&m>=0.50){
      h=SEA_LEVEL+3+fbm2(x,z,247,3,1/35,0.5,2.0)*14;
    }
   }
@@ -290,9 +290,9 @@ function generateClimateAndHeight(){
   // cliffs collapse into walkable, gently terraced hillsides while leaving
   // already-gentle terrain essentially untouched.
   const h2=new Float32Array(WORLD_W*WORLD_D);h2.set(cur);
-  const MAX_STEP=2.8;        // largest allowed height difference per block (raised for steeper terrain)
+  const MAX_STEP=5.6;        // 山頂への傾きを1/2に滑らかにするためMAX_STEPを2倍に (was 2.8)
   const TALUS=0.45;          // fraction of the excess moved each iteration
-  const ITER=5;
+  const ITER=6;              // 追加イテレーションでより広く滑らかに
   const NB=[[1,0],[-1,0],[0,1],[0,-1]];
   for(let it=0;it<ITER;it++){
     for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){

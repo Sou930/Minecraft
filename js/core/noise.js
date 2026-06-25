@@ -22,10 +22,11 @@ function fbm2(x,z,salt,octaves,baseFreq,persistence,lacunarity){
 // the result (via the optional `c` arg on heightAtRaw/biomeAt/craterLavaLevelAt)
 // roughly halves the generation cost and avoids per-column allocation.
 function climateAtInto(x,z,o){
-  o.temperature =fbm2(x,z,41,4,1/520,0.55,2.0);
-  o.moisture    =fbm2(x,z,47,4,1/470,0.55,2.0);
-  o.continental =fbm2(x,z,59,3,1/300,0.50,2.1);
-  o.weirdness   =fbm2(x,z,67,2,1/180,0.50,2.0);
+  // バイオームスケールを約2倍にするため全周波数を1/2に (より大きく固まったバイオーム)
+  o.temperature =fbm2(x,z,41,4,1/1040,0.55,2.0);
+  o.moisture    =fbm2(x,z,47,4,1/940,0.55,2.0);
+  o.continental =fbm2(x,z,59,3,1/600,0.50,2.1);
+  o.weirdness   =fbm2(x,z,67,2,1/360,0.50,2.0);
   return o;
 }
 function climateAt(x,z){return climateAtInto(x,z,{});}
@@ -69,11 +70,12 @@ function biomeAt(x,z,c){
   if(m>0.74&&e<0.66&&t>=0.40&&t<=0.62) return BIOME.GIANT_FOREST;
   // CHERRY GROVE: a mild, gentle climate pocket selected by the weirdness field
   // so blossoming groves appear as occasional surprises among the forests.
-  if(t>=0.42&&t<=0.58&&m>=0.50&&m<0.74&&w>0.60) return BIOME.CHERRY;
+  if(t>=0.42&&t<=0.58&&m>=0.50&&m<0.74&&w>0.55) return BIOME.CHERRY;
   // AUTUMN FOREST: a warm, moderately-moist temperate woodland pocket dressed in
   // fiery red/orange/yellow maple foliage. Selected by a dedicated noise field so
   // splashes of autumn colour surface among the green forests.
-  if(t>=0.40&&t<=0.62&&m>=0.50&&m<0.74){const au=fbm2(x,z,217,3,1/120,0.5,2.0);if(au>0.62)return BIOME.AUTUMN;}
+  // クラスタリング改善: 低周波数(1/200→1/280)のノイズで大きな塊を形成
+  if(t>=0.40&&t<=0.62&&m>=0.50&&m<0.74){const au=fbm2(x,z,217,4,1/280,0.5,2.0);if(au>0.56)return BIOME.AUTUMN;}
   // CORAL TIDELANDS: shallow coastal zone between OCEAN and MANGROVE — warm,
   // wet, near coast. Dense coral in shallow tidal flats.
   if(e>=0.32&&e<0.42&&t>0.52&&m>0.55) return BIOME.CORAL_TIDELANDS;
@@ -85,18 +87,18 @@ function biomeAt(x,z,c){
   if(m>0.60&&e<0.46) return BIOME.SWAMP;
   // CRYSTAL PLAINS: a rare, cool-to-temperate area selected by weirdness field —
   // amethyst crystals protrude from white calcite ground, glowing at night.
-  if(t>=0.32&&t<=0.55&&m<0.44){const cr=fbm2(x,z,229,3,1/100,0.5,2.0);if(cr>0.72)return BIOME.CRYSTAL_PLAINS;}
+  if(t>=0.32&&t<=0.55&&m<0.44){const cr=fbm2(x,z,229,3,1/200,0.5,2.0);if(cr>0.68)return BIOME.CRYSTAL_PLAINS;}
   // WITHERED FOREST: cold, damp, eerie biome with grey dead trees and toxic mushrooms.
   // Selected by a dedicated noise field in cool-moist regions.
-  if(t>=0.32&&t<0.44&&m>=0.50){const wf=fbm2(x,z,233,3,1/95,0.5,2.0);if(wf>0.68)return BIOME.WITHERED_FOREST;}
+  if(t>=0.32&&t<0.44&&m>=0.50){const wf=fbm2(x,z,233,3,1/190,0.5,2.0);if(wf>0.63)return BIOME.WITHERED_FOREST;}
   // FLOWER FIELD: a denser, more colourful variant of the plains, chosen by a
   // dedicated noise field so vivid wildflower meadows appear here and there.
   if(m>0.50){
-    const ff=fbm2(x,z,223,3,1/110,0.5,2.0);if(ff>0.66&&t>=0.40&&t<=0.62)return BIOME.FLOWER_FIELD;
-    // Forest
+    const ff=fbm2(x,z,223,3,1/220,0.5,2.0);if(ff>0.62&&t>=0.40&&t<=0.62)return BIOME.FLOWER_FIELD;
+    // Forest: クラスタリングを強化するため低周波ノイズで大きなまとまりを形成
     return BIOME.FOREST;
   }
   // Default: plains — occasionally a flower field
-  {const ff=fbm2(x,z,223,3,1/110,0.5,2.0);if(ff>0.66)return BIOME.FLOWER_FIELD;}
+  {const ff=fbm2(x,z,223,3,1/220,0.5,2.0);if(ff>0.62)return BIOME.FLOWER_FIELD;}
   return BIOME.PLAINS;
 }
