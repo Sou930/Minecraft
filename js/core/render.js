@@ -451,7 +451,12 @@ function makeMesh(name,b,mat){if(b.idx.length===0)return null;const mesh=new BAB
 // bounding-info sync entirely. cullingStrategy: cheap bounding-sphere-only test
 // is plenty for axis-aligned chunk boxes and avoids the full clip-plane pass.
 mesh.freezeWorldMatrix();mesh.doNotSyncBoundingInfo=true;mesh.cullingStrategy=BABYLON.AbstractMesh.CULLINGSTRATEGY_BOUNDINGSPHERE_ONLY;mesh.alwaysSelectAsActiveMesh=false;return mesh;}
-chunkMeshes[cz*CHUNKS_X+cx]={solid:makeMesh(`chunk_s_${cx}_${cz}`,buf,solidMat),water:makeMesh(`chunk_w_${cx}_${cz}`,wbuf,waterMat),lava:makeMesh(`chunk_l_${cx}_${cz}`,lbuf,lavaMat),};chunkBuilt[cz*CHUNKS_X+cx]=1;}
+const _cm={solid:makeMesh(`chunk_s_${cx}_${cz}`,buf,solidMat),water:makeMesh(`chunk_w_${cx}_${cz}`,wbuf,waterMat),lava:makeMesh(`chunk_l_${cx}_${cz}`,lbuf,lavaMat),};
+chunkMeshes[cz*CHUNKS_X+cx]=_cm;chunkBuilt[cz*CHUNKS_X+cx]=1;
+// FIX: Register shadow caster immediately on chunk build, instead of waiting
+// for the periodic full-scan in SHADERFX. This avoids scanning all chunks every
+// 0.5s and eliminates missing shadows on freshly built chunks.
+if(typeof SHADERFX!=='undefined'&&SHADERFX.registerChunkCaster&&_cm.solid)SHADERFX.registerChunkCaster(_cm.solid);}
 const chunkBuilt=new Uint8Array(CHUNKS_X*CHUNKS_Z);
 // View distance in chunks. On mobile (iPad/phone) we start at a lower default
 // so the frame budget is preserved for 30 FPS from the first frame.
@@ -491,15 +496,40 @@ function maybeScheduleRelight(dayF){
 // global _dayLightFactor in sync with the latest requested factor so newly
 // streamed chunks bake at the right brightness immediately.
 function processRelightQueue(budget){
-  if(!_relightQueue||_relightQueue.length===0){_relightQueue=null;return;}
   let n=0;
+  // First flush deferred light-propagation chunks (from setBlock torch/log changes)
+  if(_pendingLightChunks.size>0){
+    for(const key of _pendingLightChunks){
+      if(n>=budget)break;
+      const ncx=key%CHUNKS_X,ncz=(key-ncx)/CHUNKS_X;
+      if(ncx>=0&&ncx<CHUNKS_X&&ncz>=0&&ncz<CHUNKS_Z&&chunkBuilt[ncz*CHUNKS_X+ncx]){buildChunk(ncx,ncz);n++;}
+      _pendingLightChunks.delete(key);
+    }
+  }
+  if(!_relightQueue||_relightQueue.length===0){_relightQueue=null;return;}
   while(_relightQueue.length&&n<budget){const c=_relightQueue.shift();if(chunkBuilt[c.cz*CHUNKS_X+c.cx]){buildChunk(c.cx,c.cz);n++;}}
   if(_relightQueue.length===0)_relightQueue=null;
+}
+// Deferred chunk rebuild queue for block-light propagation changes.
+// Instead of rebuilding all affected chunks immediately inside setBlock
+// (which caused multi-frame freezes when breaking torches/logs near many chunks),
+// we collect dirty chunk indices here and flush them in processRelightQueue.
+const _pendingLightChunks=new Set();
+function flushPendingLightChunks(){
+  if(_pendingLightChunks.size===0)return;
+  for(const key of _pendingLightChunks){
+    const ncx=key%CHUNKS_X,ncz=(key-ncx)/CHUNKS_X;
+    if(ncx<0||ncx>=CHUNKS_X||ncz<0||ncz>=CHUNKS_Z)continue;
+    if(chunkBuilt[ncz*CHUNKS_X+ncx])buildChunk(ncx,ncz);
+  }
+  _pendingLightChunks.clear();
 }
 function setBlock(x,y,z,id){if(x<0||x>=WORLD_W||y<0||y>=WORLD_H||z<0||z>=WORLD_D)return;const prevId=world[blockIndex(x,y,z)];world[blockIndex(x,y,z)]=id;worldEdits[`${x},${y},${z}`]=id;scheduleSave();const cx=Math.floor(x/CHUNK),cz=Math.floor(z/CHUNK);buildChunk(cx,cz);if(x%CHUNK===0&&cx>0)buildChunk(cx-1,cz);if(x%CHUNK===CHUNK-1&&cx<CHUNKS_X-1)buildChunk(cx+1,cz);if(z%CHUNK===0&&cz>0)buildChunk(cx,cz-1);if(z%CHUNK===CHUNK-1&&cz<CHUNKS_Z-1)buildChunk(cx,cz+1);
 {const emitNow=(typeof blockLightEmission!=='undefined')?blockLightEmission(id):0;const emitPrev=(typeof blockLightEmission!=='undefined')?blockLightEmission(prevId):0;
 const opacityChanged=(typeof lightPasses!=='undefined')&&(lightPasses(prevId)!==lightPasses(id));
-if(emitNow>0||emitPrev>0||opacityChanged){const R=(typeof BLOCKLIGHT_MAX!=='undefined')?BLOCKLIGHT_MAX:15;const rc=Math.ceil(R/CHUNK);for(let dz=-rc;dz<=rc;dz++)for(let dx=-rc;dx<=rc;dx++){if(dx===0&&dz===0)continue;const ncx=cx+dx,ncz=cz+dz;if(ncx<0||ncx>=CHUNKS_X||ncz<0||ncz>=CHUNKS_Z)continue;if(!chunkBuilt[ncz*CHUNKS_X+ncx])continue;buildChunk(ncx,ncz);}}}
+// FIX: Instead of rebuilding all neighbor chunks immediately (causing freezes),
+// queue them for deferred rebuild spread across frames.
+if(emitNow>0||emitPrev>0||opacityChanged){const R=(typeof BLOCKLIGHT_MAX!=='undefined')?BLOCKLIGHT_MAX:15;const rc=Math.ceil(R/CHUNK);for(let dz2=-rc;dz2<=rc;dz2++)for(let dx2=-rc;dx2<=rc;dx2++){if(dx2===0&&dz2===0)continue;const ncx=cx+dx2,ncz=cz+dz2;if(ncx<0||ncx>=CHUNKS_X||ncz<0||ncz>=CHUNKS_Z)continue;if(!chunkBuilt[ncz*CHUNKS_X+ncx])continue;_pendingLightChunks.add(ncz*CHUNKS_X+ncx);}}}
 if(typeof FLUID!=='undefined')FLUID.notifyBlockChanged(x,y,z);
 if(typeof LIGHTING!=='undefined')LIGHTING.notifyBlockChanged(x,y,z);
 if(typeof REDSTONE!=='undefined')REDSTONE.onBlockChanged(x,y,z,id);}

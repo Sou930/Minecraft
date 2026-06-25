@@ -322,7 +322,9 @@ const SHADERFX = (function () {
       _followPlayerWithSun();
       _shadowResyncTimer -= dt;
       if (_shadowResyncTimer <= 0) {
-        _shadowResyncTimer = 0.5;
+        // FIX: Increase resync interval to reduce per-frame iteration cost.
+        // Shadow casters are also registered on-demand when new chunks are built.
+        _shadowResyncTimer = 2.0;
         _registerExistingCasters();
       }
     }
@@ -358,5 +360,15 @@ const SHADERFX = (function () {
     heldLight.setEnabled(true);
   }
 
-  return { init, setEnabled, isEnabled, setGodRaysEnabled, isGodRaysEnabled, update };
+  // Register a single chunk mesh as a shadow caster immediately (called from buildChunk).
+  // This avoids the periodic full-scan that was running every 0.5s.
+  function registerChunkCaster(mesh) {
+    if (!shadowGen || !mesh) return;
+    if (_registeredCasters.has(mesh.uniqueId)) return;
+    shadowGen.addShadowCaster(mesh, false);
+    mesh.receiveShadows = true;
+    _registeredCasters.add(mesh.uniqueId);
+  }
+
+  return { init, setEnabled, isEnabled, setGodRaysEnabled, isGodRaysEnabled, update, registerChunkCaster };
 })();

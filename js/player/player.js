@@ -53,10 +53,14 @@ crackMat.emissiveTexture=crackTexture;
 crackMat.opacityTexture=crackTexture;
 crackMat.diffuseTexture=crackTexture;
 crackMat.disableLighting=true;
-crackMat.backFaceCulling=false; // show on all faces
-crackMat.zOffset=-2; // render on top of block face
+crackMat.backFaceCulling=true; // FIX: only show outer faces to prevent wall transparency
+crackMat.zOffset=-1; // FIX: smaller z-offset to avoid bleeding through adjacent faces
 crackMat.alphaMode=BABYLON.Engine.ALPHA_COMBINE;
-const crackBox=BABYLON.MeshBuilder.CreateBox('crackBox',{size:1.006},scene);
+// FIX: Use MATERIAL_ALPHABLEND (not alphatest) but with depth write enabled
+// so adjacent chunk faces are not affected by crack transparency.
+crackMat.transparencyMode=BABYLON.Material.MATERIAL_ALPHABLEND;
+crackMat.needDepthPrePass=true;
+const crackBox=BABYLON.MeshBuilder.CreateBox('crackBox',{size:1.004},scene);
 crackBox.material=crackMat;
 crackBox.isPickable=false;
 crackBox.setEnabled(false);

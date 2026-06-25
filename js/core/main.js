@@ -1,4 +1,7 @@
-const DAY_LENGTH=720;let dayTime=DAY_LENGTH*0.25;const skyDay=new BABYLON.Color3(0.53,0.81,0.92);const skyNight=new BABYLON.Color3(0.03,0.05,0.13);function updateDayNight(dt){dayTime=(dayTime+dt)%DAY_LENGTH;const angle=(dayTime/DAY_LENGTH)*Math.PI*2;const sunUp=Math.sin(angle);const dayF=Math.max(0,Math.min(1,sunUp*2+0.2));sunLight.direction=new BABYLON.Vector3(-Math.cos(angle)*0.6,-Math.max(0.15,sunUp),-0.35).normalize();sunLight.intensity=0.55*Math.max(0,sunUp);
+const DAY_LENGTH=720;let dayTime=DAY_LENGTH*0.25;const skyDay=new BABYLON.Color3(0.53,0.81,0.92);const skyNight=new BABYLON.Color3(0.03,0.05,0.13);
+// FIX: Reuse a single Vector3 for sun direction to avoid per-frame GC pressure.
+const _sunDirVec=new BABYLON.Vector3(0,0,0);
+function updateDayNight(dt){dayTime=(dayTime+dt)%DAY_LENGTH;const angle=(dayTime/DAY_LENGTH)*Math.PI*2;const sunUp=Math.sin(angle);const dayF=Math.max(0,Math.min(1,sunUp*2+0.2));_sunDirVec.set(-Math.cos(angle)*0.6,-Math.max(0.15,sunUp),-0.35);BABYLON.Vector3.NormalizeToRef(_sunDirVec,sunLight.direction);sunLight.intensity=0.55*Math.max(0,sunUp);
 // Day/night brightness is now baked into chunk vertex colours (sky light scales
 // with the day factor) so the ambient hemi light stays nearly constant — this
 // avoids double-dimming and lets torches (block light, unaffected by day) read
@@ -89,6 +92,8 @@ for(let d=0.3;d<=dist;d+=0.2){const tx=eyeX+fwd.x*sign*d,ty=eyeY+fwd.y*sign*d,tz
 camera.position.set(eyeX+fwd.x*sign*dist,eyeY+fwd.y*sign*dist,eyeZ+fwd.z*sign*dist);
 if(view===1)camera.rotation.set(player.pitch,player.yaw,0);
 else camera.rotation.set(-player.pitch,player.yaw+Math.PI,0);}
+// Chunk streaming is driven from the render loop (below) — not from updateHUD.
+// updateHUD only updates on-screen text every 250 ms.
 let hudTimer=0;function updateHUD(dt){if(!worldReady)return;hudTimer+=dt;if(hudTimer<0.25)return;hudTimer=0;{const fps=engine.getFps();let txt=`FPS: ${fps.toFixed(0)}`;if(typeof PERF!=='undefined'&&PERF.isEnabled()){const s=PERF.stats();txt+=` · D${s.dist}`;}document.getElementById('fps-display').textContent=txt;}document.getElementById('pos-display').textContent=`X: ${player.pos.x.toFixed(0)} Y: ${player.pos.y.toFixed(0)} Z: ${player.pos.z.toFixed(0)}`;const bx=Math.floor(player.pos.x),bz=Math.floor(player.pos.z);const bio=(bx>=0&&bx<WORLD_W&&bz>=0&&bz<WORLD_D)?biomeMap[colIndex(bx,bz)]:biomeAt(bx,bz);document.getElementById('biome-display').textContent=BIOME_NAME[bio];
 // Flag the current biome as visited for exploration achievements.
 if(started&&worldReady&&typeof ACH!=='undefined'&&typeof BIOME!=='undefined'){
@@ -97,7 +102,9 @@ if(started&&worldReady&&typeof ACH!=='undefined'&&typeof BIOME!=='undefined'){
     'biome_crystal','biome_withered','biome_coral'];
   if(BIOME_ACH[bio])ACH.flag(BIOME_ACH[bio]);
 }
-updateChunkStreaming(6);}
+// FIX: Moved chunk streaming out of updateHUD. It was called every 250ms here
+// AND driven by the render loop, causing double-work and FPS spikes.
+}
 // Render loop is started immediately, but gameplay (update) is gated by the
 // `started` flag and `worldReady`, so the loop just paints the loading sky
 // until generation finishes. This avoids blocking the main thread.
@@ -181,7 +188,12 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 document.getElementById('btn-reset-world').addEventListener('click',(e)=>{e.stopPropagation();if(confirm(typeof t==='function'?t('resetConfirm'):'Reset the world? All builds will be lost.')){if(typeof WORLDS!=='undefined'){WORLDS.removeItem('edits');WORLDS.removeItem('inventory');WORLDS.removeItem('crops');WORLDS.removeItem('ach_stats');WORLDS.removeItem('ach_done');WORLDS.removeItem('player');}if(typeof ACH!=='undefined')ACH.reset();location.reload();}});let _posSaveAcc=0;engine.runRenderLoop(()=>{const dt=Math.min(0.05,engine.getDeltaTime()/1000);update(dt);if(typeof FLUID!=='undefined')FLUID.update(dt);if(typeof FARM!=='undefined'&&worldReady&&started){FARM.update(dt);FARM.updateFarmlandWetness(dt);}if(worldReady&&started&&typeof updateCopperOxidation!=='undefined')updateCopperOxidation(dt);
 if(worldReady&&started&&typeof REDSTONE!=='undefined'){REDSTONE.update(dt);REDSTONE.updateHoppers(dt);}
 if(worldReady&&started&&typeof DECORATIONS!=='undefined')DECORATIONS.update(dt);
-updateDayNight(dt);if(worldReady){if(typeof processRelightQueue!=='undefined')processRelightQueue(3);if(typeof LIGHTING!=='undefined')LIGHTING.update(dt);if(typeof SHADERFX!=='undefined'){const dayF=(typeof LIGHTING!=='undefined')?LIGHTING.getNightFactor():1;SHADERFX.update(dt,dayF);}updateAudioEnvironment(dt);if(typeof updatePetals==='function')updatePetals(dt);if(typeof updateWindmills==='function')updateWindmills(dt);if(typeof PERF!=='undefined')PERF.update(dt);}
+updateDayNight(dt);if(worldReady){
+// FIX: Chunk streaming moved here from updateHUD so it runs once per render loop.
+// Budget of 2 per frame keeps frame time predictable; new chunks appear smoothly.
+if(typeof updateChunkStreaming==='function')updateChunkStreaming(2);
+if(typeof processRelightQueue!=='undefined')processRelightQueue(2);
+if(typeof LIGHTING!=='undefined')LIGHTING.update(dt);if(typeof SHADERFX!=='undefined'){const dayF=(typeof LIGHTING!=='undefined')?LIGHTING.getNightFactor():1;SHADERFX.update(dt,dayF);}updateAudioEnvironment(dt);if(typeof updatePetals==='function')updatePetals(dt);if(typeof updateWindmills==='function')updateWindmills(dt);if(typeof PERF!=='undefined')PERF.update(dt);}
 // Periodically persist player position (every ~5s of play) so an unexpected
 // crash / close still resumes near where the player was.
 if(worldReady&&started&&!paused){_posSaveAcc+=dt;if(_posSaveAcc>=5){_posSaveAcc=0;if(typeof savePlayerState==='function')savePlayerState();if(typeof XP!=='undefined'&&typeof XP.save==='function')XP.save();}}
@@ -190,9 +202,19 @@ if(typeof EXPLORATION!=='undefined'&&worldReady&&started)EXPLORATION.update();
 scene.render();});
 // Cherry-blossom petals & falling leaves now live in js/effects/particles.js
 // Update ambient audio state
-function updateAudioEnvironment(dt){if(typeof SFX==='undefined')return;const px=Math.floor(player.pos.x),py=Math.floor(player.pos.y+1),pz=Math.floor(player.pos.z);const underground=!(typeof skyExposed==='function'&&skyExposed(px,py,pz));
+// FIX: Cache underground check — skyExposed scans the full column every call.
+// Re-evaluate only every ~0.5s or when the player moves vertically.
+let _audioEnvTimer=0;let _cachedUnderground=false;let _lastAudioY=-999;
+function updateAudioEnvironment(dt){if(typeof SFX==='undefined')return;
+_audioEnvTimer-=dt;
+const py=Math.floor(player.pos.y+1);
+if(_audioEnvTimer<=0||Math.abs(py-_lastAudioY)>2){
+  _audioEnvTimer=0.5;_lastAudioY=py;
+  const px=Math.floor(player.pos.x),pz=Math.floor(player.pos.z);
+  _cachedUnderground=!(typeof skyExposed==='function'&&skyExposed(px,py,pz));
+}
 const nearWater=false;
-const dayF=(typeof LIGHTING!=='undefined')?LIGHTING.getNightFactor():1;SFX.updateAmbient(dt,{underground,nearWater,daylight:dayF});}function setAppHeight(){const vv=window.visualViewport,h=vv?vv.height:window.innerHeight,top=vv?vv.offsetTop:0;const bottom=Math.max(0,window.innerHeight-h-top);const root=document.documentElement.style;root.setProperty('--app-height',h+'px');root.setProperty('--vv-top',top+'px');root.setProperty('--vv-bottom',bottom+'px');engine.resize();}
+const dayF=(typeof LIGHTING!=='undefined')?LIGHTING.getNightFactor():1;SFX.updateAmbient(dt,{underground:_cachedUnderground,nearWater,daylight:dayF});}function setAppHeight(){const vv=window.visualViewport,h=vv?vv.height:window.innerHeight,top=vv?vv.offsetTop:0;const bottom=Math.max(0,window.innerHeight-h-top);const root=document.documentElement.style;root.setProperty('--app-height',h+'px');root.setProperty('--vv-top',top+'px');root.setProperty('--vv-bottom',bottom+'px');engine.resize();}
 window.addEventListener('resize',setAppHeight);window.addEventListener('orientationchange',()=>setTimeout(setAppHeight,100));if(window.visualViewport){window.visualViewport.addEventListener('resize',setAppHeight);window.visualViewport.addEventListener('scroll',()=>window.scrollTo(0,0));}
 setAppHeight();window.addEventListener('scroll',()=>window.scrollTo(0,0),{passive:true});document.addEventListener('touchmove',(e)=>{if(e.touches.length>1){e.preventDefault();return;}
 if(e.target.closest&&e.target.closest('#inventory-panel,#recipe-panel'))return;e.preventDefault();},{passive:false});let lastTouchEnd=0;document.addEventListener('touchend',(e)=>{const now=Date.now();if(now-lastTouchEnd<350&&!e.target.closest('#inventory-overlay'))e.preventDefault();lastTouchEnd=now;},{passive:false});document.addEventListener('gesturestart',(e)=>e.preventDefault());document.addEventListener('gesturechange',(e)=>e.preventDefault());
