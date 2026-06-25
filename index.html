@@ -58,15 +58,67 @@ Place a crafting table and right-click to open 3×3 crafting
     <div id="home-content">
       <h1 id="home-title">BLOCK WORLD</h1>
       <p id="home-subtitle">Minecraft-style 3D Survival</p>
+
+      <!-- Back button for sub-panels -->
+      <button id="home-back-btn">← Back</button>
+
+      <!-- ── Main nav buttons ── -->
+      <nav id="home-nav">
+        <button class="mc-btn mc-btn-green" id="btn-singleplayer"><span class="mc-btn-icon">⛏</span> Singleplayer</button>
+        <button class="mc-btn mc-btn-blue" id="btn-multiplayer"><span class="mc-btn-icon">🌐</span> Multiplayer (P2P)</button>
+        <div class="mc-btn-row">
+          <button class="mc-btn" id="btn-home-settings"><span class="mc-btn-icon">⚙</span> Settings</button>
+          <button class="mc-btn mc-btn-orange" id="btn-quit" style="display:none"><span class="mc-btn-icon">🚪</span> Quit</button>
+        </div>
+      </nav>
+
+      <!-- ── Single Player: world list ── -->
       <div id="home-worlds-wrap">
         <div id="home-worlds-head">
-          <h2 id="home-worlds-title">Worlds</h2>
+          <h2 id="home-worlds-title">Your Worlds</h2>
           <button id="btn-new-world" class="home-primary">＋ New World</button>
         </div>
         <ul id="world-list" aria-label="Saved worlds"></ul>
         <p id="home-empty" style="display:none">No worlds yet — create one to start playing!</p>
       </div>
+
+      <!-- ── P2P Multiplayer panel ── -->
+      <div id="p2p-panel">
+        <h3>🌐 Multiplayer (P2P)</h3>
+        <div class="p2p-tabs">
+          <button class="p2p-tab active" data-p2p-tab="host">Host Game</button>
+          <button class="p2p-tab" data-p2p-tab="join">Join Game</button>
+        </div>
+
+        <!-- Host tab -->
+        <div class="p2p-section active" id="p2p-host-section">
+          <div class="p2p-label">Your connection code (share with friends):</div>
+          <div class="p2p-code-box" id="p2p-host-code">Generating code…</div>
+          <div id="p2p-host-status" class="p2p-status wait">⏳ Waiting for players…</div>
+          <div class="p2p-label" style="margin-top:4px">Connected players:</div>
+          <div class="p2p-players-list" id="p2p-players-list"></div>
+          <div id="p2p-chat-wrap">
+            <div id="p2p-chat-log"></div>
+            <div class="p2p-chat-row">
+              <input id="p2p-chat-input" class="p2p-input" placeholder="Chat message…" maxlength="120">
+              <button id="p2p-chat-send">Send</button>
+            </div>
+          </div>
+          <button class="mc-btn mc-btn-green" id="p2p-start-host-btn" style="margin-top:6px">▶ Start &amp; Play</button>
+        </div>
+
+        <!-- Join tab -->
+        <div class="p2p-section" id="p2p-join-section">
+          <label class="p2p-label" for="p2p-join-code">Enter host's code:</label>
+          <input id="p2p-join-code" class="p2p-input" placeholder="Paste code here…" autocomplete="off" spellcheck="false">
+          <label class="p2p-label" for="p2p-join-nick" style="margin-top:6px">Your nickname:</label>
+          <input id="p2p-join-nick" class="p2p-input" placeholder="Player" maxlength="16" autocomplete="off">
+          <div id="p2p-join-status" class="p2p-status" style="display:none"></div>
+          <button class="mc-btn mc-btn-blue" id="p2p-connect-btn" style="margin-top:6px">🔗 Connect</button>
+        </div>
+      </div>
     </div>
+
     <!-- New / edit world dialog -->
     <div id="world-dialog">
       <div id="world-dialog-panel">
@@ -96,6 +148,7 @@ Place a crafting table and right-click to open 3×3 crafting
     </div>
   </div>
   <div id="bow-charge-bar"><div id="bow-charge-fill"></div></div>
+  <div id="p2p-hud-badge">Multiplayer</div>
   <button id="btn-screenshot" class="screenshot-btn" aria-label="Screenshot mode" title="Screenshot mode (P)">📷</button>
   <button id="btn-screenshot-exit" aria-label="Exit screenshot mode" title="Exit (P / Esc)">✕ <span id="ss-exit-label">Exit</span></button>
   <script src="https://cdn.jsdelivr.net/npm/babylonjs@7/babylon.min.js"></script>
@@ -147,7 +200,9 @@ Place a crafting table and right-click to open 3×3 crafting
   <script src="js/ui/home.js"></script>
   <script src="js/ui/screenshot.js"></script>
   <!-- Exploration tools: Map, Compass, Clock HUD -->
-  <script src="js/ui/exploration_tools.js"></script>
+  <script src="js/ui/exploration.js"></script>
+  <!-- P2P Multiplayer system -->
+  <script src="js/systems/p2p.js"></script>
   <!-- Main loop -->
   <script src="js/core/main.js"></script>
 </body>

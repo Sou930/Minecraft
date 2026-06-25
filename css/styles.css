@@ -118,44 +118,118 @@ body.is-mobile #btn-settings{width:36px;height:32px}
 .recipe-mat-icon .tool-tex{width:14px;height:14px}
 #held-item .tool-tex{width:32px;height:32px}
 
-/* ======================= Home / World-select screen ====================== */
+/* ======================= Home / World-select screen (Minecraft style) ====================== */
 #home-overlay{position:fixed;inset:0;z-index:210;display:none;flex-direction:column;align-items:center;justify-content:center;color:#fff;text-align:center;padding:20px;overflow:hidden}
 #home-overlay.show{display:flex}
-#home-bg{position:absolute;inset:0;background:linear-gradient(160deg,#0a192f 0%,#102a43 55%,#1b4332 100%);z-index:-2}
-#home-bg::after{content:"";position:absolute;inset:0;background:
-  radial-gradient(circle at 18% 22%,rgba(124,179,66,.18),transparent 40%),
-  radial-gradient(circle at 82% 78%,rgba(66,165,245,.16),transparent 45%);z-index:-1}
-#home-content{width:100%;max-width:560px;display:flex;flex-direction:column;align-items:center;gap:14px}
-#home-title{font-size:clamp(30px,7vw,58px);letter-spacing:3px;text-shadow:3px 3px 0 #2e7d32,6px 6px 0 rgba(0,0,0,.4)}
-#home-subtitle{font-size:15px;opacity:.85;margin-top:-6px;margin-bottom:6px}
-#home-worlds-wrap{width:100%;background:rgba(0,0,0,.34);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:16px;backdrop-filter:blur(3px);box-shadow:0 12px 40px rgba(0,0,0,.45)}
-#home-worlds-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-#home-worlds-title{font-size:18px;font-weight:700}
-.home-primary{background:#43a047;color:#fff;border:none;border-radius:9px;padding:9px 18px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 3px 0 #2e7d32;-webkit-tap-highlight-color:transparent}
+/* Minecraft dirt/stone tile background */
+#home-bg{position:absolute;inset:0;z-index:-2;
+  background-color:#2d2017;
+  background-image:
+    repeating-linear-gradient(0deg,transparent,transparent 15px,rgba(0,0,0,.12) 15px,rgba(0,0,0,.12) 16px),
+    repeating-linear-gradient(90deg,transparent,transparent 15px,rgba(0,0,0,.12) 15px,rgba(0,0,0,.12) 16px),
+    linear-gradient(160deg,#0a192f 0%,#102a43 55%,#1b4332 100%);}
+#home-bg::after{content:"";position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:-1}
+/* Content container */
+#home-content{width:100%;max-width:420px;display:flex;flex-direction:column;align-items:center;gap:10px;position:relative;z-index:1}
+/* BLOCK WORLD title — Minecraft font feel */
+#home-title{
+  font-size:clamp(28px,8vw,60px);
+  letter-spacing:4px;
+  font-weight:900;
+  text-shadow:4px 4px 0 #2e7d32,8px 8px 0 rgba(0,0,0,.5);
+  color:#fff;
+  text-transform:uppercase;
+  margin-bottom:4px;
+}
+#home-subtitle{font-size:13px;opacity:.75;margin-top:-4px;margin-bottom:10px;letter-spacing:1px}
+
+/* ── Main menu nav buttons (Minecraft style) ── */
+#home-nav{display:flex;flex-direction:column;gap:8px;width:100%;max-width:340px}
+.mc-btn{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  width:100%;padding:13px 20px;
+  font-size:16px;font-weight:700;font-family:inherit;
+  color:#fff;text-shadow:2px 2px 0 rgba(0,0,0,.6);
+  border:none;border-radius:4px;cursor:pointer;
+  background:linear-gradient(180deg,#6a6a6a 0%,#484848 50%,#383838 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.25),inset 0 -2px 0 rgba(0,0,0,.35),0 3px 0 #1a1a1a,0 4px 6px rgba(0,0,0,.5);
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+  transition:filter .1s,transform .08s;
+}
+.mc-btn:hover{filter:brightness(1.25)}
+.mc-btn:active{transform:translateY(2px);box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 1px 0 #1a1a1a,0 2px 3px rgba(0,0,0,.4)}
+.mc-btn.mc-btn-green{background:linear-gradient(180deg,#4caf50 0%,#388e3c 50%,#2e7d32 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.25),inset 0 -2px 0 rgba(0,0,0,.35),0 3px 0 #1b5e20,0 4px 6px rgba(0,0,0,.5)}
+.mc-btn.mc-btn-blue{background:linear-gradient(180deg,#1976d2 0%,#1565c0 50%,#0d47a1 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.25),inset 0 -2px 0 rgba(0,0,0,.35),0 3px 0 #0a2f6b,0 4px 6px rgba(0,0,0,.5)}
+.mc-btn.mc-btn-orange{background:linear-gradient(180deg,#f57c00 0%,#e65100 50%,#bf360c 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.25),inset 0 -2px 0 rgba(0,0,0,.35),0 3px 0 #7f2800,0 4px 6px rgba(0,0,0,.5)}
+.mc-btn-icon{font-size:18px;line-height:1;flex:none}
+.mc-btn-row{display:flex;gap:8px;width:100%}
+.mc-btn-row .mc-btn{flex:1}
+
+/* ── World list panel (Single Player) ── */
+#home-worlds-wrap{width:100%;max-width:420px;background:rgba(0,0,0,.55);border:2px solid rgba(255,255,255,.15);border-radius:6px;padding:14px;box-shadow:inset 0 2px 12px rgba(0,0,0,.4),0 8px 30px rgba(0,0,0,.5);display:none;flex-direction:column;gap:10px}
+#home-worlds-wrap.show{display:flex}
+#home-worlds-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
+#home-worlds-title{font-size:16px;font-weight:700;text-shadow:1px 1px 0 rgba(0,0,0,.6)}
+.home-primary{background:#43a047;color:#fff;border:none;border-radius:4px;padding:8px 14px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 3px 0 #2e7d32;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .home-primary:active{transform:translateY(2px);box-shadow:0 1px 0 #2e7d32}
-.home-secondary{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:9px;padding:9px 18px;font-size:14px;cursor:pointer;-webkit-tap-highlight-color:transparent}
-#world-list{list-style:none;display:flex;flex-direction:column;gap:9px;max-height:46vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.world-card{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:11px 13px;cursor:pointer;text-align:left;transition:background .15s,border-color .15s}
-.world-card:hover{background:rgba(255,255,255,.14);border-color:rgba(124,179,66,.6)}
-.world-thumb{width:46px;height:46px;flex:none;border-radius:8px;background:linear-gradient(160deg,#7cb342 0%,#7cb342 45%,#8d6e63 45%,#8d6e63 100%);box-shadow:inset 0 0 0 2px rgba(0,0,0,.25)}
+.home-secondary{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:4px;padding:8px 14px;font-size:13px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+#world-list{list-style:none;display:flex;flex-direction:column;gap:7px;max-height:38vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.world-card{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.07);border:2px solid transparent;border-radius:4px;padding:10px 12px;cursor:pointer;text-align:left;transition:background .15s,border-color .15s}
+.world-card:hover,.world-card:focus{background:rgba(255,255,255,.14);border-color:rgba(124,179,66,.7);outline:none}
+.world-thumb{width:44px;height:44px;flex:none;border-radius:4px;background:linear-gradient(160deg,#7cb342 0%,#7cb342 45%,#8d6e63 45%,#8d6e63 100%);box-shadow:inset 0 0 0 2px rgba(0,0,0,.3),0 2px 4px rgba(0,0,0,.4);image-rendering:pixelated}
 .world-meta{flex:1;min-width:0}
-.world-name{font-size:15px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.world-sub{font-size:11px;opacity:.7;margin-top:2px;font-variant-numeric:tabular-nums}
-.world-actions{display:flex;gap:6px;flex:none}
-.world-actions button{width:32px;height:32px;border-radius:7px;border:1px solid rgba(255,255,255,.25);background:rgba(0,0,0,.25);color:#fff;font-size:14px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.world-name{font-size:14px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:1px 1px 0 rgba(0,0,0,.5)}
+.world-sub{font-size:11px;opacity:.65;margin-top:2px;font-variant-numeric:tabular-nums}
+.world-actions{display:flex;gap:5px;flex:none}
+.world-actions button{width:30px;height:30px;border-radius:4px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#fff;font-size:13px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 .world-actions button:hover{background:rgba(255,255,255,.18)}
 .world-actions .wc-del:hover{background:rgba(200,40,40,.5)}
-#home-empty{opacity:.7;font-size:13px;padding:18px 4px}
-/* World dialog */
-#world-dialog{position:absolute;inset:0;z-index:220;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);padding:18px}
+#home-empty{opacity:.65;font-size:13px;padding:16px 4px}
+
+/* ── World creation dialog ── */
+#world-dialog{position:absolute;inset:0;z-index:220;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.7);padding:18px}
 #world-dialog.show{display:flex}
-#world-dialog-panel{width:100%;max-width:380px;background:#11243c;border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:20px;text-align:left;box-shadow:0 16px 50px rgba(0,0,0,.6)}
-#world-dialog-panel h2{font-size:18px;margin-bottom:14px}
+#world-dialog-panel{width:100%;max-width:360px;background:#1a1a2e;border:2px solid rgba(255,255,255,.2);border-radius:6px;padding:20px;text-align:left;box-shadow:0 16px 50px rgba(0,0,0,.7)}
+#world-dialog-panel h2{font-size:17px;margin-bottom:14px;text-shadow:2px 2px 0 rgba(0,0,0,.5)}
 .wd-label{display:block;font-size:12px;opacity:.8;margin:10px 0 4px}
-#world-dialog-panel input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;font-size:14px;font-family:inherit}
+#world-dialog-panel input{width:100%;padding:9px 12px;border-radius:3px;border:2px solid rgba(255,255,255,.15);background:rgba(0,0,0,.4);color:#fff;font-size:14px;font-family:inherit}
 #world-dialog-panel input:focus{outline:none;border-color:#7cb342}
-.wd-hint{font-size:11px;opacity:.6;margin-top:6px}
-#world-dialog-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+.wd-hint{font-size:11px;opacity:.55;margin-top:5px}
+#world-dialog-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+
+/* ── P2P Multiplayer panel ── */
+#p2p-panel{width:100%;max-width:420px;background:rgba(0,0,0,.55);border:2px solid rgba(66,165,245,.3);border-radius:6px;padding:14px;box-shadow:inset 0 2px 12px rgba(0,0,0,.4),0 8px 30px rgba(0,0,0,.5);display:none;flex-direction:column;gap:10px}
+#p2p-panel.show{display:flex}
+#p2p-panel h3{font-size:15px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.p2p-tabs{display:flex;gap:6px;margin-bottom:4px}
+.p2p-tab{flex:1;padding:9px;font-size:13px;font-weight:700;font-family:inherit;border:2px solid rgba(255,255,255,.15);border-radius:4px;background:rgba(255,255,255,.06);color:#fff;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s}
+.p2p-tab.active{background:rgba(66,165,245,.25);border-color:rgba(66,165,245,.6);color:#90caf9}
+.p2p-section{display:none;flex-direction:column;gap:8px}
+.p2p-section.active{display:flex}
+.p2p-label{font-size:12px;opacity:.75;margin-bottom:2px}
+.p2p-code-box{background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);border-radius:4px;padding:10px;font-family:monospace;font-size:13px;color:#90caf9;word-break:break-all;min-height:48px;cursor:pointer;user-select:all;position:relative}
+.p2p-code-box:hover::after{content:"Click to copy";position:absolute;top:4px;right:6px;font-size:10px;background:rgba(66,165,245,.4);padding:2px 6px;border-radius:3px;font-family:inherit;color:#fff}
+.p2p-input{width:100%;padding:9px 12px;border-radius:3px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.4);color:#fff;font-size:13px;font-family:monospace}
+.p2p-input:focus{outline:none;border-color:#42a5f5}
+.p2p-status{font-size:12px;padding:7px 10px;border-radius:4px;background:rgba(255,255,255,.07);display:flex;align-items:center;gap:6px}
+.p2p-status.ok{background:rgba(76,175,80,.2);color:#a5d6a7}
+.p2p-status.err{background:rgba(244,67,54,.2);color:#ef9a9a}
+.p2p-status.wait{background:rgba(255,193,7,.15);color:#fff176}
+.p2p-players-list{display:flex;flex-direction:column;gap:4px;max-height:100px;overflow-y:auto}
+.p2p-player-item{display:flex;align-items:center;gap:8px;padding:5px 8px;background:rgba(255,255,255,.06);border-radius:4px;font-size:12px}
+.p2p-player-dot{width:8px;height:8px;border-radius:50%;background:#4caf50;flex:none}
+.p2p-player-dot.host{background:#ffd54f}
+#p2p-chat-wrap{border-top:1px solid rgba(255,255,255,.1);padding-top:8px;display:flex;flex-direction:column;gap:6px}
+#p2p-chat-log{height:70px;overflow-y:auto;font-size:11px;padding:4px 6px;background:rgba(0,0,0,.3);border-radius:4px;color:rgba(255,255,255,.85)}
+.p2p-chat-msg{margin-bottom:2px}
+.p2p-chat-msg .p2p-nick{color:#90caf9;font-weight:700}
+.p2p-chat-row{display:flex;gap:6px}
+#p2p-chat-input{flex:1;padding:7px 10px;border-radius:3px;border:1px solid rgba(255,255,255,.15);background:rgba(0,0,0,.4);color:#fff;font-size:12px;font-family:inherit}
+#p2p-chat-send{padding:7px 12px;background:#1565c0;border:none;border-radius:3px;color:#fff;font-size:12px;font-weight:700;cursor:pointer}
+/* Back button for sub-panels */
+#home-back-btn{display:none;align-self:flex-start;padding:7px 14px;font-size:12px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);border-radius:4px;color:#fff;cursor:pointer;margin-bottom:2px;-webkit-tap-highlight-color:transparent}
+#home-back-btn.show{display:block}
 
 /* ======================= Screenshot mode ====================== */
 .screenshot-btn{position:fixed;top:calc(12px + var(--vv-top));right:130px;z-index:24;width:34px;height:34px;border-radius:8px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:16px;cursor:pointer;display:none;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
@@ -246,3 +320,145 @@ body.inv-dragging,.inv-dragging .inv-slot{cursor:grabbing!important;}
   border:1px solid rgba(255,213,79,0.4);
   text-shadow:0 1px 2px #000;
 }
+
+/* ======================================================================== */
+/* === MOBILE UI 改善 (より使いやすいモバイル操作) ======================== */
+/* ======================================================================== */
+
+/* ── ジョイスティックを左下、アクションボタンを右下に整理 ── */
+body.is-mobile #joystick-zone{
+  position:fixed;
+  left:14px;
+  bottom:calc(var(--ui-bottom) + var(--hotbar-slot) + 14px);
+  z-index:28;
+  touch-action:none;
+}
+body.is-mobile #joystick-base{
+  width:clamp(88px,21vw,108px);
+  height:clamp(88px,21vw,108px);
+  border-radius:50%;
+  background:rgba(255,255,255,.09);
+  border:2.5px solid rgba(255,255,255,.35);
+  position:relative;
+  backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);
+  box-shadow:0 3px 12px rgba(0,0,0,.3);
+}
+body.is-mobile #joystick-knob{
+  width:44%;height:44%;
+  border-radius:50%;
+  background:rgba(255,255,255,.55);
+  box-shadow:0 2px 8px rgba(0,0,0,.4);
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+}
+
+/* ── アクションボタン群: 右下に縦列で配置 ── */
+body.is-mobile #btn-jump{
+  position:fixed;
+  right:14px;
+  bottom:calc(var(--ui-bottom) + var(--hotbar-slot) + 130px);
+  width:clamp(52px,13vw,66px);
+  height:clamp(52px,13vw,66px);
+  font-size:22px;
+  border-radius:50%;
+  background:rgba(20,20,28,.50);
+  border:2.5px solid rgba(255,255,255,.6);
+  z-index:28;
+}
+body.is-mobile #btn-break{
+  position:fixed;
+  right:14px;
+  bottom:calc(var(--ui-bottom) + var(--hotbar-slot) + 68px);
+  width:clamp(52px,13vw,66px);
+  height:clamp(52px,13vw,66px);
+  font-size:22px;
+  border-radius:12px;
+  background:rgba(20,20,28,.50);
+  border:2.5px solid rgba(255,180,120,.75);
+  z-index:28;
+}
+body.is-mobile #btn-place{
+  position:fixed;
+  right:14px;
+  bottom:calc(var(--ui-bottom) + var(--hotbar-slot) + 8px);
+  width:clamp(52px,13vw,66px);
+  height:clamp(52px,13vw,66px);
+  font-size:22px;
+  border-radius:12px;
+  background:rgba(20,20,28,.50);
+  border:2.5px solid rgba(150,210,255,.75);
+  z-index:28;
+}
+
+/* ── ホットバー: モバイル用に少し大きく ── */
+body.is-mobile #hotbar{
+  --hotbar-slot: clamp(38px, calc(var(--app-height)*0.066), 56px);
+}
+
+/* ── インベントリボタン: 左下ではなく右上に移動 (UI整理) ── */
+body.is-mobile #btn-inventory{
+  position:fixed;
+  top:calc(12px + var(--vv-top));
+  left:12px;
+  z-index:26;
+  width:40px;height:40px;
+  font-size:20px;
+  border-radius:9px;
+  background:rgba(0,0,0,.45);
+  border:2px solid rgba(255,255,255,.4);
+  color:#fff;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+
+/* ── タッチボタン共通: もっとタップしやすく ── */
+body.is-mobile .touch-btn{
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(20,20,28,.46);
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  border:2.5px solid rgba(255,255,255,.55);
+  box-shadow:0 3px 10px rgba(0,0,0,.35);
+  color:#fff;
+  font-weight:700;
+  user-select:none;-webkit-user-select:none;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+}
+body.is-mobile .touch-btn:active{
+  transform:scale(.90);
+  background:rgba(255,255,255,.35);
+}
+
+/* ── ステータスオーバーレイ: モバイルで少しコンパクトに ── */
+body.is-mobile #status-overlay{font-size:11px;padding:6px 10px}
+body.is-mobile #top-right-buttons button{width:34px;height:30px;font-size:14px}
+
+/* ── ホットバースロットタッチ改善 ── */
+body.is-mobile .hotbar-slot{
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+}
+
+/* P2P接続中ステータスバッジ (ゲーム中HUD) */
+#p2p-hud-badge{
+  position:fixed;
+  top:calc(50px + var(--vv-top));
+  left:50%;
+  transform:translateX(-50%);
+  z-index:26;
+  display:none;
+  align-items:center;
+  gap:6px;
+  padding:5px 12px;
+  background:rgba(13,71,161,.75);
+  border:1px solid rgba(66,165,245,.5);
+  border-radius:20px;
+  color:#fff;
+  font-size:12px;
+  font-weight:700;
+  pointer-events:none;
+  text-shadow:0 1px 2px rgba(0,0,0,.6);
+}
+#p2p-hud-badge.show{display:flex}
+#p2p-hud-badge::before{content:"🌐";font-size:13px}
+body.screenshot-mode #p2p-hud-badge{display:none!important}

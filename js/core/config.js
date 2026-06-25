@@ -720,7 +720,7 @@ const ACHIEVEMENTS=[
 ];
 const isMobile=('ontouchstart'in window)&&/Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac|iPad/i.test(navigator.userAgent));if(isMobile)document.body.classList.add('is-mobile');
 // World schema version — bump when dimensions change to invalidate saved data.
-const WORLD_VERSION="17-crystal-withered-coral-newblocks";
+const WORLD_VERSION="18-wider-biomes-smooth-mountains";
 // SEED is resolved per active world (see worlds.js). If no world is active yet
 // (home screen showing), fall back to a temporary random seed; it is replaced
 // once a world is actually loaded via loadActiveWorld().
