@@ -150,6 +150,12 @@ var P2P = (function(){
 
   /* ── Host flow ── */
   function startHost(nick){
+    // If already generated code (autoStartHostCode ran), just update nick
+    if(_role==='host'&&_pc){
+      _hostNick=nick||'Host';
+      renderPlayerList();
+      return;
+    }
     _role='host';
     _hostNick=nick||'Host';
     _players={};
@@ -236,16 +242,77 @@ var P2P = (function(){
     });
   }
 
+  /* ── Auto-generate host code when panel is shown ── */
+  function autoStartHostCode(){
+    // Only auto-generate if no active connection and no code already shown
+    var codeBox=$id('p2p-host-code');
+    if(!codeBox)return;
+    var existing=codeBox.textContent||'';
+    // Already has a real code (not the placeholder)
+    if(existing.length>20&&existing!=='Generating code…'&&existing!=='Waiting…')return;
+    // Start generating an offer (without starting the game)
+    if(_role)return; // already have a role
+    _role='host';
+    _hostNick='Host';
+    _players={};
+    _pc=new RTCPeerConnection({iceServers:ICE_SERVERS});
+    var dc=_pc.createDataChannel('bw',{ordered:true});
+    setupChannel(dc);
+    var allCandidates=[];
+    codeBox.textContent='Generating code…';
+    setStatus('p2p-host-status','⏳ Generating connection code…','wait');
+    _pc.onicecandidate=function(e){
+      if(e.candidate){
+        allCandidates.push(e.candidate.toJSON());
+      } else {
+        var payload=encode({sdp:_pc.localDescription,ice:allCandidates});
+        if(codeBox) codeBox.textContent=payload;
+        setStatus('p2p-host-status','⏳ Share the code above with friends','wait');
+      }
+    };
+    _pc.oniceconnectionstatechange=function(){
+      if(_pc.iceConnectionState==='connected'||_pc.iceConnectionState==='completed'){
+        setStatus('p2p-host-status','✅ Player connected!','ok');
+        updateHudBadge();
+      } else if(_pc.iceConnectionState==='disconnected'||_pc.iceConnectionState==='failed'){
+        setStatus('p2p-host-status','⚠ Connection lost','err');
+        updateHudBadge();
+      }
+    };
+    _pc.createOffer().then(function(offer){
+      return _pc.setLocalDescription(offer);
+    }).catch(function(e){
+      console.error('[P2P] offer error',e);
+      setStatus('p2p-host-status','❌ Error: '+e.message,'err');
+      _role=null;_pc=null;_dc=null;
+    });
+  }
+
   /* ── Public API ── */
   var API={
     init: function(){
+      /* Auto-generate host code as soon as host tab is visible */
+      // Wire tab switching to auto-generate
+      var hostTab=document.querySelector('.p2p-tab[data-p2p-tab="host"]');
+      if(hostTab && !hostTab._p2pAutoGen){
+        hostTab._p2pAutoGen=true;
+        hostTab.addEventListener('click',function(){
+          setTimeout(autoStartHostCode,50);
+        });
+      }
+      // Also trigger immediately if host section is active
+      setTimeout(autoStartHostCode,100);
+
       /* Wire host start button */
       var startBtn=$id('p2p-start-host-btn');
       if(startBtn && !startBtn._p2pBound){
         startBtn._p2pBound=true;
         startBtn.addEventListener('click',function(){
-          var hostNick='Host';
-          startHost(hostNick);
+          // Use existing host session (code already generated) or start fresh
+          if(!_role){
+            var hostNick='Host';
+            startHost(hostNick);
+          }
           // Host also starts a world (pick first world or create new)
           var worlds=WORLDS.list();
           if(worlds.length>0){

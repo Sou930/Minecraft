@@ -1409,9 +1409,12 @@ function generateWorldAsync(onProgress){
     report(0.96,'Digging mineshafts...');
     await nextFrame();
     if(typeof placeMineshafts==='function')placeMineshafts();
-    report(0.98,'Building strongholds...');
+    report(0.97,'Building strongholds...');
     await nextFrame();
     if(typeof placeStronghold==='function')placeStronghold();
+    report(0.99,'Placing sky islands...');
+    await nextFrame();
+    placeSkyIslands();
     report(1.0,'Done');
     await nextFrame();
     // Spawn villagers at village centres (delayed so Babylon scene is ready)
@@ -1420,6 +1423,71 @@ function generateWorldAsync(onProgress){
     }
   })();
 }
+// ===========================================================================
+// SKY ISLANDS — floating islands scattered high in the sky (y 70-110).
+// Each island is an oblate ellipsoid of stone/grass with a small tree on top,
+// sometimes with a waterfall and amethyst crystal decoration.
+// ===========================================================================
+function placeSkyIslands(){
+  const rng=mulberry32((SEED^0x7f4e91ab)>>>0);
+  const area=WORLD_W*WORLD_D;
+  // ~1 island per 120 000 surface blocks
+  const count=Math.floor(area/120000)+12;
+  for(let k=0;k<count;k++){
+    const cx=8+Math.floor(rng()*(WORLD_W-16));
+    const cz=8+Math.floor(rng()*(WORLD_D-16));
+    const cy=70+Math.floor(rng()*40);
+    if(cy+20>=WORLD_H)continue;
+    const sizeClass=rng()<0.5?0:(rng()<0.7?1:2);
+    const rxBase=sizeClass===0?(4+Math.floor(rng()*3)):(sizeClass===1?(7+Math.floor(rng()*4)):(11+Math.floor(rng()*4)));
+    const rx=rxBase,ry=Math.floor(rx*0.5)+1,rz=rxBase+Math.floor(rng()*3)-1;
+    // Carve ellipsoid
+    for(let dx=-rx;dx<=rx;dx++)for(let dy=-ry;dy<=ry;dy++)for(let dz=-rz;dz<=rz;dz++){
+      const wx=cx+dx,wy=cy+dy,wz=cz+dz;
+      if(wx<1||wx>=WORLD_W-1||wy<2||wy>=WORLD_H-1||wz<1||wz>=WORLD_D-1)continue;
+      const wob=valueNoise3(wx/8,wy/8,wz/8,SEED+991)*0.55;
+      const d=(dx*dx)/(rx*rx)+(dy*dy)/(ry*ry)+(dz*dz)/(rz*rz);
+      if(d>1-wob+0.35)continue;
+      if(world[blockIndex(wx,wy,wz)]!==B.AIR)continue;
+      if(dy>=ry-1)world[blockIndex(wx,wy,wz)]=B.GRASS;
+      else if(dy>=ry-3)world[blockIndex(wx,wy,wz)]=B.DIRT;
+      else world[blockIndex(wx,wy,wz)]=B.STONE;
+    }
+    // Surface topsoil
+    for(let dx=-rx;dx<=rx;dx++)for(let dz=-rz;dz<=rz;dz++){
+      const wx=cx+dx,wz=cz+dz;
+      if(wx<0||wx>=WORLD_W||wz<0||wz>=WORLD_D)continue;
+      for(let dy=ry;dy>=-ry;dy--){
+        const wy=cy+dy;if(wy<1||wy>=WORLD_H-1)continue;
+        const id=world[blockIndex(wx,wy,wz)];
+        if(id===B.DIRT){if(wy+1<WORLD_H&&world[blockIndex(wx,wy+1,wz)]===B.AIR)world[blockIndex(wx,wy,wz)]=B.GRASS;break;}
+        if(id!==B.AIR)break;
+      }
+    }
+    // Tree on island
+    const tx=cx+(Math.floor(rng()*3)-1),tz=cz+(Math.floor(rng()*3)-1);
+    let treeY=-1;
+    for(let dy=ry+1;dy>=-ry;dy--){const wy=cy+dy;if(wy<1||wy>=WORLD_H-2)continue;if(world[blockIndex(tx,wy,tz)]===B.GRASS){treeY=wy;break;}}
+    if(treeY>0&&treeY+8<WORLD_H){
+      const trunkH=3+Math.floor(rng()*3);
+      for(let y=1;y<=trunkH;y++)if(world[blockIndex(tx,treeY+y,tz)]===B.AIR)world[blockIndex(tx,treeY+y,tz)]=B.LOG;
+      const leafY=treeY+trunkH;
+      const LOFFS=[[-1,1,0],[1,1,0],[0,1,-1],[0,1,1],[0,2,0],[-1,0,0],[1,0,0],[0,0,-1],[0,0,1],[-1,2,0],[1,2,0],[0,2,-1],[0,2,1]];
+      for(const[lx,ly,lz]of LOFFS){const lw=tx+lx,lyy=leafY+ly,lzz=tz+lz;if(lw>=0&&lw<WORLD_W&&lyy>=0&&lyy<WORLD_H&&lzz>=0&&lzz<WORLD_D&&world[blockIndex(lw,lyy,lzz)]===B.AIR)world[blockIndex(lw,lyy,lzz)]=B.LEAVES;}
+    }
+    // Waterfall on larger islands
+    if(sizeClass>=1&&rng()<0.6){
+      const wx=cx+Math.round((rx-1)*(rng()<0.5?1:-1)),wz=cz;
+      for(let dy=ry;dy>=-ry;dy--){const wy=cy+dy;if(wy<1||wy>=WORLD_H-1)continue;if(world[blockIndex(wx,wy,wz)]!==B.AIR){if(world[blockIndex(wx,wy+1,wz)]===B.AIR)world[blockIndex(wx,wy+1,wz)]=B.WATER;break;}}
+    }
+    // Amethyst crystal on large islands
+    if(sizeClass===2){
+      const ax=cx+(Math.floor(rng()*5)-2),az=cz+(Math.floor(rng()*5)-2);
+      for(let dy=ry+1;dy>=-ry;dy--){const wy=cy+dy;if(wy<1||wy>=WORLD_H-1)continue;if(world[blockIndex(ax,wy,az)]===B.GRASS){if(world[blockIndex(ax,wy+1,az)]===B.AIR)world[blockIndex(ax,wy+1,az)]=B.AMETHYST_CLUSTER;break;}}
+    }
+  }
+}
+
 let worldEdits={};function loadEdits(){try{worldEdits=JSON.parse(WORLDS.getItem('edits')||"{}");}catch(e){worldEdits={};}
 for(const key in worldEdits){const[x,y,z]=key.split(',').map(Number);if(x>=0&&x<WORLD_W&&y>=0&&y<WORLD_H&&z>=0&&z<WORLD_D)
 world[blockIndex(x,y,z)]=worldEdits[key];}}

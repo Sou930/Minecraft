@@ -198,8 +198,8 @@ const FLUID = (function () {
   }
 
   let accum = 0;
-  const WATER_TICK = 0.18;
-  const LAVA_TICK = 0.45;
+  const WATER_TICK = 0.36;   // was 0.18 → 1/2 speed (longer interval = slower flow)
+  const LAVA_TICK = 0.90;    // was 0.45 → 1/2 speed
   let lavaPhase = 0;
   let initialized = false;
 

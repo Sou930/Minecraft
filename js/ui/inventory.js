@@ -366,4 +366,107 @@ function renderHotbar(){const bar=document.getElementById('hotbar');bar.innerHTM
 slot.addEventListener('click',()=>selectSlot(i));slot.addEventListener('touchstart',(e)=>{e.preventDefault();selectSlot(i);},{passive:false});bar.appendChild(slot);}}
 function selectSlot(i){selectedSlot=i;document.querySelectorAll('#hotbar .hotbar-slot').forEach((s,idx)=>s.classList.toggle('selected',idx===i));}
 function refreshToolUI(){renderHotbar();if(inventoryOpen)renderInventory();scheduleInvSave();}
+
+// =====================================================================
+// CHEST UI — 27-slot shared storage at a world position
+// =====================================================================
+const CHEST_SIZE=27;
+const _chestData={};  // key "x,y,z" -> Array(27) of stacks
+let _chestOverlay=null;
+let _chestOpen=false;
+let _chestKey=null;
+
+function _getChestInv(x,y,z){
+  const k=`${x},${y},${z}`;
+  if(!_chestData[k])_chestData[k]=new Array(CHEST_SIZE).fill(null);
+  return _chestData[k];
+}
+
+function openChestUI(x,y,z){
+  if(_chestOpen)closeChestUI();
+  _chestKey=`${x},${y},${z}`;
+  const inv=_getChestInv(x,y,z);
+
+  // Create overlay
+  const ov=document.createElement('div');
+  ov.id='chest-overlay';
+  ov.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:2000;display:flex;align-items:center;justify-content:center;';
+
+  const panel=document.createElement('div');
+  panel.style.cssText='background:#3a3a3a;border:3px solid #666;border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:330px;';
+
+  const header=document.createElement('div');
+  header.style.cssText='display:flex;justify-content:space-between;align-items:center;color:#e0d8c0;font-family:monospace;font-size:16px;font-weight:bold;';
+  header.innerHTML='<span>📦 Chest</span>';
+  const closeBtn=document.createElement('button');
+  closeBtn.textContent='✕';
+  closeBtn.style.cssText='background:#666;color:#fff;border:none;border-radius:4px;cursor:pointer;padding:2px 8px;font-size:14px;';
+  closeBtn.onclick=()=>closeChestUI();
+  header.appendChild(closeBtn);
+  panel.appendChild(header);
+
+  const grid=document.createElement('div');
+  grid.style.cssText='display:grid;grid-template-columns:repeat(9,36px);gap:3px;';
+
+  for(let i=0;i<CHEST_SIZE;i++){
+    const slot=document.createElement('div');
+    slot.className='inv-slot';
+    slot.style.cssText='width:36px;height:36px;background:#555;border:2px solid #888;border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;';
+    if(inv[i])fillSlotEl(slot,inv[i]);
+    slot.addEventListener('click',(e)=>{
+      const s=inv[i];
+      if(!heldStack){
+        if(s){heldStack=s;inv[i]=null;fillSlotEl(slot,null);updateHeldUI();moveHeldTo(e.clientX,e.clientY);}
+      }else{
+        if(!s){inv[i]=heldStack;heldStack=null;fillSlotEl(slot,inv[i]);updateHeldUI();}
+        else if(s.id===heldStack.id&&!isTool(s.id)&&s.count<STACK_MAX){
+          const n=Math.min(STACK_MAX-s.count,heldStack.count);s.count+=n;heldStack.count-=n;
+          if(heldStack.count<=0)heldStack=null;fillSlotEl(slot,inv[i]);updateHeldUI();
+        }else{inv[i]=heldStack;heldStack=s;fillSlotEl(slot,inv[i]);updateHeldUI();moveHeldTo(e.clientX,e.clientY);}
+      }
+      _saveChestData();renderHotbar();
+    });
+    slot.addEventListener('contextmenu',(e)=>{
+      e.preventDefault();
+      const s=inv[i];
+      if(!heldStack){
+        if(s){const take=Math.ceil(s.count/2);heldStack={id:s.id,count:take};s.count-=take;if(s.count<=0)inv[i]=null;fillSlotEl(slot,inv[i]);updateHeldUI();moveHeldTo(e.clientX,e.clientY);}
+      }else{
+        if(!s){inv[i]={id:heldStack.id,count:1};heldStack.count--;if(heldStack.count<=0)heldStack=null;fillSlotEl(slot,inv[i]);updateHeldUI();}
+      }
+      _saveChestData();
+    });
+    grid.appendChild(slot);
+  }
+  panel.appendChild(grid);
+
+  const plabel=document.createElement('div');
+  plabel.style.cssText='color:#b0a890;font-family:monospace;font-size:12px;text-align:center;';
+  plabel.textContent='Click to take/place • Right-click for half';
+  panel.appendChild(plabel);
+  ov.appendChild(panel);
+  ov.addEventListener('click',(e)=>{if(e.target===ov)closeChestUI();});
+  document.body.appendChild(ov);
+  _chestOverlay=ov;
+  _chestOpen=true;
+
+  if(!isMobile&&document.pointerLockElement)document.exitPointerLock();
+}
+
+function closeChestUI(){
+  if(!_chestOpen)return;
+  if(heldStack){addToInventory(heldStack.id,heldStack.count);heldStack=null;updateHeldUI();}
+  _chestOverlay&&_chestOverlay.remove();
+  _chestOverlay=null;_chestOpen=false;_chestKey=null;
+  renderHotbar();
+  if(!isMobile)try{const p=document.getElementById('game-canvas');if(p)p.requestPointerLock&&p.requestPointerLock();}catch(e){}
+}
+
+function _saveChestData(){
+  try{WORLDS.setItem('chests',JSON.stringify(_chestData));}catch(e){}
+}
+function loadChestData(){
+  try{const d=JSON.parse(WORLDS.getItem('chests')||'null');if(d&&typeof d==='object'){for(const k in d){const arr=d[k];if(Array.isArray(arr)){_chestData[k]=arr.map(s=>{if(!s||typeof s.id!=='number'||s.count<=0)return null;return{id:s.id,count:Math.min(STACK_MAX,s.count)};});}}}}catch(e){}
+}
+
 function updateVitalsUI(){const hearts=document.getElementById('hearts');const hunger=document.getElementById('hunger');let h='';for(let i=0;i<10;i++){const v=player.hp-i*2;let cls='empty';if(v>=2)cls='full';else if(v>=1)cls='half';h+=`<span class="${cls}">♥</span>`;}hearts.innerHTML=h;let g='';for(let i=0;i<10;i++){const v=player.hunger-i*2;let cls='empty';if(v>=2)cls='full';else if(v>=1)cls='half';g+=`<span class="${cls}">🍗</span>`;}hunger.innerHTML=g;}

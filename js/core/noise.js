@@ -37,11 +37,11 @@ function biomeAt(x,z,c){
   const t=c.temperature,m=c.moisture,e=c.continental,w=c.weirdness;
   // Oceans
   if(e<0.32) return BIOME.OCEAN;
-  // Mountains / volcano. The volcano footprint is widened (temp 0.60→0.55,
-  // moist 0.45→0.50, weirdness gate removed) so the molten cone covers a much
-  // larger swathe of the highlands — a genuinely giant volcanic region.
+  // Mountains / volcano. The volcano footprint is widened further so volcanoes
+  // appear more frequently: temperature threshold lowered (0.55→0.48),
+  // moisture threshold raised (0.50→0.58), making volcanic regions ~3x larger.
   if(e>0.72){
-    if(t>0.55&&m<0.50) return BIOME.VOLCANO;
+    if(t>0.48&&m<0.58) return BIOME.VOLCANO;
     return BIOME.MOUNTAINS;
   }
   // Cold
