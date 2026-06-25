@@ -13,6 +13,8 @@ function isSolid(id){if(id===B.AIR||id===B.WATER||id===B.LAVA||id===B.SEAWEED)re
 if(id===B.LEVER||id===B.REDSTONE_DUST||id===B.REPEATER||id===B.PISTON_HEAD||id===B.PISTON_HEAD_STICKY)return false;
 // New non-solid blocks
 const _d=BLOCKS[id];if(_d&&(_d.sign||_d.itemFrame||_d.flowerPot||_d.torchWall||_d.torchCeiling))return false;
+// Flat blocks (rails, etc.) are not solid — player walks through them
+if(_d&&_d.flat)return false;
 return true;}
 // Crops, cross-shaped plants (grass/flowers) and thin bamboo stalks are
 // targetable even though non-solid (so they can be broken / passed through).
@@ -243,7 +245,7 @@ const heightMap=new Int16Array(WORLD_W*WORLD_D);const biomeMap=new Uint8Array(WO
 const lavaLevelMap=new Int16Array(WORLD_W*WORLD_D);
 function colIndex(x,z){return z*WORLD_W+x;}
 // Synchronous full generation (kept for reference / fallback).
-function generateWorld(){generateClimateAndHeight();generateTerrainColumns(0,WORLD_W);carveCaves();carveLargeCaves();carveCaveFeatures();carveRavines();placeCaveBiomes();placeAmethystGeodes();placeOresAndGravel();placeVegetation();if(typeof placeStructures==='function')placeStructures();}
+function generateWorld(){generateClimateAndHeight();generateTerrainColumns(0,WORLD_W);carveCaves();carveLargeCaves();carveCaveFeatures();carveRavines();placeCaveBiomes();placeAmethystGeodes();placeOresAndGravel();placeVegetation();fillUnderwaterAir();if(typeof placeStructures==='function')placeStructures();}
 // --- Split phases so generation can be driven asynchronously --------------
 function generateClimateAndHeight(){
   const tmp=new Float32Array(WORLD_W*WORLD_D);
@@ -1283,6 +1285,25 @@ if(r<0.05){
   const sh=2+Math.floor(hash2(x,z,24)*4);
   for(let y=1;y<=sh;y++){const yy=h+y;if(yy>=SEA_LEVEL)break;if(world[blockIndex(x,yy,z)]===B.WATER)world[blockIndex(x,yy,z)]=B.SEAWEED;}
 }}}}
+// FILL UNDERWATER AIR: any AIR cell below sea level should be water.
+// Seaweed and coral are placed into pre-existing water cells, but after
+// cave-carving or reef placement some cells below sea level may still be
+// AIR (e.g. the tops of cross-shaped coral/seaweed that didn't previously
+// have water placed there). This pass ensures every such gap is water.
+function fillUnderwaterAir(){
+  for(let x=0;x<WORLD_W;x++){
+    for(let z=0;z<WORLD_D;z++){
+      const h=heightMap[colIndex(x,z)];
+      // Only scan columns whose surface is below (or at) sea level
+      if(h>=SEA_LEVEL)continue;
+      for(let y=1;y<SEA_LEVEL;y++){
+        if(getBlock(x,y,z)===B.AIR){
+          world[blockIndex(x,y,z)]=B.WATER;
+        }
+      }
+    }
+  }
+}
 // SWAMP dead bushes: like Minecraft's dead shrub, a single 1-block-high
 // leafless plant dotting the dry patches of the marsh for a desolate feel.
 function placeDeadTrees(){for(let x=3;x<WORLD_W-3;x++){for(let z=3;z<WORLD_D-3;z++){
@@ -1378,6 +1399,9 @@ function generateWorldAsync(onProgress){
     report(0.89,'Placing vegetation...');
     await nextFrame();
     placeVegetation();
+    report(0.91,'Filling underwater gaps...');
+    await nextFrame();
+    fillUnderwaterAir();
     report(0.93,'Building villages...');
     await nextFrame();
     let _placedVillages=[];
