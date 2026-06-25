@@ -875,6 +875,31 @@ ctx.fillStyle='#c8a878';ctx.fillRect(ox+10,oy+12,2,2);ctx.fillRect(ox+18,oy+12,2
  ctx.fillStyle='#80a060';for(let i=0;i<10;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);
  ctx.fillStyle='rgba(60,100,160,0.22)';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);}
 
+// ---- Wood-type planks (各木の個性的な板材テクスチャ) ----
+// Helper: draw plank texture with given hue palette
+function plankTile(t,base,v1,v2,v3,seed){
+  const[ox,oy]=tileOrigin(t);const rnd=mulberry32(seed);
+  ctx.fillStyle=base;ctx.fillRect(ox,oy,TILE_PX,TILE_PX);
+  for(let i=0;i<60;i++){ctx.fillStyle=[v1,v2,v3][Math.floor(rnd()*3)];ctx.fillRect(ox+Math.floor(rnd()*TILE_PX/2)*2,oy+Math.floor(rnd()*TILE_PX/2)*2,2,2);}
+  ctx.fillStyle=v1;
+  for(let y=0;y<TILE_PX;y+=8)ctx.fillRect(ox,oy+y,TILE_PX,2);
+  ctx.fillRect(ox+8,oy+2,2,6);ctx.fillRect(ox+22,oy+10,2,6);ctx.fillRect(ox+14,oy+18,2,6);ctx.fillRect(ox+4,oy+26,2,6);
+}
+// Birch planks — pale white-cream
+plankTile(T.BIRCH_PLANKS,'#d8d2c2','#c8c2b0','#e4dece','#bfb89e',9400);
+// Spruce planks — deep reddish-brown
+plankTile(T.SPRUCE_PLANKS,'#7a5230','#6a4428','#8a6038','#5e3a20',9401);
+// Acacia planks — warm orange-tan
+plankTile(T.ACACIA_PLANKS,'#c07040','#ae6030','#d08050','#b86838',9402);
+// Cherry planks — light pinkish-tan
+plankTile(T.CHERRY_PLANKS,'#c8a488','#b89070','#d8b898','#a87c60',9403);
+// Mangrove planks — deep reddish-brown with slight purple tint
+plankTile(T.MANGROVE_PLANKS,'#8c3a28','#7a3020','#9c4a34','#6e2818',9404);
+// Palm planks — light honey blond
+plankTile(T.PALM_PLANKS,'#c89a50','#b88840','#d8aa60','#a87830',9405);
+// Maple planks — warm amber
+plankTile(T.MAPLE_PLANKS,'#b87030','#a86028','#c88040','#986020',9406);
+
 })();function tileUV(t){const col=t%ATLAS_TILES,row=Math.floor(t/ATLAS_TILES);const padU=0.5/ATLAS_W,padV=0.5/ATLAS_H;return{u1:col/ATLAS_TILES+padU,u2:(col+1)/ATLAS_TILES-padU,v1:1-(row+1)/ATLAS_ROWS+padV,v2:1-row/ATLAS_ROWS-padV,};}
 /* ---------------------------------------------------------------------------
  * Per-material tool textures (pickaxe / axe / shovel / hoe + stick).

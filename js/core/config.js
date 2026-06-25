@@ -37,6 +37,12 @@ WITHERED_LOG_SIDE:240,WITHERED_LOG_TOP:241,
 GRAY_LEAVES:242,
 CORAL_SAND:243,
 TIDAL_SAND:244,
+// Wood planks per tree type (each gets its own color)
+BIRCH_PLANKS:245,SPRUCE_PLANKS:246,ACACIA_PLANKS:247,CHERRY_PLANKS:248,MANGROVE_PLANKS:249,PALM_PLANKS:250,MAPLE_PLANKS:251,
+// Chest tiles
+CHEST_TOP2:252,CHEST_SIDE2:253,CHEST_FRONT2:254,
+// Sky Island
+SKY_STONE:255,
 };const B={AIR:0,GRASS:1,DIRT:2,STONE:3,SAND:4,LOG:5,LEAVES:6,PLANKS:7,GLASS:8,BRICK:9,BEDROCK:10,WATER:11,COBBLE:12,COAL_ORE:13,IRON_ORE:14,GOLD_ORE:15,DIAMOND_ORE:16,GRAVEL:17,SANDSTONE:18,SNOW:19,ICE:20,OBSIDIAN:21,CACTUS:22,CRAFTING:23,FURNACE:24,BIRCH_LOG:25,BIRCH_LEAVES:26,LAVA:27,CORAL_PINK:28,CORAL_PURPLE:29,CORAL_BLUE:30,SEAWEED:31,DEAD_LOG:32,STONE_BRICK:33,MOSSY_BRICK:34,CRACKED_BRICK:35,PATH:36,TORCH:37,COBWEB:38,RAIL:39,CHEST:40,WOOL_RED:41,WOOL_WHITE:42,BOOKSHELF:43,LANTERN:44,HAY:45,DRIPSTONE:46,CALCITE:47,AMETHYST_BLOCK:48,AMETHYST_CLUSTER:49,MOSS:50,GLOW_LICHEN:51,SMOOTH_BASALT:52,FARMLAND:53,FARMLAND_WET:54,WHEAT:55,CARROT:56,POTATO:57,PUMPKIN:58,MELON:59,DEAD_BUSH:60,TALL_GRASS:61,FLOWER_DANDELION:62,FLOWER_POPPY:63,FLOWER_CORNFLOWER:64,SPRUCE_LOG:65,SPRUCE_LEAVES:66,ACACIA_LOG:67,ACACIA_LEAVES:68,CHERRY_LOG:69,CHERRY_LEAVES:70,DRY_GRASS:71,CHERRY_PETALS:72,BAMBOO:73,MANGROVE_LOG:74,MANGROVE_LEAVES:75,MANGROVE_ROOTS:76,PALM_LOG:77,PALM_LEAVES:78,MAPLE_LOG:79,MAPLE_LEAVES_RED:80,MAPLE_LEAVES_ORANGE:81,MAPLE_LEAVES_YELLOW:82,FLOWER_ALLIUM:83,FLOWER_TULIP:84,FLOWER_OXEYE:85,DOOR_BOTTOM_N_CLOSED:86,DOOR_BOTTOM_N_OPEN:87,DOOR_BOTTOM_E_CLOSED:88,DOOR_BOTTOM_E_OPEN:89,DOOR_BOTTOM_S_CLOSED:90,DOOR_BOTTOM_S_OPEN:91,DOOR_BOTTOM_W_CLOSED:92,DOOR_BOTTOM_W_OPEN:93,DOOR_TOP_N_CLOSED:94,DOOR_TOP_N_OPEN:95,DOOR_TOP_E_CLOSED:96,DOOR_TOP_E_OPEN:97,DOOR_TOP_S_CLOSED:98,DOOR_TOP_S_OPEN:99,DOOR_TOP_W_CLOSED:100,DOOR_TOP_W_OPEN:101,BED:102,STAIRS_N:103,STAIRS_E:104,STAIRS_S:105,STAIRS_W:106,
 COPPER:107,COPPER_EXPOSED:108,COPPER_WEATHERED:109,COPPER_OXIDIZED:110,
 SLAB_WOOD:111,SLAB_STONE:112,SLAB_SANDSTONE:113,SLAB_BRICK:114,
@@ -86,6 +92,12 @@ WITHERED_LOG:241,
 GRAY_LEAVES:242,
 CORAL_SAND:243,
 TIDAL_SAND:244,
+// Wood planks per tree type
+BIRCH_PLANKS:245,SPRUCE_PLANKS:246,ACACIA_PLANKS:247,CHERRY_PLANKS:248,MANGROVE_PLANKS:249,PALM_PLANKS:250,MAPLE_PLANKS:251,
+// Chest (功能性)
+CHEST_BLOCK:252,
+// Sky Island stone
+SKY_STONE:253,
 };const BLOCKS={[B.GRASS]:{name:"Grass",top:T.GRASS_TOP,side:T.GRASS_SIDE,bottom:T.DIRT,breakTime:0.9},[B.DIRT]:{name:"Dirt",all:T.DIRT,breakTime:0.75},[B.STONE]:{name:"Stone",all:T.STONE,breakTime:7.5},[B.SAND]:{name:"Sand",all:T.SAND,breakTime:0.75},[B.LOG]:{name:"Oak Log",top:T.LOG_TOP,side:T.LOG_SIDE,bottom:T.LOG_TOP,breakTime:3.0},[B.LEAVES]:{name:"Leaves",all:T.LEAVES,transparent:true,breakTime:0.3},[B.PLANKS]:{name:"Planks",all:T.PLANKS,breakTime:3.0},[B.GLASS]:{name:"Glass",all:T.GLASS,transparent:true,breakTime:0.45},[B.BRICK]:{name:"Brick",all:T.BRICK,breakTime:10.0},[B.BEDROCK]:{name:"Bedrock",all:T.BEDROCK,unbreakable:true},[B.WATER]:{name:"Water",all:T.WATER,transparent:true,fluid:true},[B.COBBLE]:{name:"Cobblestone",all:T.COBBLE,breakTime:10.0},[B.COAL_ORE]:{name:"Coal Ore",all:T.COAL_ORE,breakTime:8.0},[B.IRON_ORE]:{name:"Iron Ore",all:T.IRON_ORE,breakTime:9.0},[B.GOLD_ORE]:{name:"Gold Ore",all:T.GOLD_ORE,breakTime:9.0},[B.DIAMOND_ORE]:{name:"Diamond Ore",all:T.DIAMOND_ORE,breakTime:11.0},[B.GRAVEL]:{name:"Gravel",all:T.GRAVEL,breakTime:0.9},[B.SANDSTONE]:{name:"Sandstone",top:T.SANDSTONE_TOP,side:T.SANDSTONE_SIDE,bottom:T.SANDSTONE_TOP,breakTime:4.0},[B.SNOW]:{name:"Snow Block",all:T.SNOW,breakTime:1.0},[B.ICE]:{name:"Ice",all:T.ICE,breakTime:0.75},[B.OBSIDIAN]:{name:"Obsidian",all:T.OBSIDIAN,breakTime:45.0},[B.CACTUS]:{name:"Cactus",top:T.CACTUS_TOP,side:T.CACTUS_SIDE,bottom:T.CACTUS_TOP,breakTime:0.6},[B.CRAFTING]:{name:"Crafting Table",top:T.CRAFT_TOP,side:T.CRAFT_SIDE,bottom:T.PLANKS,breakTime:3.75},[B.FURNACE]:{name:"Furnace",top:T.FURNACE_TOP,side:T.FURNACE_FRONT,bottom:T.FURNACE_TOP,breakTime:13.0},[B.BIRCH_LOG]:{name:"Birch Log",top:T.BIRCH_TOP,side:T.BIRCH_SIDE,bottom:T.BIRCH_TOP,breakTime:3.0},[B.BIRCH_LEAVES]:{name:"Birch Leaves",all:T.BIRCH_LEAVES,transparent:true,breakTime:0.3},[B.LAVA]:{name:"Lava",all:T.LAVA,fluid:true,emissive:true,damage:true},[B.CORAL_PINK]:{name:"Pink Coral",all:T.CORAL_PINK,transparent:true,cross:true,breakTime:0.4},[B.CORAL_PURPLE]:{name:"Purple Coral",all:T.CORAL_PURPLE,transparent:true,cross:true,breakTime:0.4},[B.CORAL_BLUE]:{name:"Blue Coral",all:T.CORAL_BLUE,transparent:true,cross:true,breakTime:0.4},[B.SEAWEED]:{name:"Seaweed",all:T.SEAWEED,transparent:true,cross:true,breakTime:0.2},[B.DEAD_LOG]:{name:"Dead Log",top:T.DEAD_LOG_TOP,side:T.DEAD_LOG_SIDE,bottom:T.DEAD_LOG_TOP,breakTime:2.4},[B.STONE_BRICK]:{name:"Stone Bricks",all:T.STONE_BRICK,breakTime:9.0},[B.MOSSY_BRICK]:{name:"Mossy Bricks",all:T.MOSSY_BRICK,breakTime:9.0},[B.CRACKED_BRICK]:{name:"Cracked Bricks",all:T.CRACKED_BRICK,breakTime:9.0},[B.PATH]:{name:"Path",top:T.PATH_TOP,side:T.PATH_SIDE,bottom:T.DIRT,breakTime:0.7},[B.TORCH]:{name:"Torch",all:T.TORCH,transparent:true,emissive:true,breakTime:0.1,torch:true},[B.COBWEB]:{name:"Cobweb",all:T.COBWEB,transparent:true,breakTime:1.2,cross:true},[B.RAIL]:{name:"Rail",all:T.RAIL,transparent:true,breakTime:0.5,flat:true},[B.CHEST]:{name:"Chest",top:T.CHEST_TOP,side:T.CHEST_SIDE,bottom:T.CHEST_TOP,front:T.CHEST_FRONT,breakTime:4.0},[B.WOOL_RED]:{name:"Red Wool",all:T.WOOL_RED,breakTime:1.0},[B.WOOL_WHITE]:{name:"White Wool",all:T.WOOL_WHITE,breakTime:1.0},[B.BOOKSHELF]:{name:"Bookshelf",top:T.PLANKS,side:T.BOOKSHELF,bottom:T.PLANKS,breakTime:4.0},[B.LANTERN]:{name:"Lantern",all:T.LANTERN,transparent:true,emissive:true,breakTime:0.8,lanternBox:true},[B.HAY]:{name:"Hay Bale",top:T.HAY_TOP,side:T.HAY_SIDE,bottom:T.HAY_TOP,breakTime:1.2},[B.DRIPSTONE]:{name:"Dripstone",all:T.DRIPSTONE,breakTime:8.0},[B.CALCITE]:{name:"Calcite",all:T.CALCITE,breakTime:5.0},[B.AMETHYST_BLOCK]:{name:"Amethyst Block",all:T.AMETHYST_BLOCK,breakTime:6.0},[B.AMETHYST_CLUSTER]:{name:"Amethyst Cluster",all:T.AMETHYST_CLUSTER,transparent:true,emissive:true,cross:true,breakTime:2.0},[B.MOSS]:{name:"Moss Block",all:T.MOSS,breakTime:0.6},[B.GLOW_LICHEN]:{name:"Glow Lichen",all:T.GLOW_LICHEN,transparent:true,emissive:true,cross:true,breakTime:0.4},[B.SMOOTH_BASALT]:{name:"Smooth Basalt",all:T.SMOOTH_BASALT,breakTime:7.0},
 [B.DEAD_BUSH]:{name:"Dead Bush",all:T.DEAD_BUSH,transparent:true,crossPlant:true,breakTime:0.2},
 [B.TALL_GRASS]:{name:"Grass",all:T.TALL_GRASS,transparent:true,crossPlant:true,breakTime:0.2},
@@ -325,6 +337,18 @@ BLOCKS[B.GRAY_LEAVES]={name:'Gray Leaves',all:T.GRAY_LEAVES,transparent:true,bre
 BLOCKS[B.CORAL_SAND]={name:'Coral Sand',all:T.CORAL_SAND,breakTime:0.75,toolClass:'shovel'};
 // Tidal Sand — the exposed tidal flat sand
 BLOCKS[B.TIDAL_SAND]={name:'Tidal Sand',all:T.TIDAL_SAND,breakTime:0.75,toolClass:'shovel'};
+// ---- Wood-type planks (各木の板材) ----
+BLOCKS[B.BIRCH_PLANKS] ={name:'Birch Planks',  all:T.BIRCH_PLANKS,  breakTime:3.0,toolClass:'axe'};
+BLOCKS[B.SPRUCE_PLANKS]={name:'Spruce Planks', all:T.SPRUCE_PLANKS, breakTime:3.0,toolClass:'axe'};
+BLOCKS[B.ACACIA_PLANKS]={name:'Acacia Planks', all:T.ACACIA_PLANKS, breakTime:3.0,toolClass:'axe'};
+BLOCKS[B.CHERRY_PLANKS]={name:'Cherry Planks', all:T.CHERRY_PLANKS, breakTime:3.0,toolClass:'axe'};
+BLOCKS[B.MANGROVE_PLANKS]={name:'Mangrove Planks',all:T.MANGROVE_PLANKS,breakTime:3.0,toolClass:'axe'};
+BLOCKS[B.PALM_PLANKS]  ={name:'Palm Planks',   all:T.PALM_PLANKS,   breakTime:2.6,toolClass:'axe'};
+BLOCKS[B.MAPLE_PLANKS] ={name:'Maple Planks',  all:T.MAPLE_PLANKS,  breakTime:3.0,toolClass:'axe'};
+// ---- Chest block (チェスト) ----
+BLOCKS[B.CHEST_BLOCK]={name:'Chest',top:T.CHEST_TOP,side:T.CHEST_SIDE,front:T.CHEST_FRONT,bottom:T.CHEST_TOP,breakTime:2.5,toolClass:'axe',chest:true,chestInventory:[]};
+// ---- Sky Stone (空島の石) ----
+BLOCKS[B.SKY_STONE]={name:'Sky Stone',all:T.SMOOTH_BASALT,breakTime:5.0,toolClass:'pickaxe'};
 // Wooden doors: half(top/bottom) x facing(N/E/S/W) x open/closed = 16 block IDs.
 // Stored as distinct numeric IDs (no metadata), mirroring the WHEAT0../CARROT0.. pattern.
 // Rendered flat for now (placeholder look); real geometry comes in a later pass.
@@ -407,7 +431,7 @@ const ITEM_SHOVEL_WOOD=221,ITEM_SHOVEL_STONE=222,ITEM_SHOVEL_IRON=223,ITEM_SHOVE
     B.GLAZED_TERRACOTTA_WHITE,B.GLAZED_TERRACOTTA_ORANGE,B.GLAZED_TERRACOTTA_MAGENTA,
     B.GLAZED_TERRACOTTA_CYAN,B.GLAZED_TERRACOTTA_BLUE,B.GLAZED_TERRACOTTA_LIME,
     B.PRESSURE_PLATE_STONE,B.BUTTON_STONE];
-  const axe=[B.LOG,B.PLANKS,B.BIRCH_LOG,B.CRAFTING,B.BOOKSHELF,B.CHEST,B.DEAD_LOG,B.MANGROVE_LOG,B.PALM_LOG,B.MAPLE_LOG,B.MANGROVE_ROOTS,
+  const axe=[B.LOG,B.PLANKS,B.BIRCH_LOG,B.CRAFTING,B.BOOKSHELF,B.CHEST,B.CHEST_BLOCK,B.DEAD_LOG,B.MANGROVE_LOG,B.PALM_LOG,B.MAPLE_LOG,B.MANGROVE_ROOTS,B.BIRCH_PLANKS,B.SPRUCE_PLANKS,B.ACACIA_PLANKS,B.CHERRY_PLANKS,B.MANGROVE_PLANKS,B.PALM_PLANKS,B.MAPLE_PLANKS,
     B.SLAB_WOOD,B.FENCE_OAK,B.FENCE_GATE_OAK,
     B.BAMBOO_BLOCK,B.MOSSY_LOG,B.WITHERED_LOG];
   const shovel=[B.GRASS,B.DIRT,B.SAND,B.GRAVEL,B.SNOW,B.PATH,B.FARMLAND,B.FARMLAND_WET,B.CORAL_SAND,B.TIDAL_SAND];
@@ -458,7 +482,15 @@ const RECIPE_CATEGORIES=[
 ];
 const RECIPES=[
 {cat:'building',pattern:[[B.LOG]],out:{id:B.PLANKS,count:4}},
-{cat:'building',pattern:[[B.BIRCH_LOG]],out:{id:B.PLANKS,count:4}},
+{cat:'building',pattern:[[B.BIRCH_LOG]],out:{id:B.BIRCH_PLANKS,count:4}},
+{cat:'building',pattern:[[B.SPRUCE_LOG]],out:{id:B.SPRUCE_PLANKS,count:4}},
+{cat:'building',pattern:[[B.ACACIA_LOG]],out:{id:B.ACACIA_PLANKS,count:4}},
+{cat:'building',pattern:[[B.CHERRY_LOG]],out:{id:B.CHERRY_PLANKS,count:4}},
+{cat:'building',pattern:[[B.MANGROVE_LOG]],out:{id:B.MANGROVE_PLANKS,count:4}},
+{cat:'building',pattern:[[B.PALM_LOG]],out:{id:B.PALM_PLANKS,count:4}},
+{cat:'building',pattern:[[B.MAPLE_LOG]],out:{id:B.MAPLE_PLANKS,count:4}},
+// Chest: 8 planks around centre → 1 chest
+{cat:'building',pattern:[[B.PLANKS,B.PLANKS,B.PLANKS],[B.PLANKS,null,B.PLANKS],[B.PLANKS,B.PLANKS,B.PLANKS]],out:{id:B.CHEST_BLOCK,count:1}},
 {cat:'building',pattern:[[B.SAND,B.SAND],[B.SAND,B.SAND]],out:{id:B.GLASS,count:4}},
 {cat:'building',pattern:[[B.COBBLE,B.COBBLE],[B.COBBLE,B.COBBLE]],out:{id:B.BRICK,count:4}},
 {cat:'building',pattern:[[B.DIRT,B.DIRT],[B.DIRT,B.DIRT]],out:{id:B.GRASS,count:1}},

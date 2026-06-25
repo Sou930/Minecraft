@@ -199,6 +199,8 @@ if(typeof tryEnterNearbyBoat==='function'&&tryEnterNearbyBoat()){clearInterval(a
 // Right-click an existing minecart on a rail to board it.
 if(typeof tryEnterNearbyMinecart==='function'&&tryEnterNearbyMinecart()){clearInterval(actionInterval);return;}
 if(currentTarget&&currentTarget.id===B.CRAFTING){clearInterval(actionInterval);toggleInventory(true,3);return;}
+// Chest interaction: right-click to open chest inventory
+if(currentTarget){const _cd=BLOCKS[currentTarget.id];if(_cd&&_cd.chest){clearInterval(actionInterval);openChestUI(currentTarget.x,currentTarget.y,currentTarget.z);return;}}
 // Sign interaction: right-click to edit text
 if(currentTarget){const _sd=BLOCKS[currentTarget.id];if(_sd&&_sd.sign){clearInterval(actionInterval);openSignEditor(currentTarget.x,currentTarget.y,currentTarget.z);return;}}
 // Item frame interaction: right-click to place/remove held item

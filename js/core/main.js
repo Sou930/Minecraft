@@ -146,6 +146,7 @@ async function bootstrap(){
     if(n===0)break; // all initial chunks meshed
   }
   loadInventory();createInventoryUI();renderHotbar();updateVitalsUI();if(typeof initAchievementsUI==='function')initAchievementsUI();
+  if(typeof loadChestData==='function')loadChestData();
   // Combat systems: armor, shield, bow, status effects, potions
   if(typeof initCombatUI==='function'){loadArmorFromSave();initCombatUI();}
   applyPose();if(typeof buildPlayerModel==='function')buildPlayerModel();if(typeof trySpawnMobs==='function'){trySpawnMobs();trySpawnMobs();}
