@@ -24,12 +24,16 @@ function makePart(parent,name,size,pos,hex,partList){const box=BABYLON.MeshBuild
 // at the front, four stubby legs and per-species details (snout, ears, horns,
 // beak, wattle, wings, tail, wool).
 const MOB_TYPES={
-  pig:   {name:'Pig',  emoji:'🐷', body:'#e89bb0', leg:'#d98aa0', head:'#e89bb0', snout:'#d97a92', bodyH:0.7, legH:0.45, headSize:0.55, speed:1.4, hp:10, ears:'#d98aa0', drops:[{id:230,min:1,max:3}]},
-  sheep: {name:'Sheep',emoji:'🐑', body:'#eef0ee', leg:'#5a4a3c', head:'#d9cfc2', snout:null,      bodyH:0.8, legH:0.5,  headSize:0.5,  speed:1.2, hp:8, fluffy:true, wool:'#f3f1ec', ears:'#cabfae', drops:[{id:233,min:1,max:2},{id:42,min:1,max:1}]},
-  cow:   {name:'Cow',  emoji:'🐮', body:'#4a3a2c', leg:'#3a2d22', head:'#4a3a2c', snout:'#c9b6a0', bodyH:0.85,legH:0.55, headSize:0.55, speed:1.1, hp:12, patch:'#efeae2', horns:'#e8e0cf', ears:'#3a2d22', udder:'#e7a6ad', drops:[{id:231,min:1,max:3},{id:234,min:0,max:2}]},
-  chicken:{name:'Chicken',emoji:'🐔',body:'#f2f2f2', leg:'#e0a23a', head:'#f2f2f2', snout:null,bodyH:0.55,legH:0.25, headSize:0.32, speed:1.6, hp:4, small:true, beak:'#e0a23a', wattle:'#d23b3b', wing:'#e2e2e2', bodyWidthMul:1.05, bodyDepthMul:0.62, drops:[{id:232,min:1,max:1},{id:235,min:0,max:2}]},
-  // Wolf: neutral animal. Won't attack unless provoked (or its pack is hit).
-  wolf:  {name:'Wolf', emoji:'🐺', body:'#9a9a9a', leg:'#8a8a8a', head:'#a6a6a6', snout:'#5a5a5a', bodyH:0.5, legH:0.42, headSize:0.46, speed:2.2, hp:16, ears:'#6e6e6e', tail:'#8a8a8a', wolf:true, neutral:true, attackDamage:3, attackRange:1.5, attackCooldown:0.9, sightRange:20, drops:[]},
+  // Pig: classic Minecraft pink pig — wide body, big snout, round floppy ears.
+  pig:   {name:'Pig',  emoji:'🐷', body:'#f0a8b0', leg:'#da8e9a', head:'#f0a8b0', snout:'#e07888', bodyH:0.68, legH:0.42, headSize:0.54, speed:1.4, hp:10, ears:'#e090a0', bodyWidthMul:1.08, drops:[{id:230,min:1,max:3}]},
+  // Sheep: white body with visible dark legs below the wool coat.
+  sheep: {name:'Sheep',emoji:'🐑', body:'#e8e4de', leg:'#4a3c30', head:'#d4cec6', snout:null,      bodyH:0.78, legH:0.52,  headSize:0.48,  speed:1.2, hp:8, fluffy:true, wool:'#f5f2ec', ears:'#c0b8ae', drops:[{id:233,min:1,max:2},{id:42,min:1,max:1}]},
+  // Cow: dark brown with large white patches (Holstein), horns, udder.
+  cow:   {name:'Cow',  emoji:'🐮', body:'#2e261e', leg:'#241e18', head:'#2e261e', snout:'#c8b89a', bodyH:0.88,legH:0.54, headSize:0.56, speed:1.1, hp:12, patch:'#f0ece2', horns:'#e8e2d0', ears:'#241e18', udder:'#e8a8b0', bodyWidthMul:1.06, drops:[{id:231,min:1,max:3},{id:234,min:0,max:2}]},
+  // Chicken: white with red comb/wattle, orange beak and legs.
+  chicken:{name:'Chicken',emoji:'🐔',body:'#f5f5f5', leg:'#e8a030', head:'#f5f5f5', snout:null,bodyH:0.52,legH:0.24, headSize:0.30, speed:1.6, hp:4, small:true, beak:'#e8a030', wattle:'#cc2a2a', wing:'#e8e8e8', bodyWidthMul:0.98, bodyDepthMul:0.60, drops:[{id:232,min:1,max:1},{id:235,min:0,max:2}]},
+  // Wolf: Minecraft-accurate gray with dark back stripe, pale snout/belly.
+  wolf:  {name:'Wolf', emoji:'🐺', body:'#8c8c8c', leg:'#7a7a7a', head:'#999999', snout:'#d0ccc8', bodyH:0.52, legH:0.44, headSize:0.48, speed:2.2, hp:16, ears:'#5e5e5e', tail:'#8c8c8c', backStripe:'#5a5a5a', wolf:true, neutral:true, attackDamage:3, attackRange:1.5, attackCooldown:0.9, sightRange:20, drops:[]},
   // --- Hostile humanoid mobs (spawn at night, attack the player) ----------
   ghoul:  {name:'Ghoul',  emoji:'🧟', humanoid:true, hostile:true, melee:true,
            skin:'#5a8f5a', shirt:'#2f4a78', pants:'#3a2f4a',
@@ -119,85 +123,145 @@ function buildHumanoidMesh(type){
   return {root,legs,head:headGroup,bodyH:legH,parts,wings:[],arms:[armL,armR],humanoid:true};
 }
 
-// Build mob mesh hierarchy
+// Build mob mesh hierarchy — Minecraft-accurate animal shapes & colours
 function buildMobMesh(type){
   const t=MOB_TYPES[type];
   if(t.humanoid)return buildHumanoidMesh(type);
   const root=new BABYLON.TransformNode('mob_'+type,scene);
   const s=t.small?0.8:1;
-  // Per-species body proportions. The chicken in particular needs a more
-  // compact, upright body (shorter front-to-back) so it doesn't read as an
-  // unnaturally long Z-axis box.
+  // Per-species body proportions.
   const bodyW=0.6*s*(t.bodyWidthMul||1),bodyD=1.0*s*(t.bodyDepthMul||1),bodyH=t.bodyH*s;
   const legY=t.legH*s;
   // Every box mesh that makes up this mob, so we can flash them red on hurt.
   const parts=[];
   const wings=[];
   // --- Body --------------------------------------------------------------
-  const body=makePart(root,'body',[bodyW,bodyH,bodyD],[0,legY+bodyH/2,0],t.body,parts);
-  if(t.patch){makePart(root,'patch',[bodyW+0.02,bodyH*0.5,bodyD*0.45],[0,legY+bodyH*0.55,0.05],t.patch,parts);}
-  // Sheep wear an oversized blocky wool coat (separate slightly larger box) so
-  // the body reads as the iconic fluffy Minecraft sheep instead of a smooth one.
+  makePart(root,'body',[bodyW,bodyH,bodyD],[0,legY+bodyH/2,0],t.body,parts);
+
+  // Cow: large irregular Holstein-style white patch on flank & face.
+  if(type==='cow'&&t.patch){
+    makePart(root,'patch1',[bodyW*0.7,bodyH*0.6,bodyD*0.5],[0,legY+bodyH*0.6,bodyD*0.16],t.patch,parts);
+    makePart(root,'patch2',[bodyW*0.5,bodyH*0.4,bodyD*0.3],[bodyW*0.06,legY+bodyH*0.25,-bodyD*0.22],t.patch,parts);
+  }else if(t.patch){
+    makePart(root,'patch',[bodyW+0.02,bodyH*0.5,bodyD*0.45],[0,legY+bodyH*0.55,0.05],t.patch,parts);
+  }
+
+  // Wolf: darker back stripe for the Minecraft "saddle" look.
+  if(type==='wolf'&&t.backStripe){
+    makePart(root,'backStripe',[bodyW*0.5,bodyH*0.22,bodyD*0.92],[0,legY+bodyH*0.88,0],t.backStripe,parts);
+  }
+
+  // Sheep: oversized blocky wool coat — iconic Minecraft fluffy look.
   if(t.fluffy&&t.wool){
-    const wool=makePart(root,'wool',[bodyW+0.18,bodyH+0.14,bodyD+0.1],[0,legY+bodyH/2+0.02,-0.04],t.wool,parts);
-    wool.material&&(wool.material=wool.material);
+    makePart(root,'wool',[bodyW+0.20,bodyH+0.16,bodyD+0.12],[0,legY+bodyH/2+0.04,-0.02],t.wool,parts);
   }
   // Cow udder underneath the belly.
-  if(t.udder){makePart(root,'udder',[bodyW*0.5,0.12*s,0.2*s],[0,legY+0.02,-bodyD*0.18],t.udder,parts);}
+  if(t.udder){makePart(root,'udder',[bodyW*0.5,0.12*s,0.22*s],[0,legY+0.02,-bodyD*0.16],t.udder,parts);}
+
   // --- Head --------------------------------------------------------------
   const hs=t.headSize*s;
-  const headGroup=new BABYLON.TransformNode('headGroup',scene);headGroup.parent=root;headGroup.position.set(0,legY+bodyH*0.75,bodyD/2+hs*0.35);
+  const headGroup=new BABYLON.TransformNode('headGroup',scene);headGroup.parent=root;
+  headGroup.position.set(0,legY+bodyH*0.78,bodyD/2+hs*0.38);
   makePart(headGroup,'head',[hs,hs,hs],[0,0,0],t.head,parts);
-  // Snout: pig gets a flat forward-facing snout block with two nostrils,
-  // cow/others a muzzle box.
+
+  // Cow: white muzzle patch on front of head.
+  if(type==='cow'&&t.patch){
+    makePart(headGroup,'muzzlePatch',[hs*0.62,hs*0.5,0.04],[0,-hs*0.18,hs*0.5],t.patch,parts);
+  }
+
+  // Snout: pig gets a big forward-facing disc snout; cow/wolf get a muzzle box.
   if(t.snout){
-    const snout=makePart(headGroup,'snout',[hs*0.55,hs*0.45,hs*0.32],[0,-hs*0.12,hs*0.55],t.snout,parts);
     if(type==='pig'){
-      makePart(headGroup,'nostrilL',[hs*0.1,hs*0.12,0.02],[-hs*0.12,-hs*0.12,hs*0.72],'#a85f73',parts);
-      makePart(headGroup,'nostrilR',[hs*0.1,hs*0.12,0.02],[ hs*0.12,-hs*0.12,hs*0.72],'#a85f73',parts);
+      // Pig: large round disc snout — defining Minecraft pig feature.
+      makePart(headGroup,'snout',[hs*0.62,hs*0.50,hs*0.28],[0,-hs*0.10,hs*0.54],t.snout,parts);
+      makePart(headGroup,'nostrilL',[hs*0.12,hs*0.14,0.03],[-hs*0.14,-hs*0.10,hs*0.70],'#c0607a',parts);
+      makePart(headGroup,'nostrilR',[hs*0.12,hs*0.14,0.03],[ hs*0.14,-hs*0.10,hs*0.70],'#c0607a',parts);
+    }else{
+      makePart(headGroup,'snout',[hs*0.55,hs*0.45,hs*0.32],[0,-hs*0.12,hs*0.55],t.snout,parts);
     }
   }
-  // Ears (pig/cow/sheep): small boxes on top sides of the head.
+
+  // Ears — Minecraft style varies by animal:
+  // Pig: small floppy ears on the sides, angled outward.
+  // Cow: flat ears that stick out to the sides.
+  // Sheep: small upright ear nubs.
+  // Wolf: tall triangular ears pointing up.
   if(t.ears){
-    makePart(headGroup,'earL',[hs*0.22,hs*0.18,hs*0.1],[-hs*0.42,hs*0.42,0],t.ears,parts);
-    makePart(headGroup,'earR',[hs*0.22,hs*0.18,hs*0.1],[ hs*0.42,hs*0.42,0],t.ears,parts);
+    if(type==='pig'){
+      // Pig: wide floppy ears slightly angled forward/down.
+      makePart(headGroup,'earL',[hs*0.26,hs*0.20,hs*0.12],[-hs*0.48,hs*0.38,-hs*0.04],t.ears,parts);
+      makePart(headGroup,'earR',[hs*0.26,hs*0.20,hs*0.12],[ hs*0.48,hs*0.38,-hs*0.04],t.ears,parts);
+    }else if(type==='cow'){
+      // Cow: flat horizontal ears sticking out wide.
+      makePart(headGroup,'earL',[hs*0.28,hs*0.14,hs*0.14],[-hs*0.56,hs*0.12,0],t.ears,parts);
+      makePart(headGroup,'earR',[hs*0.28,hs*0.14,hs*0.14],[ hs*0.56,hs*0.12,0],t.ears,parts);
+    }else if(type==='wolf'){
+      // Wolf: tall pointed ears on top.
+      makePart(headGroup,'earL',[hs*0.20,hs*0.30,hs*0.10],[-hs*0.32,hs*0.55,0],t.ears,parts);
+      makePart(headGroup,'earR',[hs*0.20,hs*0.30,hs*0.10],[ hs*0.32,hs*0.55,0],t.ears,parts);
+    }else{
+      // Sheep and others: small nubs.
+      makePart(headGroup,'earL',[hs*0.22,hs*0.18,hs*0.10],[-hs*0.44,hs*0.38,0],t.ears,parts);
+      makePart(headGroup,'earR',[hs*0.22,hs*0.18,hs*0.10],[ hs*0.44,hs*0.38,0],t.ears,parts);
+    }
   }
-  // Cow horns.
+  // Cow horns — short stubby ones protruding from the top sides.
   if(t.horns){
-    makePart(headGroup,'hornL',[hs*0.16,hs*0.28,hs*0.16],[-hs*0.3,hs*0.5,0],t.horns,parts);
-    makePart(headGroup,'hornR',[hs*0.16,hs*0.28,hs*0.16],[ hs*0.3,hs*0.5,0],t.horns,parts);
+    makePart(headGroup,'hornL',[hs*0.14,hs*0.26,hs*0.14],[-hs*0.34,hs*0.52,0],t.horns,parts);
+    makePart(headGroup,'hornR',[hs*0.14,hs*0.26,hs*0.14],[ hs*0.34,hs*0.52,0],t.horns,parts);
   }
-  // Eyes.
-  makePart(headGroup,'eyeL',[hs*0.16,hs*0.16,0.02],[-hs*0.25,hs*0.15,hs*0.5],'#1a1a1a',parts);
-  makePart(headGroup,'eyeR',[hs*0.16,hs*0.16,0.02],[ hs*0.25,hs*0.15,hs*0.5],'#1a1a1a',parts);
-  // Chicken beak + wattle + comb.
+  // Eyes — wolf gets white sclera visible around the pupil for expressiveness.
+  if(type==='wolf'){
+    makePart(headGroup,'eyeWhiteL',[hs*0.22,hs*0.22,0.03],[-hs*0.30,hs*0.15,hs*0.50],'#e8e8e0',parts);
+    makePart(headGroup,'eyeWhiteR',[hs*0.22,hs*0.22,0.03],[ hs*0.30,hs*0.15,hs*0.50],'#e8e8e0',parts);
+    makePart(headGroup,'eyeL',[hs*0.13,hs*0.16,0.04],[-hs*0.30,hs*0.15,hs*0.52],'#1a1a1a',parts);
+    makePart(headGroup,'eyeR',[hs*0.13,hs*0.16,0.04],[ hs*0.30,hs*0.15,hs*0.52],'#1a1a1a',parts);
+  }else{
+    makePart(headGroup,'eyeL',[hs*0.16,hs*0.16,0.02],[-hs*0.25,hs*0.15,hs*0.5],'#1a1a1a',parts);
+    makePart(headGroup,'eyeR',[hs*0.16,hs*0.16,0.02],[ hs*0.25,hs*0.15,hs*0.5],'#1a1a1a',parts);
+  }
+  // Chicken beak + wattle + red comb on top.
   if(type==='chicken'){
-    if(t.beak)makePart(headGroup,'beak',[hs*0.4,hs*0.22,hs*0.3],[0,-hs*0.05,hs*0.6],t.beak,parts);
-    if(t.wattle)makePart(headGroup,'wattle',[hs*0.18,hs*0.22,hs*0.12],[0,-hs*0.32,hs*0.5],t.wattle,parts);
-    makePart(headGroup,'comb',[hs*0.18,hs*0.28,hs*0.5],[0,hs*0.6,0],'#d23b3b',parts);
+    if(t.beak)makePart(headGroup,'beak',[hs*0.38,hs*0.22,hs*0.30],[0,-hs*0.06,hs*0.60],t.beak,parts);
+    if(t.wattle)makePart(headGroup,'wattle',[hs*0.16,hs*0.24,hs*0.12],[0,-hs*0.34,hs*0.50],t.wattle,parts);
+    // Red comb: three small bumps on top of the head.
+    makePart(headGroup,'comb1',[hs*0.14,hs*0.26,hs*0.14],[ 0,    hs*0.60, hs*0.04],'#cc2a2a',parts);
+    makePart(headGroup,'comb2',[hs*0.11,hs*0.20,hs*0.12],[-hs*0.12,hs*0.54,-hs*0.06],'#cc2a2a',parts);
+    makePart(headGroup,'comb3',[hs*0.11,hs*0.20,hs*0.12],[ hs*0.12,hs*0.54,-hs*0.06],'#cc2a2a',parts);
   }
   // --- Wings (chicken): thin side flaps that flutter while moving. --------
   if(type==='chicken'&&t.wing){
-    const wy=legY+bodyH*0.55;const wd=bodyD*0.7;
+    const wy=legY+bodyH*0.52;const wd=bodyD*0.68;
     const wL=new BABYLON.TransformNode('wingLp',scene);wL.parent=root;wL.position.set(-bodyW/2,wy,0);
-    makePart(wL,'wingL',[0.06,bodyH*0.7,wd],[-0.02,0,0],t.wing,parts);wings.push(wL);
+    makePart(wL,'wingL',[0.07,bodyH*0.72,wd],[-0.02,0,0],t.wing,parts);wings.push(wL);
     const wR=new BABYLON.TransformNode('wingRp',scene);wR.parent=root;wR.position.set(bodyW/2,wy,0);
-    makePart(wR,'wingR',[0.06,bodyH*0.7,wd],[0.02,0,0],t.wing,parts);wings.push(wR);
-    // little tail feathers
-    makePart(root,'tail',[bodyW*0.7,bodyH*0.7,0.1],[0,legY+bodyH*0.7,-bodyD/2-0.04],t.wing,parts);
+    makePart(wR,'wingR',[0.07,bodyH*0.72,wd],[0.02,0,0],t.wing,parts);wings.push(wR);
+    // Tail feathers: small triangular puff at the back.
+    makePart(root,'tailFeathers',[bodyW*0.6,bodyH*0.72,0.12],[0,legY+bodyH*0.72,-bodyD/2-0.05],t.wing,parts);
   }
-  // --- Tail (wolf): an upright bushy box at the back that wags. ----------
+  // --- Tail (wolf): bushy tail with white tip. ---------------------------
   let tailPivot=null;
   if(t.tail){
     tailPivot=new BABYLON.TransformNode('tailp',scene);tailPivot.parent=root;
-    tailPivot.position.set(0,legY+bodyH*0.7,-bodyD/2);
-    makePart(tailPivot,'tail',[0.16*s,0.42*s,0.16*s],[0,0.12*s,-0.04],t.tail,parts);
+    tailPivot.position.set(0,legY+bodyH*0.72,-bodyD/2);
+    makePart(tailPivot,'tail',[0.18*s,0.44*s,0.18*s],[0,0.14*s,-0.04],t.tail,parts);
+    // White tail tip.
+    makePart(tailPivot,'tailTip',[0.14*s,0.18*s,0.14*s],[0,0.36*s,-0.06],'#e8e4de',parts);
     tailPivot.rotation.x=-0.5;
   }
   // --- Legs --------------------------------------------------------------
-  const legs=[];const lw=0.18*s,ld=0.18*s;const lx=bodyW/2-lw/2,lz=bodyD/2-ld*1.1;
+  // Leg width/depth slightly thicker for beef-cattle look on cow.
+  const lw=(type==='cow')?0.22*s:0.18*s;
+  const ld=(type==='cow')?0.22*s:0.18*s;
+  const lx=bodyW/2-lw/2,lz=bodyD/2-ld*1.1;
   const legPos=[[-lx,lz],[lx,lz],[-lx,-lz],[lx,-lz]];
-  for(let i=0;i<4;i++){const pivot=new BABYLON.TransformNode('legPivot'+i,scene);pivot.parent=root;pivot.position.set(legPos[i][0],legY,legPos[i][1]);makePart(pivot,'leg'+i,[lw,legY,ld],[0,-legY/2,0],t.leg,parts);legs.push(pivot);}
+  const legs=[];
+  for(let i=0;i<4;i++){
+    const pivot=new BABYLON.TransformNode('legPivot'+i,scene);pivot.parent=root;
+    pivot.position.set(legPos[i][0],legY,legPos[i][1]);
+    makePart(pivot,'leg'+i,[lw,legY,ld],[0,-legY/2,0],t.leg,parts);
+    legs.push(pivot);
+  }
   return {root,legs,head:headGroup,bodyH:legY,parts,wings,tail:tailPivot};
 }
 

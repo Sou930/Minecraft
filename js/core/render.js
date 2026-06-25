@@ -373,7 +373,9 @@ function pushCeilingTorch(b,x,y,z,shade){
   pushColumn(b,x,y,z,tile,shade,0.08,0.65);}
 
 // Cave darkness: min brightness for underground areas
-const CAVE_MIN=0.10;
+// Slightly raised from 0.10 → 0.18 so caves feel navigable without torches
+// while still remaining noticeably darker than the surface.
+const CAVE_MIN=0.18;
 // Sky-light multiplier for one cell, scaled by the module-level day factor so
 // open terrain darkens at night while block light (torches) fills back in.
 function skyMulAt(x,y,z,def){if(def&&def.emissive)return 1;const s=skyLightAt(x,y,z);const sky=CAVE_MIN+(1-CAVE_MIN)*s;return sky*(NIGHT_SKY_MIN+(1-NIGHT_SKY_MIN)*_dayLightFactor);}
