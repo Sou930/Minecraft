@@ -99,7 +99,7 @@ let hudTimer=0;function updateHUD(dt){if(!worldReady)return;hudTimer+=dt;if(hudT
 if(started&&worldReady&&typeof ACH!=='undefined'&&typeof BIOME!=='undefined'){
   const BIOME_ACH=['biome_plains','biome_forest','biome_desert','biome_snowy','biome_mountains','biome_ocean','biome_jungle','biome_swamp','biome_mesa','biome_volcano',
     null,null,null,null,null,null,null,null,null,null,
-    'biome_crystal','biome_withered','biome_coral'];
+    'biome_crystal','biome_withered','biome_coral','biome_floating'];
   if(BIOME_ACH[bio])ACH.flag(BIOME_ACH[bio]);
 }
 // FIX: Moved chunk streaming out of updateHUD. It was called every 250ms here
@@ -147,6 +147,7 @@ async function bootstrap(){
   }
   loadInventory();createInventoryUI();renderHotbar();updateVitalsUI();if(typeof initAchievementsUI==='function')initAchievementsUI();
   if(typeof loadChestData==='function')loadChestData();
+  if(typeof loadFurnaceData==='function')loadFurnaceData();
   // Combat systems: armor, shield, bow, status effects, potions
   if(typeof initCombatUI==='function'){loadArmorFromSave();initCombatUI();}
   applyPose();if(typeof buildPlayerModel==='function')buildPlayerModel();if(typeof trySpawnMobs==='function'){trySpawnMobs();trySpawnMobs();}
@@ -163,6 +164,8 @@ async function bootstrap(){
   if(typeof applyShaders==='function')applyShaders();
   if(typeof applyGodRays==='function')applyGodRays();
   if(typeof applyFlying==='function')applyFlying();
+  // HD Shader Mode: if saved ON, apply it now (forces quality + disables PERF)
+  if(typeof applyHDShaderMode==='function'&&typeof SETTINGS!=='undefined'&&SETTINGS.hdShaderMode)applyHDShaderMode();
   worldReady=true;
   const lo=document.getElementById('loading-overlay');if(lo){lo.classList.add('hidden');setTimeout(()=>lo.remove(),450);}
 }

@@ -176,6 +176,15 @@ function heightAtRaw(x,z,c){
      h=SEA_LEVEL+3+fbm2(x,z,247,3,1/35,0.5,2.0)*14;
    }
   }
+  // FLOATING ISLES: the base terrain column height is kept just above bedrock
+  // (the island interiors are carved by generateFloatingIsles, not here).
+  // We return h=1 so the standard column builder fills almost nothing —
+  // the floating island builder overwrites the air columns after terrain passes.
+  {const fi=fbm2(x,z,251,3,1/160,0.5,2.0);
+   if(fi>0.67&&e>=0.44&&e<=0.70&&t>=0.35&&t<=0.65&&w>0.72){
+     h=1;  // void floor — islands are placed by generateFloatingIsles()
+   }
+  }
   // OASIS basin: inside the rare desert oasis pockets, scoop a shallow circular
   // bowl that dips to just below sea level so it fills with a small pool of
   // water, ringed by palms. Detected with the same noise field as biomeAt.
@@ -245,7 +254,199 @@ const heightMap=new Int16Array(WORLD_W*WORLD_D);const biomeMap=new Uint8Array(WO
 const lavaLevelMap=new Int16Array(WORLD_W*WORLD_D);
 function colIndex(x,z){return z*WORLD_W+x;}
 // Synchronous full generation (kept for reference / fallback).
-function generateWorld(){generateClimateAndHeight();generateTerrainColumns(0,WORLD_W);carveCaves();carveLargeCaves();carveCaveFeatures();carveRavines();placeCaveBiomes();placeAmethystGeodes();placeOresAndGravel();placeVegetation();fillUnderwaterAir();if(typeof placeStructures==='function')placeStructures();}
+function generateWorld(){generateClimateAndHeight();generateTerrainColumns(0,WORLD_W);generateFloatingIsles();carveCaves();carveLargeCaves();carveCaveFeatures();carveRavines();placeCaveBiomes();placeAmethystGeodes();placeOresAndGravel();placeVegetation();fillUnderwaterAir();if(typeof placeStructures==='function')placeStructures();}
+
+// ===========================================================================
+// FLOATING ISLES BIOME — sky islands with void (AIR) below
+// Islands are placed at y=60..90 range, made of grass/stone/dirt/log/leaves.
+// Between islands is pure AIR (void — no water, no bedrock visible from above).
+// Natural rope/vine bridges are generated between nearby islands.
+// ===========================================================================
+function generateFloatingIsles(){
+  const rng=mulberry32((SEED^0xf1e2d3c4)>>>0);
+  // Collect all floating isle columns
+  const floatCols=[];
+  for(let x=0;x<WORLD_W;x++)for(let z=0;z<WORLD_D;z++){
+    if(biomeMap[colIndex(x,z)]===BIOME.FLOATING_ISLES)floatCols.push([x,z]);
+  }
+  if(floatCols.length===0)return;
+
+  // Place floating island clusters driven by noise
+  // Use a grid-based approach: divide biome into cells, place an island in each cell
+  const CELL=24; // island every ~24 blocks
+  const processedCells=new Set();
+  for(const[cx,cz]of floatCols){
+    const cellX=Math.floor(cx/CELL);
+    const cellZ=Math.floor(cz/CELL);
+    const key=cellX*10000+cellZ;
+    if(processedCells.has(key))continue;
+    processedCells.add(key);
+
+    // Island center within cell (deterministic per seed)
+    const ix=cellX*CELL+2+Math.floor(hash2(cellX,cellZ,401)*(CELL-4));
+    const iz=cellZ*CELL+2+Math.floor(hash2(cellX,cellZ,403)*(CELL-4));
+    if(ix<2||ix>=WORLD_W-2||iz<2||iz>=WORLD_D-2)continue;
+    if(biomeMap[colIndex(ix,iz)]!==BIOME.FLOATING_ISLES)continue;
+
+    // Island base height: 62..82
+    const baseY=62+Math.floor(hash2(ix,iz,405)*20);
+    // Island radius: 4..10
+    const radius=4+Math.floor(hash2(ix,iz,407)*7);
+    // Island thickness: 3..7
+    const thick=3+Math.floor(hash2(ix,iz,409)*5);
+
+    _placeFloatingIsland(ix,baseY,iz,radius,thick,rng);
+  }
+
+  // Place rope/fence bridges between nearby islands
+  _placeIslandBridges(rng);
+}
+
+function _placeFloatingIsland(cx,cy,cz,radius,thick,rng){
+  // Bottom-up: bedrock-like base → stone → dirt → grass top
+  // Shape: tapered ellipsoid (wide top, narrow bottom)
+  for(let dx=-radius;dx<=radius;dx++){
+    for(let dz=-radius;dz<=radius;dz++){
+      const dist2=(dx*dx+dz*dz);
+      const topR2=radius*radius;
+      if(dist2>topR2)continue;
+      const nx=cx+dx,nz=cz+dz;
+      if(nx<0||nx>=WORLD_W||nz<0||nz>=WORLD_D)continue;
+      if(biomeMap[colIndex(nx,nz)]!==BIOME.FLOATING_ISLES)continue;
+
+      // Top surface: grass
+      const topY=cy+Math.floor(valueNoise(nx/8,nz/8,413)*2-0.5);
+      if(topY<2||topY>=WORLD_H-1)continue;
+      world[blockIndex(nx,topY,nz)]=B.GRASS;
+
+      // Dirt layer (2 blocks)
+      for(let dy=1;dy<=2;dy++){
+        const yy=topY-dy;if(yy<1)continue;
+        world[blockIndex(nx,yy,nz)]=B.DIRT;
+      }
+
+      // Stone core: tapers at bottom
+      for(let dy=3;dy<=thick;dy++){
+        const yy=topY-dy;if(yy<1)continue;
+        // Taper: reduce radius as we go deeper
+        const frac=dy/thick; // 0..1 (top..bottom)
+        const curR2=topR2*(1-frac*0.7);
+        if(dist2>curR2)break;
+        world[blockIndex(nx,yy,nz)]=B.STONE;
+      }
+
+      // Clear everything above the island top (up to safe height)
+      for(let yy=topY+1;yy<Math.min(topY+20,WORLD_H-1);yy++){
+        if(world[blockIndex(nx,yy,nz)]!==B.AIR&&world[blockIndex(nx,yy,nz)]!==B.WATER)
+          world[blockIndex(nx,yy,nz)]=B.AIR;
+      }
+    }
+  }
+
+  // Place a small tree on some islands (probability based on noise)
+  if(hash2(cx,cz,411)>0.45&&radius>=5){
+    const topY=cy+Math.floor(valueNoise(cx/8,cz/8,413)*2-0.5);
+    const surf=world[blockIndex(cx,topY,cz)];
+    if(surf===B.GRASS&&topY+7<WORLD_H){
+      const trunkH=3+Math.floor(hash2(cx+1,cz+1,417)*2);
+      const logId=hash2(cx,cz,419)<0.5?B.LOG:B.BIRCH_LOG;
+      const leafId=logId===B.LOG?B.LEAVES:B.BIRCH_LEAVES;
+      for(let dy=1;dy<=trunkH;dy++)world[blockIndex(cx,topY+dy,cz)]=logId;
+      // Crown
+      const top=topY+trunkH;
+      for(let lx=-2;lx<=2;lx++)for(let lz=-2;lz<=2;lz++){
+        if(Math.abs(lx)+Math.abs(lz)>3)continue;
+        if(inBounds(cx+lx,top+1,cz+lz))world[blockIndex(cx+lx,top+1,cz+lz)]=leafId;
+        if(inBounds(cx+lx,top,cz+lz)&&!(lx===0&&lz===0))world[blockIndex(cx+lx,top,cz+lz)]=leafId;
+        if(Math.abs(lx)<=1&&Math.abs(lz)<=1&&inBounds(cx+lx,top+2,cz+lz))world[blockIndex(cx+lx,top+2,cz+lz)]=leafId;
+      }
+    }
+  }
+
+  // Hanging vines / stone stalactites under the island
+  for(let dx=-radius+1;dx<=radius-1;dx++){
+    for(let dz=-radius+1;dz<=radius-1;dz++){
+      const dist2=(dx*dx+dz*dz);
+      if(dist2>radius*radius)continue;
+      const nx=cx+dx,nz=cz+dz;
+      if(nx<0||nx>=WORLD_W||nz<0||nz>=WORLD_D)continue;
+      // Find the bottom of the island in this column
+      let botY=-1;
+      for(let yy=cy-1;yy>=1;yy--){
+        if(world[blockIndex(nx,yy,nz)]!==B.AIR){botY=yy;break;}
+      }
+      if(botY<2)continue;
+      // Hang stalactite-like stone drips
+      if(hash2(nx+77,nz+33,421)>0.65){
+        const dripLen=1+Math.floor(hash2(nx,nz,423)*3);
+        for(let d=1;d<=dripLen;d++){
+          const yy=botY-d;if(yy<1)break;
+          if(world[blockIndex(nx,yy,nz)]!==B.AIR)break;
+          world[blockIndex(nx,yy,nz)]=B.DRIPSTONE;
+        }
+      }
+    }
+  }
+}
+
+// Place wooden fence/plank bridges between islands that are close enough
+function _placeIslandBridges(rng){
+  const CELL=24;
+  const bridgesBuilt=new Set();
+  for(let x=CELL;x<WORLD_W-CELL;x+=CELL){
+    for(let z=CELL;z<WORLD_D-CELL;z+=CELL){
+      if(biomeMap[colIndex(x,z)]!==BIOME.FLOATING_ISLES)continue;
+      // Try to bridge to the right or forward neighbor cell
+      const neighbors=[[x+CELL,z],[x,z+CELL]];
+      for(const[nx,nz]of neighbors){
+        if(nx>=WORLD_W||nz>=WORLD_D)continue;
+        if(biomeMap[colIndex(nx,nz)]!==BIOME.FLOATING_ISLES)continue;
+        const bkey=`${x}_${z}_${nx}_${nz}`;
+        if(bridgesBuilt.has(bkey))continue;
+        bridgesBuilt.add(bkey);
+        // Only build bridge with 35% probability
+        if(hash2(x+nx,z+nz,431)>0.65)continue;
+        // Find a grassy column near x,z and nx,nz
+        let sy=-1,ey=-1;
+        for(let yy=90;yy>=60;yy--){
+          if(sy<0&&world[blockIndex(x,yy,z)]===B.GRASS)sy=yy+1;
+          if(ey<0&&world[blockIndex(nx,yy,nz)]===B.GRASS)ey=yy+1;
+          if(sy>0&&ey>0)break;
+        }
+        if(sy<0||ey<0)continue;
+        const bridgeY=Math.min(sy,ey);
+        // Draw a straight plank bridge between the two points
+        const dx=nx-x,dz2=nz-z;
+        const len=Math.sqrt(dx*dx+dz2*dz2);
+        const steps=Math.floor(len*1.5);
+        for(let s=0;s<=steps;s++){
+          const t=s/steps;
+          const bx=Math.round(x+dx*t);
+          const bz=Math.round(z+dz2*t);
+          if(bx<1||bx>=WORLD_W-1||bz<1||bz>=WORLD_D-1)continue;
+          if(biomeMap[colIndex(bx,bz)]!==BIOME.FLOATING_ISLES)continue;
+          // Slight curve sag
+          const sag=Math.round(Math.sin(t*Math.PI)*-2);
+          const by=bridgeY+sag;
+          if(by<2||by>=WORLD_H-1)continue;
+          if(world[blockIndex(bx,by,bz)]===B.AIR){
+            world[blockIndex(bx,by,bz)]=B.PLANKS;
+          }
+          // Fence rail on sides
+          if(Math.abs(dx)>Math.abs(dz2)){
+            // bridge along x-axis, rails on z sides
+            if(bz-1>=0&&world[blockIndex(bx,by+1,bz-1)]===B.AIR)world[blockIndex(bx,by+1,bz-1)]=B.FENCE_OAK;
+            if(bz+1<WORLD_D&&world[blockIndex(bx,by+1,bz+1)]===B.AIR)world[blockIndex(bx,by+1,bz+1)]=B.FENCE_OAK;
+          }else{
+            // bridge along z-axis, rails on x sides
+            if(bx-1>=0&&world[blockIndex(bx-1,by+1,bz)]===B.AIR)world[blockIndex(bx-1,by+1,bz)]=B.FENCE_OAK;
+            if(bx+1<WORLD_W&&world[blockIndex(bx+1,by+1,bz)]===B.AIR)world[blockIndex(bx+1,by+1,bz)]=B.FENCE_OAK;
+          }
+        }
+      }
+    }
+  }
+}
 // --- Split phases so generation can be driven asynchronously --------------
 function generateClimateAndHeight(){
   const tmp=new Float32Array(WORLD_W*WORLD_D);
@@ -360,7 +561,8 @@ else{ // surface block (y===h)
   else id=B.GRASS;
 }
 world[blockIndex(x,y,z)]=id;}
-for(let y=h+1;y<=SEA_LEVEL;y++)world[blockIndex(x,y,z)]=B.WATER;
+// Floating isles: void below (no water fill)
+if(biome!==BIOME.FLOATING_ISLES){for(let y=h+1;y<=SEA_LEVEL;y++)world[blockIndex(x,y,z)]=B.WATER;}
 if(biome===BIOME.SNOWY&&h<SEA_LEVEL)world[blockIndex(x,SEA_LEVEL,z)]=B.ICE;
 // VOLCANO crater lava lake: flood the summit bowl up to the rim with lava.
 if(biome===BIOME.VOLCANO){const lv=lavaLevelMap[colIndex(x,z)];if(lv>h){for(let y=h+1;y<=lv&&y<WORLD_H;y++)world[blockIndex(x,y,z)]=B.LAVA;}}}}}
@@ -1296,6 +1498,8 @@ function fillUnderwaterAir(){
       const h=heightMap[colIndex(x,z)];
       // Only scan columns whose surface is below (or at) sea level
       if(h>=SEA_LEVEL)continue;
+      // Skip floating isles — void below islands should stay AIR (void)
+      if(biomeMap[colIndex(x,z)]===BIOME.FLOATING_ISLES)continue;
       for(let y=1;y<SEA_LEVEL;y++){
         if(getBlock(x,y,z)===B.AIR){
           world[blockIndex(x,y,z)]=B.WATER;
@@ -1412,6 +1616,9 @@ function generateWorldAsync(onProgress){
     report(0.97,'Building strongholds...');
     await nextFrame();
     if(typeof placeStronghold==='function')placeStronghold();
+    report(0.97,'Generating floating isles...');
+    await nextFrame();
+    generateFloatingIsles();
     report(0.99,'Placing sky islands...');
     await nextFrame();
     placeSkyIslands();

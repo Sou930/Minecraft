@@ -469,4 +469,245 @@ function loadChestData(){
   try{const d=JSON.parse(WORLDS.getItem('chests')||'null');if(d&&typeof d==='object'){for(const k in d){const arr=d[k];if(Array.isArray(arr)){_chestData[k]=arr.map(s=>{if(!s||typeof s.id!=='number'||s.count<=0)return null;return{id:s.id,count:Math.min(STACK_MAX,s.count)};});}}}}catch(e){}
 }
 
+// =====================================================================
+// FURNACE UI — Smelting interface with input/fuel/output slots
+// =====================================================================
+const _furnaceData={};  // key "x,y,z" → {input:stack|null, fuel:stack|null, output:stack|null, progress:0, smeltTimer:0}
+let _furnaceOverlay=null;
+let _furnaceOpen=false;
+let _furnaceKey=null;
+let _furnaceInterval=null;
+
+// Smelt recipes: input block/item ID → output block/item ID + xp
+const SMELT_RECIPES=[
+  {in:B.IRON_ORE,  out:{id:B.COPPER,count:1},    xp:0.7, name:'Iron Ingot'},
+  {in:B.GOLD_ORE,  out:{id:B.GOLD_ORE,count:1},   xp:1.0, name:'Gold Ingot'},
+  {in:B.SAND,      out:{id:B.GLASS,count:1},       xp:0.1, name:'Glass'},
+  {in:B.COBBLE,    out:{id:B.STONE,count:1},        xp:0.1, name:'Stone'},
+  {in:B.STONE_BRICK,out:{id:B.CRACKED_BRICK,count:1},xp:0.1,name:'Cracked Stone Brick'},
+  {in:ITEM_FISH,   out:{id:ITEM_COOKED_FISH,count:1},xp:0.35,name:'Cooked Fish'},
+  {in:ITEM_PORKCHOP,out:{id:ITEM_PORKCHOP,count:1}, xp:0.35,name:'Cooked Porkchop'},
+  {in:ITEM_BEEF,   out:{id:ITEM_BEEF,count:1},      xp:0.35,name:'Cooked Beef'},
+  {in:ITEM_CHICKEN,out:{id:ITEM_CHICKEN,count:1},   xp:0.35,name:'Cooked Chicken'},
+  {in:ITEM_POTATO, out:{id:ITEM_BAKED_POTATO,count:1},xp:0.35,name:'Baked Potato'},
+  {in:B.CLAY,      out:{id:B.TERRACOTTA,count:1},   xp:0.35,name:'Terracotta'},
+  {in:B.WOOD_PLANK,out:{id:B.WOOD_PLANK,count:1},  xp:0.15,name:'Charcoal'},
+  {in:B.LOG,       out:{id:B.COAL_ORE,count:1},     xp:0.15,name:'Charcoal'},
+];
+
+// Fuel items (smelt time in seconds each provides)
+const FURNACE_FUELS={
+  [B.COAL_ORE]: {secs:80, label:'Coal'},
+  [B.LOG]:      {secs:15, label:'Log'},
+  [B.PLANKS]:   {secs:15, label:'Planks'},
+  [B.BIRCH_LOG]:{secs:15, label:'Birch Log'},
+  [B.SPRUCE_LOG]:{secs:15,label:'Spruce Log'},
+  [B.BAMBOO]:   {secs:2.5,label:'Bamboo'},
+  [ITEM_STICK]: {secs:5,  label:'Stick'},
+};
+
+const SMELT_TIME=10; // seconds per item
+
+function _getFurnaceData(x,y,z){
+  const k=`${x},${y},${z}`;
+  if(!_furnaceData[k])_furnaceData[k]={input:null,fuel:null,output:null,progress:0,fuelLeft:0,burning:false};
+  return _furnaceData[k];
+}
+
+function _getSmeltRecipe(id){return SMELT_RECIPES.find(r=>r.in===id)||null;}
+
+function openFurnaceUI(x,y,z){
+  if(_furnaceOpen)closeFurnaceUI();
+  _furnaceKey=`${x},${y},${z}`;
+  const fd=_getFurnaceData(x,y,z);
+  const ov=document.createElement('div');
+  ov.id='furnace-overlay';
+  ov.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);z-index:2000;display:flex;align-items:center;justify-content:center;';
+
+  const panel=document.createElement('div');
+  panel.style.cssText='background:#3a2f25;border:3px solid #8b6040;border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:12px;min-width:320px;font-family:monospace;';
+
+  // Header
+  const header=document.createElement('div');
+  header.style.cssText='display:flex;justify-content:space-between;align-items:center;color:#f5dfa0;font-size:17px;font-weight:bold;';
+  header.innerHTML='<span>🔥 Furnace</span>';
+  const closeBtn=document.createElement('button');
+  closeBtn.textContent='✕';closeBtn.style.cssText='background:#5a3a2a;color:#fff;border:none;border-radius:4px;cursor:pointer;padding:2px 8px;font-size:14px;';
+  closeBtn.onclick=()=>closeFurnaceUI();
+  header.appendChild(closeBtn);
+  panel.appendChild(header);
+
+  // Main smelting area
+  const smeltArea=document.createElement('div');
+  smeltArea.style.cssText='display:flex;align-items:center;gap:10px;justify-content:center;';
+
+  // Left column: input + fuel
+  const leftCol=document.createElement('div');
+  leftCol.style.cssText='display:flex;flex-direction:column;gap:6px;align-items:center;';
+
+  // Input slot
+  const inputLabel=document.createElement('div');
+  inputLabel.textContent='Input';inputLabel.style.cssText='color:#c8b090;font-size:11px;';
+  leftCol.appendChild(inputLabel);
+  const inputSlot=document.createElement('div');
+  inputSlot.className='inv-slot';
+  inputSlot.style.cssText='width:44px;height:44px;background:#4a3020;border:2px solid #8b6040;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;font-size:20px;';
+  if(fd.input)fillSlotEl(inputSlot,fd.input);
+  leftCol.appendChild(inputSlot);
+
+  // Fuel slot
+  const fuelLabel=document.createElement('div');
+  fuelLabel.textContent='🔥 Fuel';fuelLabel.style.cssText='color:#c8b090;font-size:11px;margin-top:4px;';
+  leftCol.appendChild(fuelLabel);
+  const fuelSlot=document.createElement('div');
+  fuelSlot.className='inv-slot';
+  fuelSlot.style.cssText='width:44px;height:44px;background:#4a3020;border:2px solid #8b6040;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;font-size:20px;';
+  if(fd.fuel)fillSlotEl(fuelSlot,fd.fuel);
+  leftCol.appendChild(fuelSlot);
+  smeltArea.appendChild(leftCol);
+
+  // Progress area
+  const progCol=document.createElement('div');
+  progCol.style.cssText='display:flex;flex-direction:column;align-items:center;gap:4px;';
+  const progArrow=document.createElement('div');
+  progArrow.style.cssText='font-size:22px;color:#f5a030;';progArrow.textContent='➜';
+  const progBar=document.createElement('div');
+  progBar.style.cssText='width:60px;height:10px;background:#2a1a0a;border:1px solid #5a3a1a;border-radius:4px;overflow:hidden;';
+  const progFill=document.createElement('div');
+  progFill.id='furnace-prog-fill';
+  progFill.style.cssText=`height:100%;width:${Math.round(fd.progress*100)}%;background:#f5a030;transition:width 0.5s;`;
+  progBar.appendChild(progFill);
+  const burnIcon=document.createElement('div');
+  burnIcon.id='furnace-burn-icon';
+  burnIcon.style.cssText='font-size:16px;margin-top:2px;';
+  burnIcon.textContent=fd.burning?'🔥':'';
+  progCol.appendChild(progArrow);
+  progCol.appendChild(progBar);
+  progCol.appendChild(burnIcon);
+  smeltArea.appendChild(progCol);
+
+  // Output slot
+  const outCol=document.createElement('div');
+  outCol.style.cssText='display:flex;flex-direction:column;align-items:center;gap:6px;';
+  const outLabel=document.createElement('div');
+  outLabel.textContent='Output';outLabel.style.cssText='color:#c8b090;font-size:11px;';
+  outCol.appendChild(outLabel);
+  const outSlot=document.createElement('div');
+  outSlot.className='inv-slot';
+  outSlot.style.cssText='width:44px;height:44px;background:#2a2a2a;border:2px solid #8b6040;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative;font-size:20px;';
+  if(fd.output)fillSlotEl(outSlot,fd.output);
+  outCol.appendChild(outSlot);
+  smeltArea.appendChild(outCol);
+  panel.appendChild(smeltArea);
+
+  // Status label
+  const statusLabel=document.createElement('div');
+  statusLabel.id='furnace-status';
+  statusLabel.style.cssText='color:#a09070;font-size:12px;text-align:center;';
+  statusLabel.textContent=fd.burning?'Smelting...':(!fd.fuelLeft?'No fuel':'Ready');
+  panel.appendChild(statusLabel);
+
+  // Hint
+  const hint=document.createElement('div');
+  hint.style.cssText='color:#706050;font-size:11px;text-align:center;';
+  hint.textContent='Click input/output to transfer items • Add fuel to smelt';
+  panel.appendChild(hint);
+
+  ov.appendChild(panel);
+  ov.addEventListener('click',(e)=>{if(e.target===ov)closeFurnaceUI();});
+  document.body.appendChild(ov);
+  _furnaceOverlay=ov;
+  _furnaceOpen=true;
+  if(!isMobile&&document.pointerLockElement)document.exitPointerLock();
+
+  // Slot click handlers
+  function slotClick(slot,getVal,setVal,acceptFn){
+    slot.addEventListener('click',()=>{
+      const s=getVal();
+      if(!heldStack){
+        if(s){heldStack=s;setVal(null);fillSlotEl(slot,null);updateHeldUI();}
+      }else{
+        if(acceptFn&&!acceptFn(heldStack.id)){return;}
+        if(!s){setVal({...heldStack});heldStack=null;fillSlotEl(slot,getVal());updateHeldUI();}
+        else if(s.id===heldStack.id&&!isTool(s.id)&&s.count<STACK_MAX){
+          const n=Math.min(STACK_MAX-s.count,heldStack.count);s.count+=n;heldStack.count-=n;
+          if(heldStack.count<=0)heldStack=null;fillSlotEl(slot,s);updateHeldUI();
+        }else{setVal(heldStack);heldStack=s;fillSlotEl(slot,getVal());updateHeldUI();}
+      }
+      _saveFurnaceData();_refreshFurnaceStatus();renderHotbar();
+    });
+  }
+  slotClick(inputSlot,()=>fd.input,(v)=>{fd.input=v;},null);
+  slotClick(fuelSlot,()=>fd.fuel,(v)=>{fd.fuel=v;},(id)=>!!(FURNACE_FUELS[id]));
+  // Output: only take, don't place
+  outSlot.addEventListener('click',()=>{
+    if(!fd.output)return;
+    if(!heldStack){heldStack=fd.output;fd.output=null;fillSlotEl(outSlot,null);updateHeldUI();}
+    else if(heldStack.id===fd.output.id&&heldStack.count<STACK_MAX){
+      const n=Math.min(STACK_MAX-heldStack.count,fd.output.count);heldStack.count+=n;fd.output.count-=n;
+      if(fd.output.count<=0)fd.output=null;fillSlotEl(outSlot,fd.output);updateHeldUI();
+    }
+    _saveFurnaceData();renderHotbar();
+  });
+
+  // Tick the furnace every second
+  _furnaceInterval=setInterval(()=>_tickFurnace(x,y,z),1000);
+}
+
+function _refreshFurnaceStatus(){
+  if(!_furnaceOpen)return;
+  const fd=_furnaceData[_furnaceKey];if(!fd)return;
+  const pf=document.getElementById('furnace-prog-fill');
+  if(pf)pf.style.width=Math.round(fd.progress*100)+'%';
+  const bi=document.getElementById('furnace-burn-icon');
+  if(bi)bi.textContent=fd.burning?'🔥':'';
+  const sl=document.getElementById('furnace-status');
+  if(sl)sl.textContent=fd.burning?'Smelting...':(fd.fuelLeft>0?'Ready — add input':'No fuel');
+}
+
+function _tickFurnace(x,y,z){
+  const fd=_getFurnaceData(x,y,z);
+  // Consume fuel if empty
+  if(fd.fuelLeft<=0&&fd.fuel&&FURNACE_FUELS[fd.fuel.id]){
+    fd.fuelLeft=FURNACE_FUELS[fd.fuel.id].secs;
+    fd.fuel.count--;if(fd.fuel.count<=0)fd.fuel=null;
+    fd.burning=true;
+  }
+  if(fd.fuelLeft<=0){fd.burning=false;fd.progress=0;_saveFurnaceData();_refreshFurnaceStatus();return;}
+  fd.fuelLeft=Math.max(0,fd.fuelLeft-1);
+  // Try to smelt
+  if(fd.input){
+    const recipe=_getSmeltRecipe(fd.input.id);
+    if(recipe){
+      fd.progress=Math.min(1,fd.progress+1/SMELT_TIME);
+      if(fd.progress>=1){
+        fd.progress=0;
+        // Move result to output
+        if(!fd.output){fd.output={id:recipe.out.id,count:1};}
+        else if(fd.output.id===recipe.out.id&&fd.output.count<STACK_MAX){fd.output.count++;}
+        fd.input.count--;if(fd.input.count<=0)fd.input=null;
+        if(typeof XP!=='undefined'&&XP.add)XP.add(Math.round(recipe.xp*10));
+      }
+    }else{fd.progress=0;}
+  }else{fd.progress=0;}
+  _saveFurnaceData();_refreshFurnaceStatus();
+}
+
+function closeFurnaceUI(){
+  if(!_furnaceOpen)return;
+  clearInterval(_furnaceInterval);_furnaceInterval=null;
+  if(heldStack){addToInventory(heldStack.id,heldStack.count);heldStack=null;updateHeldUI();}
+  _furnaceOverlay&&_furnaceOverlay.remove();
+  _furnaceOverlay=null;_furnaceOpen=false;_furnaceKey=null;
+  renderHotbar();
+  if(!isMobile)try{const p=document.getElementById('game-canvas');if(p)p.requestPointerLock&&p.requestPointerLock();}catch(e){}
+}
+
+function _saveFurnaceData(){
+  try{WORLDS.setItem('furnaces',JSON.stringify(_furnaceData));}catch(e){}
+}
+function loadFurnaceData(){
+  try{const d=JSON.parse(WORLDS.getItem('furnaces')||'null');if(d&&typeof d==='object'){for(const k in d){_furnaceData[k]=d[k];}}}catch(e){}
+}
+
 function updateVitalsUI(){const hearts=document.getElementById('hearts');const hunger=document.getElementById('hunger');let h='';for(let i=0;i<10;i++){const v=player.hp-i*2;let cls='empty';if(v>=2)cls='full';else if(v>=1)cls='half';h+=`<span class="${cls}">♥</span>`;}hearts.innerHTML=h;let g='';for(let i=0;i<10;i++){const v=player.hunger-i*2;let cls='empty';if(v>=2)cls='full';else if(v>=1)cls='half';g+=`<span class="${cls}">🍗</span>`;}hunger.innerHTML=g;}

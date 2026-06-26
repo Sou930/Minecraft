@@ -24,6 +24,8 @@ const I18N = {
     pbrHint:'Physically-based shading: AO edges, specular micro-detail & normal-map look',
     godRays:'God Rays (Volumetric Light)',
     godRaysHint:'Sunlight shafts & atmospheric fog. May reduce FPS on older devices.',
+    hdShader:'HD Shader Mode',
+    hdShaderHint:'Forces all shaders ON & disables auto quality-reduction. Minecraft shader-mod look. May reduce FPS.',
     flight:'Flight Mode',
     flightHint:'Password-protected. While ON: Space = up, C = down',
     flightPrompt:'Enter password to enable Flight Mode:',
@@ -63,6 +65,8 @@ const I18N = {
     pbrHint:'物理ベースシェーディング：AOエッジ・スペキュラ・法線マップ風の質感',
     godRays:'ゴッドレイ（体積光）',
     godRaysHint:'太陽光の筋と大気の霧。古い端末ではFPSが低下する場合があります。',
+    hdShader:'高画質影モード',
+    hdShaderHint:'全シェーダーをONに固定し、自動画質低下を無効化。影MOD風の最高品質映像。FPSが下がる場合があります。',
     flight:'飛行モード',
     flightHint:'パスワードで保護。ON中：スペース=上昇、C=下降',
     flightPrompt:'飛行モードを有効にするパスワードを入力：',
@@ -117,6 +121,9 @@ const SETTINGS = {
   godRays: localStorage.getItem('bw_godrays') === null
     ? !(('ontouchstart' in window) && /Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent))
     : localStorage.getItem('bw_godrays') === '1',
+  // HD Shader Mode: forces all shader/shadow/PBR features ON and disables the
+  // auto-quality governor (PERF) so visual quality never auto-degrades.
+  hdShaderMode: localStorage.getItem('bw_hd_shader') === '1',
   // Flight is OFF by default and only enabled after passing the password gate.
   flying: localStorage.getItem('bw_flying') === '1',
 };
@@ -133,6 +140,7 @@ function saveSettings(){
   localStorage.setItem('bw_shaders',SETTINGS.shaders?'1':'0');
   localStorage.setItem('bw_pbr',SETTINGS.pbr?'1':'0');
   localStorage.setItem('bw_godrays',SETTINGS.godRays?'1':'0');
+  localStorage.setItem('bw_hd_shader',SETTINGS.hdShaderMode?'1':'0');
   localStorage.setItem('bw_flying',SETTINGS.flying?'1':'0');
 }
 
@@ -151,6 +159,8 @@ function applyLanguageToUI(){
     '#set-pbr-hint':'pbrHint',
     '#set-godrays-label':'godRays',
     '#set-godrays-hint':'godRaysHint',
+    '#set-hdshader-label':'hdShader',
+    '#set-hdshader-hint':'hdShaderHint',
     '#set-fly-label':'flight',
     '#set-fly-hint':'flightHint',
   };
@@ -208,6 +218,58 @@ function applyFlying(){
   if(typeof setFlyingEnabled==='function')setFlyingEnabled(SETTINGS.flying);
 }
 
+// HD Shader Mode — when ON: forces Shaders+PBR+GodRays all ON, disables PERF governor,
+// disables auto low-quality tex, sets render distance to 'far'. A true "Shader MOD" mode.
+function applyHDShaderMode(){
+  if(SETTINGS.hdShaderMode){
+    // Lock all visual quality settings to maximum
+    SETTINGS.shaders=true;
+    SETTINGS.pbr=true;
+    SETTINGS.godRays=true;
+    SETTINGS.lowQualityTex=false;
+    // Disable the performance auto-governor so quality never auto-degrades
+    if(typeof PERF!=='undefined'&&PERF.setEnabled)PERF.setEnabled(false);
+    // Force highest hardware scaling (native resolution)
+    if(typeof engine!=='undefined'&&engine.setHardwareScalingLevel){
+      engine.setHardwareScalingLevel(1.0);
+    }
+    // Apply all visual systems
+    if(typeof SHADERFX!=='undefined'){
+      if(SHADERFX.setEnabled)SHADERFX.setEnabled(true);
+      if(SHADERFX.setGodRaysEnabled)SHADERFX.setGodRaysEnabled(true);
+      // Force shadow quality to maximum (512→2048 samples if available)
+      if(SHADERFX.setShadowQuality)SHADERFX.setShadowQuality('ultra');
+    }
+    if(typeof PBR!=='undefined'&&PBR.setEnabled)PBR.setEnabled(true);
+    if(typeof applyAtlasQuality==='function')applyAtlasQuality(false);
+    // Show HD indicator on screen
+    _showHDShaderIndicator(true);
+  }else{
+    // Restore auto-governor
+    if(typeof PERF!=='undefined'&&PERF.setEnabled)PERF.setEnabled(true);
+    // Re-apply individual settings
+    applyShaders();applyPBR();applyGodRays();applyLowQuality();
+    _showHDShaderIndicator(false);
+  }
+  renderSettingsOptions();
+  saveSettings();
+}
+
+let _hdIndicatorEl=null;
+function _showHDShaderIndicator(on){
+  if(on){
+    if(!_hdIndicatorEl){
+      _hdIndicatorEl=document.createElement('div');
+      _hdIndicatorEl.id='hd-shader-indicator';
+      _hdIndicatorEl.style.cssText='position:fixed;top:8px;left:50%;transform:translateX(-50%);background:linear-gradient(90deg,#1a0a40,#2a0a60);color:#b090ff;font-family:monospace;font-size:12px;font-weight:bold;padding:4px 12px;border-radius:12px;border:1px solid #6040c0;pointer-events:none;z-index:1500;letter-spacing:1px;box-shadow:0 0 12px #4020a0;';
+      _hdIndicatorEl.innerHTML='✨ HD SHADER MODE';
+      document.body.appendChild(_hdIndicatorEl);
+    }
+  }else{
+    if(_hdIndicatorEl){_hdIndicatorEl.remove();_hdIndicatorEl=null;}
+  }
+}
+
 // ---- Settings panel build / open / close ----------------------------------
 let settingsOpen=false;
 function renderSettingsOptions(){
@@ -229,6 +291,13 @@ function renderSettingsOptions(){
   // God Rays toggle
   const gr=document.getElementById('set-godrays-toggle');
   if(gr){gr.textContent=SETTINGS.godRays?t('on'):t('off');gr.classList.toggle('on',SETTINGS.godRays);}
+  // HD Shader Mode toggle
+  const hd=document.getElementById('set-hdshader-toggle');
+  if(hd){hd.textContent=SETTINGS.hdShaderMode?t('on'):t('off');hd.classList.toggle('on',SETTINGS.hdShaderMode);
+    // When HD mode is on, indicate it visually on the button
+    hd.style.background=SETTINGS.hdShaderMode?'linear-gradient(90deg,#3a1060,#5020a0)':'';
+    hd.style.boxShadow=SETTINGS.hdShaderMode?'0 0 8px #6040c0':'';
+  }
   // Flight toggle (reflects current unlocked/on state)
   const fl=document.getElementById('set-fly-toggle');
   if(fl){fl.textContent=SETTINGS.flying?t('on'):t('off');fl.classList.toggle('on',SETTINGS.flying);}
@@ -254,6 +323,8 @@ function initSettingsUI(){
   const pb=document.getElementById('set-pbr-toggle');if(pb)pb.addEventListener('click',()=>{SETTINGS.pbr=!SETTINGS.pbr;saveSettings();renderSettingsOptions();applyPBR();});
   // God Rays toggle
   const gr=document.getElementById('set-godrays-toggle');if(gr)gr.addEventListener('click',()=>{SETTINGS.godRays=!SETTINGS.godRays;saveSettings();renderSettingsOptions();applyGodRays();});
+  // HD Shader Mode toggle — when ON: forces all shaders/quality ON, disables PERF
+  const hd=document.getElementById('set-hdshader-toggle');if(hd)hd.addEventListener('click',()=>{SETTINGS.hdShaderMode=!SETTINGS.hdShaderMode;applyHDShaderMode();});
   // Flight toggle — turning it ON requires the password; turning it OFF is free.
   const fl=document.getElementById('set-fly-toggle');if(fl)fl.addEventListener('click',()=>{
     if(SETTINGS.flying){

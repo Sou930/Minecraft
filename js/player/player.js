@@ -199,6 +199,8 @@ if(typeof tryEnterNearbyBoat==='function'&&tryEnterNearbyBoat()){clearInterval(a
 // Right-click an existing minecart on a rail to board it.
 if(typeof tryEnterNearbyMinecart==='function'&&tryEnterNearbyMinecart()){clearInterval(actionInterval);return;}
 if(currentTarget&&currentTarget.id===B.CRAFTING){clearInterval(actionInterval);toggleInventory(true,3);return;}
+// Furnace interaction: right-click to open smelting UI
+if(currentTarget&&currentTarget.id===B.FURNACE){clearInterval(actionInterval);if(typeof openFurnaceUI==='function')openFurnaceUI(currentTarget.x,currentTarget.y,currentTarget.z);return;}
 // Chest interaction: right-click to open chest inventory
 if(currentTarget){const _cd=BLOCKS[currentTarget.id];if(_cd&&_cd.chest){clearInterval(actionInterval);openChestUI(currentTarget.x,currentTarget.y,currentTarget.z);return;}}
 // Sign interaction: right-click to edit text
@@ -238,6 +240,15 @@ if(itemDef&&itemDef.fishingRod){clearInterval(actionInterval);if(typeof useFishi
 if(itemDef&&itemDef.placesBlock!==undefined){if(currentTarget){const{px,py,pz}=currentTarget;if(px>=0&&px<WORLD_W&&py>=0&&py<WORLD_H&&pz>=0&&pz<WORLD_D){const cur=getBlock(px,py,pz);if(!isSolid(cur)){setBlock(px,py,pz,itemDef.placesBlock);if(typeof SFX!=='undefined')SFX.place(itemDef.placesBlock);consumeFromSlot(selectedSlot,1);if(typeof ACH!=='undefined'){ACH.track('placed');ACH.track('redstone_placed');}return;}}}return;}
 if(itemDef&&itemDef.tool==='hoe'){tillSoil();return;}
 if(itemDef&&itemDef.plant!==undefined){if(plantSeed(slot.id,itemDef.plant))return;}
+// Right-click near a villager to open trade UI
+if(typeof mobs!=='undefined'&&typeof openVillagerTradeUI==='function'){
+  const reach=isMobile?3.0:3.5;
+  for(const mob of (typeof villagers!=='undefined'?[...villagers,...mobs]:mobs)){
+    if(!mob||mob.dead||!mob.t||!mob.t.villager)continue;
+    const dx=mob.pos.x-player.pos.x,dy=mob.pos.y-player.pos.y,dz=mob.pos.z-player.pos.z;
+    if(dx*dx+dy*dy+dz*dz<reach*reach){clearInterval(actionInterval);openVillagerTradeUI(mob.villagerProfession||'Farmer',mob);return;}
+  }
+}
 // Feeding raw meat to a wolf you're aiming at tames / heals it instead of
 // being eaten. Only consumes meat when a wolf actually accepts it.
 if(itemDef&&itemDef.food&&typeof tryFeedWolf==='function'&&tryFeedWolf(slot.id)){consumeFromSlot(selectedSlot,1);return;}

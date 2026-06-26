@@ -779,7 +779,7 @@ const ACHIEVEMENTS=[
   {id:'angler',icon:'\ud83d\udc1f',name:'Angler',desc:'Catch 20 fish',stat:'fish',goal:20},
   {id:'minecart_ride',icon:'\ud83d\uded2',name:'\u30c8\u30ed\u30c3\u30b3\u4e57\u308a',desc:'Ride a minecart',stat:'minecart',goal:1},
   {id:'globetrotter',icon:'\ud83e\udded',name:'Globetrotter',desc:'Visit 5 different biomes',stat:'biomes_visited',goal:5},
-  {id:'explorer_all',icon:'\ud83c\udf0d',name:'World Explorer',desc:'Visit all 10 biomes',stat:'biomes_visited',goal:10},
+  {id:'explorer_all',icon:'\ud83c\udf0d',name:'World Explorer',desc:'Visit all 11 biomes',stat:'biomes_visited',goal:11},
   // Redstone achievements
   {id:'redstone_lever',icon:'🔴',name:'Power On',desc:'Flip a lever for the first time',stat:'lever_flip',goal:1},
   {id:'redstone_piston',icon:'🟫',name:'Push It',desc:'Activate a piston',stat:'piston_fire',goal:1},
@@ -792,6 +792,8 @@ const ACHIEVEMENTS=[
   {id:'biome_crystal',icon:'💎',name:'Crystal Horizon',desc:'Reach the Crystal Plains',stat:'biome_crystal',goal:1},
   {id:'biome_withered',icon:'🍄',name:'Into the Gloom',desc:'Reach the Withered Forest',stat:'biome_withered',goal:1},
   {id:'biome_coral',icon:'🪸',name:'Tidal Wanderer',desc:'Reach the Coral Tidelands',stat:'biome_coral',goal:1},
+  // Floating isles achievement
+  {id:'biome_floating',icon:'🏝',name:'Sky Walker',desc:'Reach the Floating Isles',stat:'biome_floating',goal:1},
   // Slime achievements
   {id:'kill_slime',icon:'🟩',name:'Slime Buster',  desc:'Defeat a Slime',   stat:'kill_slime',goal:1},
   {id:'split_slime',icon:'🟩',name:'Split Decision',desc:'Watch a Slime split',stat:'slime_split',goal:1},
@@ -802,7 +804,7 @@ const ACHIEVEMENTS=[
 ];
 const isMobile=('ontouchstart'in window)&&/Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac|iPad/i.test(navigator.userAgent));if(isMobile)document.body.classList.add('is-mobile');
 // World schema version — bump when dimensions change to invalidate saved data.
-const WORLD_VERSION="18-wider-biomes-smooth-mountains";
+const WORLD_VERSION="19-floating-isles-furnace-villager";
 // SEED is resolved per active world (see worlds.js). If no world is active yet
 // (home screen showing), fall back to a temporary random seed; it is replaced
 // once a world is actually loaded via loadActiveWorld().

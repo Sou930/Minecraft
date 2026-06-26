@@ -348,19 +348,148 @@ function updateVillager(mob,dt){
   }
 }
 
+// ---- Villager Trade Tables ------------------------------------------------
+const VILLAGER_TRADE_TABLES={
+  Farmer:[
+    {cost:{id:ITEM_WHEAT,count:20}, reward:{id:ITEM_BREAD,count:6},    label:'20 Wheat → 6 Bread'},
+    {cost:{id:ITEM_CARROT,count:15},reward:{id:ITEM_BREAD,count:4},    label:'15 Carrots → 4 Bread'},
+    {cost:{id:ITEM_POTATO,count:15},reward:{id:ITEM_BAKED_POTATO,count:6},label:'15 Potatoes → 6 Baked Potato'},
+    {cost:{id:B.PUMPKIN,count:3},   reward:{id:ITEM_SEEDS,count:12},   label:'3 Pumpkins → 12 Seeds'},
+  ],
+  Librarian:[
+    {cost:{id:B.PLANKS,count:24},   reward:{id:B.BOOKSHELF,count:1},   label:'24 Planks → Bookshelf'},
+    {cost:{id:B.LOG,count:8},       reward:{id:B.BOOKSHELF,count:1},   label:'8 Logs → Bookshelf'},
+    {cost:{id:B.BOOKSHELF,count:1}, reward:{id:ITEM_BREAD,count:3},    label:'Bookshelf → 3 Bread'},
+    {cost:{id:B.PLANKS,count:6},    reward:{id:B.SIGN,count:3},        label:'6 Planks → 3 Signs'},
+  ],
+  Blacksmith:[
+    {cost:{id:B.IRON_ORE,count:4},  reward:{id:ITEM_PICK_IRON,count:1},label:'4 Iron → Iron Pickaxe'},
+    {cost:{id:B.IRON_ORE,count:3},  reward:{id:ITEM_AXE_IRON,count:1}, label:'3 Iron → Iron Axe'},
+    {cost:{id:B.IRON_ORE,count:3},  reward:{id:ITEM_SHOVEL_IRON,count:1},label:'3 Iron → Iron Shovel'},
+    {cost:{id:B.COBBLE,count:12},   reward:{id:B.FURNACE,count:1},     label:'12 Cobble → Furnace'},
+  ],
+  Butcher:[
+    {cost:{id:ITEM_PORKCHOP,count:5},reward:{id:ITEM_BREAD,count:4},   label:'5 Porkchop → 4 Bread'},
+    {cost:{id:ITEM_BEEF,count:5},    reward:{id:ITEM_BREAD,count:4},   label:'5 Beef → 4 Bread'},
+    {cost:{id:ITEM_CHICKEN,count:6}, reward:{id:ITEM_BREAD,count:4},   label:'6 Chicken → 4 Bread'},
+    {cost:{id:B.COAL_ORE,count:4},   reward:{id:ITEM_PORKCHOP,count:3},label:'4 Coal → 3 Porkchop'},
+  ],
+  Priest:[
+    {cost:{id:B.AMETHYST_CLUSTER,count:2},reward:{id:B.LANTERN,count:1},label:'2 Amethyst → Lantern'},
+    {cost:{id:B.GOLD_ORE,count:2},  reward:{id:B.GLOW_LICHEN,count:4}, label:'2 Gold → 4 Glow Lichen'},
+    {cost:{id:B.DIAMOND_ORE,count:1},reward:{id:ITEM_APPLE,count:8},   label:'1 Diamond → 8 Apples'},
+    {cost:{id:ITEM_APPLE,count:5},   reward:{id:B.GOLD_ORE,count:1},   label:'5 Apples → 1 Gold Ore'},
+  ],
+};
+
 // Show a Minecraft-style villager greeting / trade hint above the villager.
-// Uses the same bed-message channel for simplicity.
 let _villagerMsgTimeout=null;
+let _villagerTradeOverlay=null;
 function showVillagerGreeting(profession,mob){
-  const greetings={
-    Farmer:    '🌾 Farmer: I have crops for trade!',
-    Librarian: '📚 Librarian: Looking for enchanted books?',
-    Blacksmith:'⚒ Blacksmith: Fine tools and armour!',
-    Butcher:   '🥩 Butcher: Fresh meat, best prices!',
-    Priest:    '⭐ Priest: Blessings and potions!',
-  };
-  const msg=greetings[profession]||'👋 Villager: Hmm!';
-  if(typeof showBedMessage==='function')showBedMessage(msg);
+  openVillagerTradeUI(profession,mob);
+}
+
+function openVillagerTradeUI(profession,mob){
+  if(_villagerTradeOverlay){_villagerTradeOverlay.remove();_villagerTradeOverlay=null;}
+  const trades=VILLAGER_TRADE_TABLES[profession]||VILLAGER_TRADE_TABLES.Farmer;
+  const ov=document.createElement('div');
+  ov.id='villager-trade-overlay';
+  ov.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:2000;display:flex;align-items:center;justify-content:center;';
+  const panel=document.createElement('div');
+  panel.style.cssText='background:#3a2a1a;border:3px solid #8b7040;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:340px;font-family:monospace;';
+
+  // Header
+  const PROF_EMOJI={Farmer:'🌾',Librarian:'📚',Blacksmith:'⚒',Butcher:'🥩',Priest:'⭐'};
+  const hdr=document.createElement('div');
+  hdr.style.cssText='display:flex;justify-content:space-between;align-items:center;color:#f5dfa0;font-size:16px;font-weight:bold;';
+  hdr.innerHTML=`<span>${PROF_EMOJI[profession]||'👋'} ${profession} Trades</span>`;
+  const cbtn=document.createElement('button');
+  cbtn.textContent='✕';cbtn.style.cssText='background:#5a3a1a;color:#fff;border:none;border-radius:4px;cursor:pointer;padding:2px 8px;font-size:14px;';
+  cbtn.onclick=()=>{ov.remove();_villagerTradeOverlay=null;if(!isMobile)try{document.getElementById('game-canvas').requestPointerLock();}catch(e){}};
+  hdr.appendChild(cbtn);panel.appendChild(hdr);
+
+  // Subtitle
+  const sub=document.createElement('div');
+  sub.style.cssText='color:#a09060;font-size:11px;text-align:center;';
+  sub.textContent='Click "Trade" to exchange items from your inventory';
+  panel.appendChild(sub);
+
+  // Trade list
+  const tradeList=document.createElement('div');
+  tradeList.style.cssText='display:flex;flex-direction:column;gap:7px;';
+
+  function getItemName(id){
+    if(ITEMS[id])return ITEMS[id].name||ITEMS[id].emoji||'?';
+    if(BLOCKS[id])return BLOCKS[id].name||'?';
+    return '?';
+  }
+  function getItemEmoji(id){
+    if(ITEMS[id])return ITEMS[id].emoji||'📦';
+    if(BLOCKS[id])return '🧱';
+    return '📦';
+  }
+  function countInInventory(id){
+    let total=0;
+    for(const s of inventory){if(s&&s.id===id)total+=s.count;}
+    for(let i=0;i<9;i++){const s=inventory[i];if(s&&s.id===id)total+=0;} // hotbar included
+    return total;
+  }
+  function consumeFromInventory(id,count){
+    let remaining=count;
+    for(let i=0;i<inventory.length&&remaining>0;i++){
+      const s=inventory[i];if(!s||s.id!==id)continue;
+      const take=Math.min(s.count,remaining);s.count-=take;remaining-=take;
+      if(s.count<=0)inventory[i]=null;
+    }
+  }
+
+  for(const trade of trades){
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:8px;background:#2a1a0a;border:2px solid #6a4a20;border-radius:6px;padding:8px;';
+    // Cost
+    const costDiv=document.createElement('div');
+    costDiv.style.cssText='display:flex;align-items:center;gap:4px;min-width:110px;color:#e0c890;font-size:13px;';
+    const costHave=countInInventory(trade.cost.id);
+    const hasEnough=costHave>=trade.cost.count;
+    costDiv.innerHTML=`<span style="font-size:18px">${getItemEmoji(trade.cost.id)}</span><span style="color:${hasEnough?'#90e060':'#e06060'}">${trade.cost.count}x ${getItemName(trade.cost.id)}</span>`;
+    row.appendChild(costDiv);
+    // Arrow
+    const arr=document.createElement('div');arr.textContent='➜';arr.style.cssText='color:#f5a030;font-size:16px;';
+    row.appendChild(arr);
+    // Reward
+    const rwdDiv=document.createElement('div');
+    rwdDiv.style.cssText='flex:1;display:flex;align-items:center;gap:4px;color:#e0c890;font-size:13px;';
+    rwdDiv.innerHTML=`<span style="font-size:18px">${getItemEmoji(trade.reward.id)}</span><span>${trade.reward.count}x ${getItemName(trade.reward.id)}</span>`;
+    row.appendChild(rwdDiv);
+    // Trade button
+    const btn=document.createElement('button');
+    btn.textContent='Trade';
+    btn.style.cssText=`padding:5px 10px;background:${hasEnough?'#2a6a2a':'#4a3a2a'};color:#fff;border:none;border-radius:4px;cursor:${hasEnough?'pointer':'not-allowed'};font-family:monospace;font-size:12px;`;
+    btn.disabled=!hasEnough;
+    btn.onclick=()=>{
+      const have=countInInventory(trade.cost.id);
+      if(have<trade.cost.count){btn.textContent='Not enough!';setTimeout(()=>btn.textContent='Trade',1200);return;}
+      consumeFromInventory(trade.cost.id,trade.cost.count);
+      if(typeof addToInventory==='function')addToInventory(trade.reward.id,trade.reward.count);
+      if(typeof renderHotbar==='function')renderHotbar();
+      btn.style.background='#1a5a1a';btn.textContent='✓ Done!';
+      setTimeout(()=>{btn.style.background='#2a6a2a';btn.textContent='Trade';
+        // Refresh cost color
+        const newHave=countInInventory(trade.cost.id);
+        const still=newHave>=trade.cost.count;
+        btn.disabled=!still;btn.style.background=still?'#2a6a2a':'#4a3a2a';btn.style.cursor=still?'pointer':'not-allowed';
+        costDiv.querySelector('span:last-child').style.color=still?'#90e060':'#e06060';
+      },900);
+    };
+    row.appendChild(btn);
+    tradeList.appendChild(row);
+  }
+  panel.appendChild(tradeList);
+  ov.appendChild(panel);
+  ov.addEventListener('click',(e)=>{if(e.target===ov){ov.remove();_villagerTradeOverlay=null;}});
+  document.body.appendChild(ov);
+  _villagerTradeOverlay=ov;
+  if(!isMobile&&document.pointerLockElement)document.exitPointerLock();
 }
 
 function spawnHeightAt(x,z){for(let y=WORLD_H-2;y>1;y--){const id=getBlock(x,y,z);if(id===B.WATER||id===B.LAVA)return null;if(isSolid(id)){if(getBlock(x,y+1,z)===B.AIR&&getBlock(x,y+2,z)===B.AIR)return y+1;return null;}}return null;}
