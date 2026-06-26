@@ -900,6 +900,165 @@ plankTile(T.PALM_PLANKS,'#c89a50','#b88840','#d8aa60','#a87830',9405);
 // Maple planks — warm amber
 plankTile(T.MAPLE_PLANKS,'#b87030','#a86028','#c88040','#986020',9406);
 
+// ========= NEW DECORATIVE BLOCK TEXTURES =========
+
+// 紅葉した落ち葉（敷物）— Fallen Leaves carpet: autumn leaf scatter in red/orange/yellow
+{
+  const[ox,oy]=tileOrigin(T.FALLEN_LEAVES);
+  const rnd=mulberry32(5100);
+  ctx.fillStyle='rgba(0,0,0,0)';ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+  // Base tint of ground showing through
+  ctx.fillStyle='rgba(100,70,30,0.35)';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);
+  // Scatter leaves in autumn colors
+  const leafColors=['#c0392b','#e67e22','#f39c12','#d35400','#922b21','#e74c3c','#f1c40f','#a93226'];
+  for(let i=0;i<32;i++){
+    ctx.fillStyle=leafColors[Math.floor(rnd()*leafColors.length)];
+    const lx=ox+Math.floor(rnd()*14)*2, ly=oy+Math.floor(rnd()*14)*2;
+    // Draw small leaf shapes (2x2 or 4x2)
+    const w=rnd()<0.5?4:2, h=rnd()<0.5?2:4;
+    ctx.fillRect(lx,ly,w,h);
+  }
+  // A few dark vein details
+  ctx.fillStyle='rgba(80,40,10,0.5)';
+  for(let i=0;i<8;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);
+}
+
+// 松ぼっくり — Pine Cone: brown oval with overlapping scales
+{
+  const[ox,oy]=tileOrigin(T.PINE_CONE);
+  ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+  const rnd=mulberry32(5101);
+  // Background transparent, draw a cross-plant style pine cone
+  const cx=ox+16,cy=oy+16;
+  // Body of pine cone (oval brown)
+  ctx.fillStyle='#5d3a1a';
+  ctx.fillRect(cx-4,cy-8,8,16);
+  ctx.fillRect(cx-6,cy-4,12,8);
+  // Scale rows
+  const scaleColors=['#8b5e3c','#a0704a','#7a4f2a','#6b3f1a'];
+  for(let row=0;row<5;row++){
+    ctx.fillStyle=scaleColors[row%scaleColors.length];
+    const sy=cy-6+row*3;
+    for(let col=-1;col<=1;col++){
+      ctx.fillRect(cx+col*4-1,sy,4,3);
+    }
+  }
+  // Tip (point at top)
+  ctx.fillStyle='#3d2010';
+  ctx.fillRect(cx-1,cy-10,2,3);
+  // Highlight
+  ctx.fillStyle='rgba(200,150,80,0.4)';
+  ctx.fillRect(cx-3,cy-7,2,8);
+}
+
+// 大理石（白）— White Marble: bright white with subtle grey veining
+{
+  noisy(T.MARBLE,'#f4f4f0',['#ececea','#f8f8f6','#e8e8e6','#f0f0ee'],0.25);
+  const[ox,oy]=tileOrigin(T.MARBLE);
+  const rnd=mulberry32(5102);
+  // Subtle grey veins
+  ctx.strokeStyle='rgba(160,158,155,0.55)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(ox+2,oy+10);ctx.bezierCurveTo(ox+8,oy+14,ox+18,oy+8,ox+30,oy+22);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(ox+5,oy+24);ctx.bezierCurveTo(ox+12,oy+18,ox+22,oy+26,ox+28,oy+20);ctx.stroke();
+  ctx.strokeStyle='rgba(200,198,195,0.35)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(ox+14,oy+2);ctx.bezierCurveTo(ox+20,oy+12,ox+10,oy+20,ox+16,oy+30);ctx.stroke();
+  // Subtle polish highlight
+  ctx.fillStyle='rgba(255,255,255,0.4)';
+  ctx.fillRect(ox,oy,TILE_PX,2);ctx.fillRect(ox,oy,2,TILE_PX);
+}
+
+// 黒大理石 — Black Marble: very dark with gold/white veining
+{
+  noisy(T.BLACK_MARBLE,'#1a1a1e',['#141418','#202024','#18181c','#222226'],0.3);
+  const[ox,oy]=tileOrigin(T.BLACK_MARBLE);
+  // Gold veins
+  ctx.strokeStyle='rgba(200,160,60,0.7)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(ox+3,oy+6);ctx.bezierCurveTo(ox+10,oy+16,ox+20,oy+10,ox+29,oy+24);ctx.stroke();
+  ctx.strokeStyle='rgba(180,140,50,0.5)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(ox+0,oy+20);ctx.bezierCurveTo(ox+8,oy+14,ox+16,oy+22,ox+26,oy+16);ctx.stroke();
+  // White vein trace
+  ctx.strokeStyle='rgba(220,220,220,0.25)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(ox+18,oy+2);ctx.bezierCurveTo(ox+22,oy+14,ox+14,oy+20,ox+20,oy+30);ctx.stroke();
+  // Sheen
+  ctx.fillStyle='rgba(255,255,255,0.06)';
+  ctx.fillRect(ox,oy,TILE_PX,2);ctx.fillRect(ox,oy,2,TILE_PX);
+}
+
+// 滑らかな石（SMOOTH_STONE）— Polished smooth stone: medium grey, flat with subtle texture
+{
+  noisy(T.SMOOTH_STONE,'#8a8a8a',['#848484','#909090','#7e7e7e','#8e8e8e'],0.18);
+  const[ox,oy]=tileOrigin(T.SMOOTH_STONE);
+  // Very subtle rectangular pattern (like a polished tile)
+  ctx.strokeStyle='rgba(60,60,60,0.3)';ctx.lineWidth=1;
+  ctx.strokeRect(ox+1,oy+1,TILE_PX-2,TILE_PX-2);
+  // Subtle horizontal line in middle (double-slab style)
+  ctx.fillStyle='rgba(60,60,60,0.35)';
+  ctx.fillRect(ox,oy+15,TILE_PX,2);
+  // Polish sheen
+  ctx.fillStyle='rgba(255,255,255,0.15)';
+  ctx.fillRect(ox,oy,TILE_PX,2);ctx.fillRect(ox,oy,2,TILE_PX);
+}
+
+// 砂岩タイル — Sandstone Tile: chiseled/cut sandstone with decorative border
+{
+  noisy(T.SANDSTONE_TILE,'#d4b878',['#caa860','#dcc880','#c8a060','#d6be82'],0.3);
+  const[ox,oy]=tileOrigin(T.SANDSTONE_TILE);
+  const rnd=mulberry32(5106);
+  // Border lines (tile grout)
+  ctx.fillStyle='rgba(100,70,20,0.5)';
+  ctx.fillRect(ox,oy,TILE_PX,2);
+  ctx.fillRect(ox,oy+TILE_PX-2,TILE_PX,2);
+  ctx.fillRect(ox,oy,2,TILE_PX);
+  ctx.fillRect(ox+TILE_PX-2,oy,2,TILE_PX);
+  // Inner cross decoration
+  ctx.fillRect(ox+14,oy+4,2,24);
+  ctx.fillRect(ox+4,oy+14,24,2);
+  // Corner decorations
+  ctx.fillStyle='rgba(180,130,50,0.6)';
+  ctx.fillRect(ox+4,oy+4,4,4);
+  ctx.fillRect(ox+24,oy+4,4,4);
+  ctx.fillRect(ox+4,oy+24,4,4);
+  ctx.fillRect(ox+24,oy+24,4,4);
+  // Highlight
+  ctx.fillStyle='rgba(255,235,150,0.2)';
+  ctx.fillRect(ox+2,oy+2,TILE_PX-4,2);
+}
+
+// 玄武岩の柱 TOP — Basalt Pillar top: dark grey concentric ring pattern
+{
+  const[ox,oy]=tileOrigin(T.BASALT_PILLAR_TOP);
+  noisy(T.BASALT_PILLAR_TOP,'#2c2c30',['#282828','#303034','#242428','#2e2e32'],0.3);
+  const cx=ox+TILE_PX/2, cy=oy+TILE_PX/2;
+  // Concentric ring lines
+  ctx.strokeStyle='rgba(80,80,88,0.6)';ctx.lineWidth=1;
+  for(let r=4;r<14;r+=4){
+    ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+  }
+  // Cross grain lines
+  ctx.fillStyle='rgba(60,60,65,0.4)';
+  ctx.fillRect(cx-1,oy+2,2,TILE_PX-4);
+  ctx.fillRect(ox+2,cy-1,TILE_PX-4,2);
+}
+
+// 玄武岩の柱 SIDE — Basalt Pillar side: dark grey with vertical striations
+{
+  noisy(T.BASALT_PILLAR_SIDE,'#2c2c30',['#282828','#303034','#242428','#2e2e32'],0.3);
+  const[ox,oy]=tileOrigin(T.BASALT_PILLAR_SIDE);
+  const rnd=mulberry32(5108);
+  // Vertical column striations
+  ctx.fillStyle='rgba(60,60,68,0.5)';
+  for(let x=0;x<TILE_PX;x+=4){
+    if(rnd()<0.5)ctx.fillRect(ox+x,oy,2,TILE_PX);
+  }
+  // Top/bottom cap lines
+  ctx.fillStyle='rgba(80,80,90,0.6)';
+  ctx.fillRect(ox,oy,TILE_PX,3);
+  ctx.fillRect(ox,oy+TILE_PX-3,TILE_PX,3);
+  // Subtle highlight edge
+  ctx.fillStyle='rgba(100,100,110,0.3)';
+  ctx.fillRect(ox,oy,2,TILE_PX);
+}
+
 })();function tileUV(t){const col=t%ATLAS_TILES,row=Math.floor(t/ATLAS_TILES);const padU=0.5/ATLAS_W,padV=0.5/ATLAS_H;return{u1:col/ATLAS_TILES+padU,u2:(col+1)/ATLAS_TILES-padU,v1:1-(row+1)/ATLAS_ROWS+padV,v2:1-row/ATLAS_ROWS-padV,};}
 /* ---------------------------------------------------------------------------
  * Per-material tool textures (pickaxe / axe / shovel / hoe + stick).
