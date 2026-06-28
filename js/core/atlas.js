@@ -1059,6 +1059,206 @@ plankTile(T.MAPLE_PLANKS,'#b87030','#a86028','#c88040','#986020',9406);
   ctx.fillRect(ox,oy,2,TILE_PX);
 }
 
+
+// =====================================================================
+//  DIMENSION TILES — Nether / Deep Dark / End
+// =====================================================================
+
+// ---- Netherrack (T.NETHERRACK_TILE = 264) ----
+{noisy(T.NETHERRACK_TILE,'#7a1a10',['#6a1508','#8c2018','#5c1008','#963020'],0.85);
+ const[ox,oy]=tileOrigin(T.NETHERRACK_TILE);const rnd=mulberry32(8001);
+ // cracked veins
+ ctx.fillStyle='#3a0808';
+ for(let i=0;i<8;i++){const sx=Math.floor(rnd()*14)*2,sy=Math.floor(rnd()*14)*2;
+   ctx.fillRect(ox+sx,oy+sy,4,2);ctx.fillRect(ox+sx+2,oy+sy+2,2,4);}
+ ctx.fillStyle='#c04030';for(let i=0;i<5;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+
+// ---- Glowstone (T.GLOWSTONE_TILE = 265) ----
+{const[ox,oy]=tileOrigin(T.GLOWSTONE_TILE);
+ // bright amber/gold glow pattern
+ ctx.fillStyle='#d4aa30';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);
+ const rnd=mulberry32(8002);
+ // glow cells
+ for(let y=0;y<TILE_PX;y+=8){for(let x=0;x<TILE_PX;x+=8){
+   ctx.fillStyle=['#e8c040','#f0d060','#c89020','#fce870'][Math.floor(rnd()*4)];
+   ctx.fillRect(ox+x+1,oy+y+1,6,6);
+   ctx.fillStyle='rgba(255,255,150,0.5)';ctx.fillRect(ox+x+2,oy+y+2,2,2);
+ }}
+ // separator lines
+ ctx.fillStyle='#a07010';
+ for(let y=0;y<TILE_PX;y+=8)ctx.fillRect(ox,oy+y,TILE_PX,1);
+ for(let x=0;x<TILE_PX;x+=8)ctx.fillRect(ox+x,oy,1,TILE_PX);}
+
+// ---- Quartz Ore (T.QUARTZ_ORE_TILE = 266) ----
+{noisy(T.QUARTZ_ORE_TILE,'#7a1a10',['#6a1508','#8c2018','#5c1008'],0.8);
+ const[ox,oy]=tileOrigin(T.QUARTZ_ORE_TILE);const rnd=mulberry32(8003);
+ for(let i=0;i<5;i++){const cx=4+Math.floor(rnd()*11)*2,cy=4+Math.floor(rnd()*11)*2;
+   ctx.fillStyle='#f0eee8';ctx.fillRect(ox+cx,oy+cy,4,4);
+   ctx.fillRect(ox+cx-2,oy+cy,2,2);ctx.fillRect(ox+cx+4,oy+cy+2,2,2);
+   ctx.fillStyle='#ffffff';ctx.fillRect(ox+cx,oy+cy,2,2);
+   ctx.fillStyle='#d0cec8';ctx.fillRect(ox+cx+2,oy+cy+2,2,2);}}
+
+// ---- Quartz Block (T.QUARTZ_BLOCK_TILE = 267) ----
+{const[ox,oy]=tileOrigin(T.QUARTZ_BLOCK_TILE);
+ noisy(T.QUARTZ_BLOCK_TILE,'#ece8e0',['#e0dcd4','#f5f3ee','#d8d4cc'],0.4);
+ const rnd=mulberry32(8004);
+ // subtle pillar lines
+ ctx.fillStyle='rgba(180,176,168,0.5)';
+ for(let x=0;x<TILE_PX;x+=8)ctx.fillRect(ox+x,oy,2,TILE_PX);
+ ctx.fillStyle='rgba(255,255,255,0.4)';ctx.fillRect(ox,oy,TILE_PX,2);}
+
+// ---- Soul Sand (T.SOUL_SAND_TILE = 268) ----
+{noisy(T.SOUL_SAND_TILE,'#4a3820',['#3e2e18','#584530','#362810'],0.8);
+ const[ox,oy]=tileOrigin(T.SOUL_SAND_TILE);const rnd=mulberry32(8005);
+ // ghostly faces embedded in sand
+ ctx.fillStyle='#2a1a08';
+ for(let i=0;i<3;i++){
+   const fx=4+Math.floor(rnd()*12)*2,fy=4+Math.floor(rnd()*12)*2;
+   ctx.fillRect(ox+fx,oy+fy,4,2);// eye left
+   ctx.fillRect(ox+fx+8,oy+fy,4,2);// eye right
+   ctx.fillRect(ox+fx+2,oy+fy+4,8,2);// mouth
+ }
+ ctx.fillStyle='rgba(100,180,200,0.15)';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);}
+
+// ---- Nether Portal (T.NETHER_PORTAL_TILE = 269) ----
+{const[ox,oy]=tileOrigin(T.NETHER_PORTAL_TILE);
+ ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+ // swirling purple/violet
+ const rnd=mulberry32(8006);
+ const cols=['#5020a0','#7030c0','#4010a0','#8040d0','#9050e0'];
+ for(let y=0;y<TILE_PX;y+=2){for(let x=0;x<TILE_PX;x+=2){
+   const wave=Math.sin((x+y)/4+rnd()*0.5)*0.5+0.5;
+   const ci=Math.floor(wave*cols.length)%cols.length;
+   ctx.fillStyle=cols[ci];ctx.fillRect(ox+x,oy+y,2,2);
+ }}
+ // shimmer lines
+ ctx.fillStyle='rgba(200,150,255,0.4)';
+ for(let y=0;y<TILE_PX;y+=4)ctx.fillRect(ox,oy+y,TILE_PX,1);}
+
+// ---- Nether Wart Block (T.NETHER_WART_TILE = 270) ----
+{noisy(T.NETHER_WART_TILE,'#8b1520',['#7a1018','#9c2030','#5e0c14'],0.75);
+ const[ox,oy]=tileOrigin(T.NETHER_WART_TILE);const rnd=mulberry32(8007);
+ ctx.fillStyle='#c03040';
+ for(let i=0;i<12;i++){ctx.fillRect(ox+Math.floor(rnd()*14)*2,oy+Math.floor(rnd()*14)*2,3,3);}}
+
+// ---- Sculk (T.SCULK_TILE = 271) ----
+{noisy(T.SCULK_TILE,'#0e2030',['#081820','#142838','#060c18','#1c3850'],0.85);
+ const[ox,oy]=tileOrigin(T.SCULK_TILE);const rnd=mulberry32(8010);
+ // cyan bio-luminescent tendrils
+ ctx.fillStyle='#00b8d4';
+ for(let i=0;i<10;i++){
+   const sx=Math.floor(rnd()*14)*2,sy=Math.floor(rnd()*14)*2;
+   ctx.fillRect(ox+sx,oy+sy,2,2+(rnd()<0.4?2:0));
+   if(rnd()<0.5)ctx.fillRect(ox+sx+2,oy+sy+2,2,2);
+ }
+ ctx.fillStyle='rgba(0,200,220,0.2)';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);}
+
+// ---- Sculk Vein (T.SCULK_VEIN_TILE = 272) ----
+{const[ox,oy]=tileOrigin(T.SCULK_VEIN_TILE);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+ const rnd=mulberry32(8011);
+ ctx.fillStyle='rgba(0,120,150,0.3)';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);
+ ctx.fillStyle='#008da0';
+ for(let i=0;i<8;i++){const sx=Math.floor(rnd()*15)*2,sy=Math.floor(rnd()*15)*2;
+   ctx.fillRect(ox+sx,oy+sy,2,2);}
+ ctx.fillStyle='rgba(0,200,240,0.4)';
+ for(let i=0;i<5;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+
+// ---- Sculk Catalyst (T.SCULK_CATALYST_TILE = 273) ----
+{noisy(T.SCULK_CATALYST_TILE,'#0a1820',['#060e14','#101e2a','#040a10'],0.9);
+ const[ox,oy]=tileOrigin(T.SCULK_CATALYST_TILE);const rnd=mulberry32(8012);
+ // glowing eye in center
+ ctx.fillStyle='#00c8e0';ctx.fillRect(ox+10,oy+10,12,12);
+ ctx.fillStyle='#00e8ff';ctx.fillRect(ox+12,oy+12,8,8);
+ ctx.fillStyle='#ffffff';ctx.fillRect(ox+14,oy+14,4,4);
+ // tendrils
+ ctx.fillStyle='#006080';
+ for(let i=0;i<8;i++){const sx=Math.floor(rnd()*14)*2,sy=Math.floor(rnd()*14)*2;
+   if(Math.abs(sx-16)>6||Math.abs(sy-16)>6)ctx.fillRect(ox+sx,oy+sy,2,2);}
+ // outer glow ring
+ ctx.fillStyle='rgba(0,180,220,0.25)';ctx.fillRect(ox+6,oy+6,20,20);
+ ctx.clearRect(ox+10,oy+10,12,12);
+ ctx.fillStyle='#00c8e0';ctx.fillRect(ox+10,oy+10,12,12);
+ ctx.fillStyle='#00e8ff';ctx.fillRect(ox+12,oy+12,8,8);}
+
+// ---- Sculk Shrieker (T.SCULK_SHRIEKER_TILE = 274) ----
+{noisy(T.SCULK_SHRIEKER_TILE,'#0c1c28',['#081018','#12202e','#060e16'],0.85);
+ const[ox,oy]=tileOrigin(T.SCULK_SHRIEKER_TILE);const rnd=mulberry32(8013);
+ // ribbed mouth-like opening
+ ctx.fillStyle='#001820';
+ for(let y=6;y<=20;y+=4){const w=8+Math.abs(y-14)*1.5;ctx.fillRect(ox+Math.floor(16-w/2),oy+y,Math.floor(w),3);}
+ // teeth spikes
+ ctx.fillStyle='#00b0c8';
+ for(let i=0;i<6;i++){ctx.fillRect(ox+6+i*4,oy+8,2,4);}
+ // cyan warning ring
+ ctx.fillStyle='rgba(0,180,200,0.3)';
+ for(let i=0;i<TILE_PX;i+=4){ctx.fillRect(ox+i,oy,2,2);ctx.fillRect(ox+i,oy+TILE_PX-2,2,2);}
+ for(let i=0;i<TILE_PX;i+=4){ctx.fillRect(ox,oy+i,2,2);ctx.fillRect(ox+TILE_PX-2,oy+i,2,2);}}
+
+// ---- End Stone (T.END_STONE_TILE = 275) ----
+{noisy(T.END_STONE_TILE,'#ddd8a0',['#ccc895','#e8e4b0','#c4c08a','#d8d498'],0.65);
+ const[ox,oy]=tileOrigin(T.END_STONE_TILE);const rnd=mulberry32(8020);
+ // yellowish-white porous texture
+ ctx.fillStyle='#b8b478';
+ for(let i=0;i<8;i++){const cx=4+Math.floor(rnd()*13)*2,cy=4+Math.floor(rnd()*13)*2;
+   ctx.fillRect(ox+cx,oy+cy,4,4);}
+ ctx.fillStyle='#f0eccc';
+ for(let i=0;i<6;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+
+// ---- End Stone Brick (T.END_STONE_BRICK_TILE = 276) ----
+{noisy(T.END_STONE_BRICK_TILE,'#d0ca90',['#c4be84','#dcd8a4','#bcb87e'],0.55);
+ const[ox,oy]=tileOrigin(T.END_STONE_BRICK_TILE);
+ // brick pattern on end stone
+ ctx.fillStyle='#a09860';
+ for(let y=0;y<TILE_PX;y+=8)ctx.fillRect(ox,oy+y,TILE_PX,2);
+ for(let y=0;y<TILE_PX;y+=16){ctx.fillRect(ox+16,oy+y+2,2,6);ctx.fillRect(ox,oy+y+10,2,6);ctx.fillRect(ox+30,oy+y+10,2,6);}}
+
+// ---- Purpur Block (T.PURPUR_TILE = 277) ----
+{noisy(T.PURPUR_TILE,'#7a4098',['#6e3488','#8850a8','#603080','#9060b0'],0.65);
+ const[ox,oy]=tileOrigin(T.PURPUR_TILE);const rnd=mulberry32(8022);
+ // pillar lines
+ ctx.fillStyle='rgba(100,40,130,0.5)';
+ for(let x=0;x<TILE_PX;x+=4)ctx.fillRect(ox+x,oy,2,TILE_PX);
+ ctx.fillStyle='rgba(180,120,220,0.3)';
+ for(let i=0;i<8;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,2,2);}
+
+// ---- Chorus Plant (T.CHORUS_PLANT_TILE = 278) ----
+{const[ox,oy]=tileOrigin(T.CHORUS_PLANT_TILE);ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+ const rnd=mulberry32(8023);
+ const cols=['#604080','#7050a0','#503070','#806090'];
+ // Branching structure
+ let px2=15,py2=TILE_PX-2;
+ ctx.fillStyle=cols[0];
+ for(let i=0;i<8;i++){ctx.fillRect(ox+px2,oy+py2,4,4);py2-=4;if(i%3===2){px2+=rnd()<0.5?-4:4;px2=Math.max(4,Math.min(TILE_PX-8,px2));}
+ }
+ ctx.fillStyle='#9070c0';ctx.fillRect(ox+12,oy+2,8,4);}
+
+// ---- End Portal (T.END_PORTAL_TILE = 279) ----
+{const[ox,oy]=tileOrigin(T.END_PORTAL_TILE);
+ ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+ const rnd=mulberry32(8024);
+ // Star-field portal effect
+ ctx.fillStyle='#040408';ctx.fillRect(ox,oy,TILE_PX,TILE_PX);
+ // Stars
+ ctx.fillStyle='#ffffff';
+ for(let i=0;i<20;i++)ctx.fillRect(ox+Math.floor(rnd()*TILE_PX),oy+Math.floor(rnd()*TILE_PX),1,1);
+ // Swirling green nebula
+ const nebulaCols=['rgba(0,150,80,0.5)','rgba(0,80,150,0.4)','rgba(100,0,150,0.3)'];
+ for(const c of nebulaCols){ctx.fillStyle=c;
+   for(let i=0;i<12;i++)ctx.fillRect(ox+Math.floor(rnd()*15)*2,oy+Math.floor(rnd()*15)*2,4,4);
+ }
+ ctx.fillStyle='rgba(0,200,120,0.3)';ctx.fillRect(ox+6,oy+6,20,20);}
+
+// ---- Dragon Egg (T.DRAGON_EGG_TILE = 280) ----
+{const[ox,oy]=tileOrigin(T.DRAGON_EGG_TILE);
+ ctx.clearRect(ox,oy,TILE_PX,TILE_PX);
+ // Egg shape (oval black with purple shimmer)
+ ctx.fillStyle='#0a060f';
+ ctx.beginPath();ctx.ellipse(ox+16,oy+16,12,14,0,0,Math.PI*2);ctx.fill();
+ const rnd=mulberry32(8025);
+ ctx.fillStyle='#3a1560';
+ for(let i=0;i<10;i++){const ex=ox+6+Math.floor(rnd()*20),ey=oy+4+Math.floor(rnd()*24);ctx.fillRect(ex,ey,2,2);}
+ ctx.fillStyle='rgba(150,50,255,0.4)';ctx.beginPath();ctx.ellipse(ox+13,oy+11,4,5,0,0,Math.PI*2);ctx.fill();}
+
 })();function tileUV(t){const col=t%ATLAS_TILES,row=Math.floor(t/ATLAS_TILES);const padU=0.5/ATLAS_W,padV=0.5/ATLAS_H;return{u1:col/ATLAS_TILES+padU,u2:(col+1)/ATLAS_TILES-padU,v1:1-(row+1)/ATLAS_ROWS+padV,v2:1-row/ATLAS_ROWS-padV,};}
 /* ---------------------------------------------------------------------------
  * Per-material tool textures (pickaxe / axe / shovel / hoe + stick).

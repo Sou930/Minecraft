@@ -83,7 +83,7 @@ if(player.hunger>=14&&player.hp<20){player.regenTimer+=dt;if(player.regenTimer>3
 // Lava burns: standing in / touching lava deals rapid damage.
 if(!player.flying&&(isInLava(0.2)||isInLava(0.9))){player.lavaTimer=(player.lavaTimer||0)+dt;if(player.lavaTimer>0.5){player.lavaTimer=0;if(typeof STATUS_EFFECTS==='undefined'||!STATUS_EFFECTS.isFireResistant())damage(3,'fire');}}else player.lavaTimer=0;
 if(typeof SFX!=='undefined'){if(inWaterBody&&!player._wasInWater)SFX.splash();player._wasInWater=inWaterBody;}
-updateCamera();updatePlayerModel(dt);updateMobs(dt);if(typeof updateAttackCooldown==='function')updateAttackCooldown(dt);if(typeof updateBoats==='function')updateBoats(dt);if(typeof updateMinecarts==='function')updateMinecarts(dt);if(typeof updateFishing==='function')updateFishing(dt);if(typeof updateCombatSystems==='function')updateCombatSystems(dt);updateTarget();updateMining(dt);document.getElementById('water-tint').style.opacity=inWaterHead?'1':'0';}
+updateCamera();updatePlayerModel(dt);updateMobs(dt);if(typeof updateAttackCooldown==='function')updateAttackCooldown(dt);if(typeof updateBoats==='function')updateBoats(dt);if(typeof updateMinecarts==='function')updateMinecarts(dt);if(typeof updateFishing==='function')updateFishing(dt);if(typeof updateCombatSystems==='function')updateCombatSystems(dt);updateTarget();updateMining(dt);if(typeof updateDimensions==='function')updateDimensions(dt);document.getElementById('water-tint').style.opacity=inWaterHead?'1':'0';}
 // Update camera position based on view mode
 function updateCamera(){const eyeX=player.pos.x,eyeY=player.pos.y+PLAYER.eye,eyeZ=player.pos.z;const view=(typeof cameraView!=='undefined')?cameraView:0;if(view===0){camera.position.set(eyeX,eyeY,eyeZ);camera.rotation.set(player.pitch,player.yaw,0);return;}
 const cp=Math.cos(player.pitch),sp=Math.sin(player.pitch),sy=Math.sin(player.yaw),cy=Math.cos(player.yaw);
@@ -168,6 +168,10 @@ async function bootstrap(){
   if(typeof applyHDShaderMode==='function'&&typeof SETTINGS!=='undefined'&&SETTINGS.hdShaderMode)applyHDShaderMode();
   worldReady=true;
   const lo=document.getElementById('loading-overlay');if(lo){lo.classList.add('hidden');setTimeout(()=>lo.remove(),450);}
+  // Init dimension UI after world is ready
+  if(typeof buildDimensionUI==='function')buildDimensionUI();
+  // Copy overworld world buffer so dimensions can restore it
+  if(typeof overworldWorld!=='undefined')overworldWorld.set(world);
 }
 if(isMobile){document.getElementById('start-help-pc').style.display='none';document.getElementById('start-help-mobile').style.display='block';}
 // Boot flow: if a world is already active (e.g. user reloaded mid-game), jump
