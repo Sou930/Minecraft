@@ -574,8 +574,108 @@ function generateClimateAndHeight(){
     heightMap[colIndex(x,z)]=Math.floor(Math.max(2,Math.min(WORLD_H-6,cur[colIndex(x,z)])));
   }}
 }
+// 3-B helpers: biome-boundary surface-block blending.
+// ---------------------------------------------------------------------------
+// biomeAt() returns a single deterministic biome id per column, so the surface
+// block chosen from it flips in a 1-block HARD edge at biome borders (grass→sand
+// with no transition) — even though the HEIGHT field is already smoothed there.
+// These two helpers let generateTerrainColumns() scatter a few blocks of the
+// neighbouring biome's surface near borders for a gradual, dithered transition.
+// biomeAt() itself is unchanged; blending only changes which EXISTING surface
+// block is placed, never the biome classification or thresholds.
+
+// Map a biome id to the surface block (y===h) it would place on an INLAND,
+// non-beach column. Mirrors the original else-if surface chain verbatim for the
+// biomes that reach it (SNOWY/OCEAN/SAVANNA/OASIS/CRYSTAL_PLAINS/WITHERED_FOREST/
+// CORAL_TIDELANDS → GRASS default), plus the self-handled biomes (DESERT/MESA/
+// VOLCANO/...) so they have a sensible surface when they appear as a SECONDARY
+// neighbour. Used for both the primary and the secondary in the blend, so both
+// sides come from one consistent table.
+function surfaceBlockFor(biome){
+  switch(biome){
+    case BIOME.SNOWY:return B.SNOW;
+    case BIOME.OCEAN:return B.SAND;
+    case BIOME.SAVANNA:return B.DRY_GRASS;
+    case BIOME.OASIS:return B.SAND;
+    case BIOME.DESERT:return B.SAND;
+    case BIOME.MESA:return B.SAND;
+    case BIOME.CRYSTAL_PLAINS:return B.CALCITE;
+    case BIOME.WITHERED_FOREST:return B.MOSS;
+    case BIOME.CORAL_TIDELANDS:return B.CORAL_SAND;
+    case BIOME.VOLCANO:return B.STONE;
+    default:return B.GRASS; // PLAINS/FOREST/JUNGLE/SWAMP/TAIGA/GIANT_FOREST/CHERRY/AUTUMN/FLOWER_FIELD/MANGROVE/MOUNTAINS/FLOATING_ISLES
+  }
+}
+
+// Report whether (x,z) sits near a biome boundary and which neighbour is
+// pressing in. `c` is accepted for signature symmetry with biomeAt() but is NOT
+// used: we read the precomputed biomeMap instead (see cost note below).
+//
+// Returns {primary, secondary, blend}:
+//   primary   – biome id at (x,z) (== biomeMap value, == biomeAt(x,z))
+//   secondary – the most frequent DIFFERENT biome among the 4 offset samples,
+//               or null when none differ (deep interior → no blending)
+//   blend     – 0..1, share of the 4 offset samples that differ from primary
+//
+// Cost / fast path: biomeMap is already fully populated for EVERY column by
+// generateClimateAndHeight() (which always runs before generateTerrainColumns)
+// and is the exact deterministic output of biomeAt(x,z). So instead of re-running
+// biomeAt() at the offset points (each call rebuilds the climate via ~13
+// fbm2/simplex evals → 52 evals/column, the expensive path the prompt warns
+// about), we just do 4 Uint8Array lookups. The vast interior (no neighbour
+// differs) returns immediately with blend=0; only the thin boundary band does
+// the tiny tally. Determinism is preserved because biomeMap is a pure function
+// of SEED — same SEED+coords always yields the same blend result.
+function biomeBlendAt(x,z,c){
+  const primary=biomeMap[colIndex(x,z)];
+  const D=4; // sample radius (blocks) — sets the transition band width (~4 blocks)
+  // Clamp to world bounds: an out-of-world offset just re-reads the edge column,
+  // which equals a neighbour of the same biome → does not count as differing.
+  const e=biomeMap[colIndex(Math.min(WORLD_W-1,x+D),z)];
+  const w=biomeMap[colIndex(Math.max(0,x-D),z)];
+  const s=biomeMap[colIndex(x,Math.min(WORLD_D-1,z+D))];
+  const n=biomeMap[colIndex(x,Math.max(0,z-D))];
+  const samples=[e,w,s,n];
+  let diff=0, secondary=null, bestCount=0;
+  // At most 4 distinct differing biomes → a nested pass is trivial and clear.
+  // Count each distinct differing biome once; pick the most frequent as secondary.
+  for(let i=0;i<4;i++){
+    const b=samples[i];
+    if(b===primary)continue;
+    let isFirst=true;
+    for(let j=0;j<i;j++)if(samples[j]===b){isFirst=false;break;}
+    if(!isFirst)continue;
+    let cnt=0;
+    for(let j=0;j<4;j++)if(samples[j]===b)cnt++;
+    diff+=cnt;
+    if(cnt>bestCount){bestCount=cnt;secondary=b;}
+  }
+  if(diff===0)return {primary:primary,secondary:null,blend:0};
+  return {primary:primary,secondary:secondary,blend:diff/4};
+}
+
 // Build terrain blocks for columns in the x-range [x0,x1).
-function generateTerrainColumns(x0,x1){for(let x=x0;x<x1;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];const biome=biomeMap[colIndex(x,z)];const beach=h<=SEA_LEVEL+1;
+function generateTerrainColumns(x0,x1){for(let x=x0;x<x1;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];const biome=biomeMap[colIndex(x,z)];
+// 3-A: Variable beach width driven by the local slope of the coastline.
+// heightMap is already fully populated for EVERY column by
+// generateClimateAndHeight() (which always runs before this), so probing the
+// 4-neighbour heights is just a cheap Int16Array lookup — no noise evals, safe
+// to do on all WORLD_W*WORLD_D columns. Cliffs dropping straight into the sea
+// (big height step) collapse to a near-zero beach band so the rock face meets
+// the water directly; gentle shelves get a wider sandy strip (up to +2 blocks
+// above SEA_LEVEL), matching how real coastlines fan out wider on flat shores.
+const hN=z>0?heightMap[colIndex(x,z-1)]:h;
+const hS=z<WORLD_D-1?heightMap[colIndex(x,z+1)]:h;
+const hE=x<WORLD_W-1?heightMap[colIndex(x+1,z)]:h;
+const hW=x>0?heightMap[colIndex(x-1,z)]:h;
+const slope=Math.max(Math.abs(h-hN),Math.abs(h-hS),Math.abs(h-hE),Math.abs(h-hW));
+const beachRange=slope>3?0:(slope>1?1:2);   // steep→0, mid→1, gentle→2
+const beach=h<=SEA_LEVEL+beachRange;
+// 3-B: biome-boundary blend for this column, computed ONCE here (4 cheap
+// biomeMap lookups) and reused at the surface block (y===h). beach above is
+// already final, so beach columns keep a cohesive sandy shoreline and skip the
+// inland biome blending entirely (priority: beach > biome blend).
+const blend=biomeBlendAt(x,z);
 const highRock=h>=SEA_LEVEL+38;            // bare stone above this on mountains (raised for taller terrain)
 const soilDepth=3+Math.floor(simplex2(x/6,z/6,301)*3);   // 3..5
 // Snow caps the loftiest peaks. With taller terrain, the snow line is higher
@@ -606,15 +706,31 @@ else if(biome===BIOME.CORAL_TIDELANDS&&y>=h-soilDepth&&y<h)id=B.CORAL_SAND;
 else if(y<h-soilDepth)id=B.STONE;
 else if(y<h)id=beach?B.SAND:B.DIRT;
 else{ // surface block (y===h)
-  if(beach)id=(biome===BIOME.SNOWY?B.SNOW:B.SAND);
-  else if(biome===BIOME.SNOWY)id=B.SNOW;
-  else if(biome===BIOME.OCEAN)id=B.SAND;   // ocean floor
-  else if(biome===BIOME.SAVANNA)id=B.DRY_GRASS;  // golden savanna grass
-  else if(biome===BIOME.OASIS)id=B.SAND;   // desert oasis pool/banks are sandy
-  else if(biome===BIOME.CRYSTAL_PLAINS)id=B.CALCITE;  // white calcite ground
-  else if(biome===BIOME.WITHERED_FOREST)id=B.MOSS;    // mossy grey ground
-  else if(biome===BIOME.CORAL_TIDELANDS)id=B.CORAL_SAND; // pink coral sand
-  else id=B.GRASS;
+  if(beach){
+    // Beach priority: coastal sand/snow stays cohesive (3-A slope-aware beach
+    // wins over 3-B biome blending so shorelines don't get speckled with inland
+    // grass at the waterline).
+    id=(biome===BIOME.SNOWY?B.SNOW:B.SAND);
+  }else if(biome===BIOME.OCEAN){
+    id=B.SAND;   // ocean floor
+  }else{
+    // Inland surface. Default to this column's biome surface; near a biome
+    // boundary (blend>0), deterministically dither in a few blocks of the
+    // neighbouring biome's surface so borders fade over ~4 blocks instead of
+    // snapping 1-block-wide. hash2 is pure SEED→coord (no Math.random), so the
+    // same column always picks the same block on regenerate. blend scales the
+    // chance: at the very edge (1/4 neighbours differ, blend=0.25) a block has
+    // ~12.5% odds of the secondary; a column ringed 2/4 by the neighbour has
+    // 25%. Only the surface (y===h) is blended for now — depth extension later.
+    const primaryBlk=surfaceBlockFor(blend.primary);
+    if(blend.secondary!==null){
+      const secondaryBlk=surfaceBlockFor(blend.secondary);
+      // salt 401: distinct from vegetation/ore streams; < blend*0.5 → secondary.
+      id=(hash2(x,z,401)<blend.blend*0.5)?secondaryBlk:primaryBlk;
+    }else{
+      id=primaryBlk;
+    }
+  }
 }
 world[blockIndex(x,y,z)]=id;}
 // Floating isles: void below (no water fill)
