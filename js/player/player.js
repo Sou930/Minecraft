@@ -214,6 +214,20 @@ if(currentTarget&&typeof REDSTONE!=='undefined'){if(REDSTONE.onInteract(currentT
 // Right-click a fence gate to toggle it open/closed
 if(currentTarget){const fgDef=BLOCKS[currentTarget.id];if(fgDef&&fgDef.fenceGate){clearInterval(actionInterval);const d=BLOCKS[currentTarget.id];const newOpen=!d.fenceGateOpen;// Create a modified version of the block with toggled open state
 const newDef=Object.assign({},d,{fenceGateOpen:newOpen});BLOCKS[currentTarget.id]=newDef;const cx2=Math.floor(currentTarget.x/CHUNK),cz2=Math.floor(currentTarget.z/CHUNK);buildChunk(cx2,cz2);return;}}
+// Dimension interactions: Sculk Shrieker alert
+if(currentTarget&&typeof onBlockInteractDimension==='function'){if(onBlockInteractDimension(currentTarget.x,currentTarget.y,currentTarget.z,currentTarget.id)){clearInterval(actionInterval);return;}}
+// Nether portal ignition: right-click on obsidian with a torch or empty hand near obsidian frame
+if(currentTarget&&currentTarget.id===B.OBSIDIAN&&typeof tryIgnitePortal==='function'){
+  const slot0=inventory[selectedSlot];
+  const isTorch=slot0&&slot0.id===B.TORCH;
+  if(isTorch||!slot0){
+    if(tryIgnitePortal(currentTarget.x,currentTarget.y,currentTarget.z)){clearInterval(actionInterval);return;}
+  }
+}
+// Deep Dark entry via sculk activation
+if(currentTarget&&(currentTarget.id===B.SCULK||currentTarget.id===B.SCULK_CATALYST)&&typeof tryEnterDeepDark==='function'){
+  if(tryEnterDeepDark(currentTarget.x,currentTarget.y,currentTarget.z)){clearInterval(actionInterval);return;}
+}
 // Right-click a copper block with an axe: polish (reduce oxidation by 1 stage)
 if(currentTarget){const copperDef=BLOCKS[currentTarget.id];if(copperDef&&copperDef.copper&&copperDef.oxidation>0){const slot2=inventory[selectedSlot];const tool2=slot2?toolDef(slot2.id):null;if(tool2&&tool2.toolClass==='axe'){clearInterval(actionInterval);const COPPER_STAGES=[B.COPPER,B.COPPER_EXPOSED,B.COPPER_WEATHERED,B.COPPER_OXIDIZED];const prevId=COPPER_STAGES[copperDef.oxidation-1];setBlock(currentTarget.x,currentTarget.y,currentTarget.z,prevId);if(typeof SFX!=='undefined')SFX.place(prevId);consumeToolDurability(currentTarget.id);return;}}}
 // Right-click a door (either half) to toggle open/closed. Both halves are

@@ -9,7 +9,11 @@ function isDoorOpen(id){const d=BLOCKS[id];return!!(d&&d.door&&d.doorOpen);}
 function isSlab(id){const d=BLOCKS[id];return!!(d&&d.slab);}
 function isFence(id){const d=BLOCKS[id];return!!(d&&(d.fence||d.fenceGate));}
 function isWall(id){const d=BLOCKS[id];return!!(d&&d.wall);}
-function isSolid(id){if(id===B.AIR||id===B.WATER||id===B.LAVA||id===B.SEAWEED)return false;if(isCrossPlant(id)||isCrop(id)||isBamboo(id)||isDoorOpen(id))return false;// flat redstone components are not solid (walkable through)
+function isSolid(id){if(id===B.AIR||id===B.WATER||id===B.LAVA||id===B.SEAWEED)return false;
+// Dimension portals are non-solid (walk-through trigger zones)
+if(typeof B.NETHER_PORTAL!=='undefined'&&id===B.NETHER_PORTAL)return false;
+if(typeof B.END_PORTAL!=='undefined'&&id===B.END_PORTAL)return false;
+if(isCrossPlant(id)||isCrop(id)||isBamboo(id)||isDoorOpen(id))return false;// flat redstone components are not solid (walkable through)
 if(id===B.LEVER||id===B.REDSTONE_DUST||id===B.REPEATER||id===B.PISTON_HEAD||id===B.PISTON_HEAD_STICKY)return false;
 // New non-solid blocks
 const _d=BLOCKS[id];if(_d&&(_d.sign||_d.itemFrame||_d.flowerPot||_d.torchWall||_d.torchCeiling))return false;

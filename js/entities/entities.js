@@ -1179,11 +1179,19 @@ let _attackCooldown=0;
 function tryPlayerAttack(){
   if(_attackCooldown>0)return false;
   const reach=isMobile?3.6:4.0;
-  const mob=pickAttackMob(reach);
-  if(!mob)return false;
   // Base damage 2; +damage when holding a tool (axe/pickaxe = weapon-ish).
   let dmg=2;const slot=(typeof inventory!=='undefined')?inventory[selectedSlot]:null;
   if(slot&&typeof isTool==='function'&&isTool(slot.id)){const td=toolDef(slot.id);const mat=(typeof TOOL_MATERIALS!=='undefined')?TOOL_MATERIALS[td.material]:null;dmg=2+(mat?mat.tier:1)*1.5;}
+  // Try to hit dimension bosses (Warden / Ender Dragon) first
+  if(typeof tryHitDimensionBoss==='function'&&typeof camera!=='undefined'){
+    const dir=camera.getDirection(BABYLON.Vector3.Forward());
+    const tx=camera.position.x+dir.x*reach;
+    const ty=camera.position.y+dir.y*reach;
+    const tz=camera.position.z+dir.z*reach;
+    if(tryHitDimensionBoss(tx,ty,tz,dmg)){_attackCooldown=0.45;return true;}
+  }
+  const mob=pickAttackMob(reach);
+  if(!mob)return false;
   attackMob(mob,dmg);
   _attackCooldown=0.45;
   return true;

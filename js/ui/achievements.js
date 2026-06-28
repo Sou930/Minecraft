@@ -24,6 +24,8 @@ const ACH = (function () {
     kill_slime: 0, slime_split: 0,
     // Diverse fauna
     kill_panda: 0, kill_camel: 0, kill_turtle: 0, kill_gecko: 0, kill_axolotl: 0, kill_armadillo: 0,
+    // Dimension achievements
+    nether_portal: 0, deep_dark_warden: 0, warden_defeated: 0, dragon_slain: 0,
   };
   const BIOME_FLAGS = ['biome_plains','biome_forest','biome_desert','biome_snowy','biome_mountains','biome_ocean','biome_jungle','biome_swamp','biome_mesa','biome_volcano'];
   const SPECIES_FLAGS = ['kill_pig','kill_sheep','kill_cow','kill_chicken'];
