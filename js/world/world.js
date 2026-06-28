@@ -319,7 +319,7 @@ function _placeFloatingIsland(cx,cy,cz,radius,thick,rng){
       if(biomeMap[colIndex(nx,nz)]!==BIOME.FLOATING_ISLES)continue;
 
       // Top surface: grass
-      const topY=cy+Math.floor(valueNoise(nx/8,nz/8,413)*2-0.5);
+      const topY=cy+Math.floor(simplex2(nx/8,nz/8,413)*2-0.5);
       if(topY<2||topY>=WORLD_H-1)continue;
       world[blockIndex(nx,topY,nz)]=B.GRASS;
 
@@ -349,7 +349,7 @@ function _placeFloatingIsland(cx,cy,cz,radius,thick,rng){
 
   // Place a small tree on some islands (probability based on noise)
   if(hash2(cx,cz,411)>0.45&&radius>=5){
-    const topY=cy+Math.floor(valueNoise(cx/8,cz/8,413)*2-0.5);
+    const topY=cy+Math.floor(simplex2(cx/8,cz/8,413)*2-0.5);
     const surf=world[blockIndex(cx,topY,cz)];
     if(surf===B.GRASS&&topY+7<WORLD_H){
       const trunkH=3+Math.floor(hash2(cx+1,cz+1,417)*2);
@@ -525,10 +525,10 @@ function generateClimateAndHeight(){
 // Build terrain blocks for columns in the x-range [x0,x1).
 function generateTerrainColumns(x0,x1){for(let x=x0;x<x1;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];const biome=biomeMap[colIndex(x,z)];const beach=h<=SEA_LEVEL+1;
 const highRock=h>=SEA_LEVEL+38;            // bare stone above this on mountains (raised for taller terrain)
-const soilDepth=3+Math.floor(valueNoise(x/6,z/6,301)*3);   // 3..5
+const soilDepth=3+Math.floor(simplex2(x/6,z/6,301)*3);   // 3..5
 // Snow caps the loftiest peaks. With taller terrain, the snow line is higher
 // so only genuine summits stay white year-round.
-const snowLine=SEA_LEVEL+64+Math.floor(valueNoise(x/5,z/5,303)*10);
+const snowLine=SEA_LEVEL+64+Math.floor(simplex2(x/5,z/5,303)*10);
 for(let y=0;y<=h&&y<WORLD_H;y++){let id;
 if(y===0)id=B.BEDROCK;
 else if(y<=2&&hash3(x,y,z,305)<0.6)id=B.BEDROCK;
@@ -540,13 +540,13 @@ else if(biome===BIOME.VOLCANO&&!beach){
   // Giant volcanic cones: smooth-basalt flanks, an obsidian-crusted upper
   // cone, and a glassy obsidian rim around the high summit/crater.
   if(y>=h-1&&h>=SEA_LEVEL+58)id=B.OBSIDIAN;
-  else if(y>=h-2&&h>=SEA_LEVEL+40)id=(valueNoise(x/5,z/5,311)>0.5?B.OBSIDIAN:B.SMOOTH_BASALT);
+  else if(y>=h-2&&h>=SEA_LEVEL+40)id=(simplex2(x/5,z/5,311)>0.5?B.OBSIDIAN:B.SMOOTH_BASALT);
   else if(y>=h-3)id=B.SMOOTH_BASALT;
   else id=B.STONE;
 }
 else if((biome===BIOME.MOUNTAINS)&&highRock){
-  if(y>=h){ if(h>=snowLine)id=B.SNOW; else if(valueNoise(x/4,z/4,307)>0.62)id=B.GRASS; else id=B.STONE; }
-  else if(y>=h-1&&h<snowLine&&valueNoise(x/4,z/4,307)>0.62)id=B.DIRT;
+  if(y>=h){ if(h>=snowLine)id=B.SNOW; else if(simplex2(x/4,z/4,307)>0.62)id=B.GRASS; else id=B.STONE; }
+  else if(y>=h-1&&h<snowLine&&simplex2(x/4,z/4,307)>0.62)id=B.DIRT;
   else id=B.STONE;
 }
 else if(biome===BIOME.CRYSTAL_PLAINS&&y>=h-soilDepth&&y<h)id=B.CALCITE;
@@ -570,10 +570,10 @@ if(biome!==BIOME.FLOATING_ISLES){for(let y=h+1;y<=SEA_LEVEL;y++)world[blockIndex
 if(biome===BIOME.SNOWY&&h<SEA_LEVEL)world[blockIndex(x,SEA_LEVEL,z)]=B.ICE;
 // VOLCANO crater lava lake: flood the summit bowl up to the rim with lava.
 if(biome===BIOME.VOLCANO){const lv=lavaLevelMap[colIndex(x,z)];if(lv>h){for(let y=h+1;y<=lv&&y<WORLD_H;y++)world[blockIndex(x,y,z)]=B.LAVA;}}}}}
-function carveCaves(){for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];const yMax=Math.min(h-4,WORLD_H-1);for(let y=2;y<=yMax;y++){const n1=valueNoise3(x/11,y/7,z/11,71);if(n1<=0.54)continue;if(n1>0.70){world[blockIndex(x,y,z)]=B.AIR;continue;}
-const n2=valueNoise3(x/23,y/13,z/23,73);if(n1>0.565&&n2>0.575)world[blockIndex(x,y,z)]=B.AIR;
+function carveCaves(){for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];const yMax=Math.min(h-4,WORLD_H-1);for(let y=2;y<=yMax;y++){const n1=simplex3(x/11,y/7,z/11,71);if(n1<=0.54)continue;if(n1>0.70){world[blockIndex(x,y,z)]=B.AIR;continue;}
+const n2=simplex3(x/23,y/13,z/23,73);if(n1>0.565&&n2>0.575)world[blockIndex(x,y,z)]=B.AIR;
 // secondary spaghetti cave layer for denser interconnected tunnels
-else{const n3=valueNoise3(x/17,y/9,z/17,77),n4=valueNoise3(x/31,y/15,z/31,79);if(n3>0.66&&n4>0.64)world[blockIndex(x,y,z)]=B.AIR;}}}}}
+else{const n3=simplex3(x/17,y/9,z/17,77),n4=simplex3(x/31,y/15,z/31,79);if(n3>0.66&&n4>0.64)world[blockIndex(x,y,z)]=B.AIR;}}}}}
 // Hollow out a block only if it is part of the solid underground (never the
 // surface skin or bedrock). Below y<=4 we leave a lava floor for atmosphere.
 function caveDig(x,y,z){if(x<1||x>=WORLD_W-1||z<1||z>=WORLD_D-1||y<=1||y>=WORLD_H)return;const h=heightMap[colIndex(x,z)];if(y>h-3)return;const cur=world[blockIndex(x,y,z)];if(cur===B.AIR||cur===B.WATER||cur===B.LAVA||cur===B.BEDROCK)return;world[blockIndex(x,y,z)]=(y<=4)?B.LAVA:B.AIR;}
@@ -591,7 +591,7 @@ function carveLargeCaves(){
     const cy=6+Math.floor(rng()*34);                         // deeper range
     const rx=10+Math.floor(rng()*12),ry=6+Math.floor(rng()*7),rz=10+Math.floor(rng()*12);
     for(let dx=-rx;dx<=rx;dx++)for(let dy=-ry;dy<=ry;dy++)for(let dz=-rz;dz<=rz;dz++){
-      const wob=valueNoise3((cx+dx)/9,(cy+dy)/9,(cz+dz)/9,201)*0.45;
+      const wob=simplex3((cx+dx)/9,(cy+dy)/9,(cz+dz)/9,201)*0.45;
       const d=(dx*dx)/(rx*rx)+(dy*dy)/(ry*ry)+(dz*dz)/(rz*rz);
       if(d<=1-wob+0.28)caveDig(cx+dx,cy+dy,cz+dz);
     }
@@ -672,13 +672,13 @@ function carveRavines(){
 
       // Vertical noise offsets the effective top/bottom at each segment so
       // the floor and ceiling are uneven and organic-looking.
-      const nTop=Math.round(valueNoise3(cx/22,0,cz/22,317)*8-4);
-      const nBot=Math.round(valueNoise3(cx/18,1,cz/18,319)*6-3);
+      const nTop=Math.round(simplex3(cx/22,0,cz/22,317)*8-4);
+      const nBot=Math.round(simplex3(cx/18,1,cz/18,319)*6-3);
       const segTop=Math.min(surfY-3,topY+nTop);
       const segBot=Math.max(2,botY+nBot);
 
       // Width also varies per segment using noise for organic edges
-      const wNoise=valueNoise3(cx/16,2,cz/16,321)*0.6+0.4; // 0.4..1.0
+      const wNoise=simplex3(cx/16,2,cz/16,321)*0.6+0.4; // 0.4..1.0
 
       for(let y=segBot;y<=segTop;y++){
         // Width tapers: widest at 40% up from the floor, narrow at top & bottom
@@ -688,7 +688,7 @@ function carveRavines(){
 
         // Horizontal cross-section is an ellipse on x/z, with noise wobble
         for(let dx=-w;dx<=w;dx++)for(let dz=-w;dz<=w;dz++){
-          const wob=valueNoise3((ix+dx)/8,(y)/12,(iz+dz)/8,323)*0.35;
+          const wob=simplex3((ix+dx)/8,(y)/12,(iz+dz)/8,323)*0.35;
           const dd=(dx*dx+dz*dz)/(w*w);
           if(dd>1+wob-0.1)continue;
           caveDig(ix+dx,y,iz+dz);
@@ -755,7 +755,7 @@ function carveCaveFeatures(){
     const rx=10+Math.floor(rng()*10),ry=6+Math.floor(rng()*5),rz=10+Math.floor(rng()*10);
     if(heightMap[colIndex(cx,cz)]<cy+ry+4)continue;
     for(let dx=-rx;dx<=rx;dx++)for(let dy=-ry;dy<=ry;dy++)for(let dz=-rz;dz<=rz;dz++){
-      const wob=valueNoise3((cx+dx)/8,(cy+dy)/8,(cz+dz)/8,211)*0.4;
+      const wob=simplex3((cx+dx)/8,(cy+dy)/8,(cz+dz)/8,211)*0.4;
       const d=(dx*dx)/(rx*rx)+(dy*dy)/(ry*ry)+(dz*dz)/(rz*rz);
       if(d<=1-wob+0.22)caveDig(cx+dx,cy+dy,cz+dz);
     }
@@ -770,7 +770,7 @@ function carveCaveFeatures(){
     const rx=12+Math.floor(rng()*10),ry=5+Math.floor(rng()*4),rz=12+Math.floor(rng()*10);
     if(heightMap[colIndex(cx,cz)]<cy+ry+6)continue;
     for(let dx=-rx;dx<=rx;dx++)for(let dy=-ry;dy<=ry;dy++)for(let dz=-rz;dz<=rz;dz++){
-      const wob=valueNoise3((cx+dx)/9,(cy+dy)/9,(cz+dz)/9,221)*0.4;
+      const wob=simplex3((cx+dx)/9,(cy+dy)/9,(cz+dz)/9,221)*0.4;
       const d=(dx*dx)/(rx*rx)+(dy*dy)/(ry*ry)+(dz*dz)/(rz*rz);
       if(d<=1-wob+0.28)caveDig(cx+dx,cy+dy,cz+dz);
     }
@@ -785,7 +785,7 @@ function carveCaveFeatures(){
     const rx=12+Math.floor(rng()*10),ry=5+Math.floor(rng()*4),rz=12+Math.floor(rng()*10);
     if(heightMap[colIndex(cx,cz)]<cy+ry+6)continue;
     for(let dx=-rx;dx<=rx;dx++)for(let dy=-ry;dy<=ry;dy++)for(let dz=-rz;dz<=rz;dz++){
-      const wob=valueNoise3((cx+dx)/9,(cy+dy)/9,(cz+dz)/9,231)*0.4;
+      const wob=simplex3((cx+dx)/9,(cy+dy)/9,(cz+dz)/9,231)*0.4;
       const d=(dx*dx)/(rx*rx)+(dy*dy)/(ry*ry)+(dz*dz)/(rz*rz);
       if(d<=1-wob+0.28)caveDig(cx+dx,cy+dy,cz+dz);
     }
@@ -840,7 +840,7 @@ function placeCaveBiomes(){
 
     // Carve the chamber
     for(let dx=-rx;dx<=rx;dx++)for(let dy=-ry;dy<=ry;dy++)for(let dz=-rz;dz<=rz;dz++){
-      const wob=valueNoise3((cx+dx)/9,(cy+dy)/9,(cz+dz)/9,411)*0.42;
+      const wob=simplex3((cx+dx)/9,(cy+dy)/9,(cz+dz)/9,411)*0.42;
       const d=(dx*dx)/(rx*rx)+(dy*dy)/(ry*ry)+(dz*dz)/(rz*rz);
       if(d<=1-wob+0.24)caveDig(cx+dx,cy+dy,cz+dz);
     }
@@ -927,14 +927,14 @@ function placeCaveBiomes(){
 
     // Carve the chamber — more irregular (higher wobble) for the jagged look
     for(let dx=-rx;dx<=rx;dx++)for(let dy=-ry;dy<=ry;dy++)for(let dz=-rz;dz<=rz;dz++){
-      const wob=valueNoise3((cx+dx)/7,(cy+dy)/7,(cz+dz)/7,511)*0.50;
+      const wob=simplex3((cx+dx)/7,(cy+dy)/7,(cz+dz)/7,511)*0.50;
       const d=(dx*dx)/(rx*rx)+(dy*dy)/(ry*ry)+(dz*dz)/(rz*rz);
       if(d<=1-wob+0.28)caveDig(cx+dx,cy+dy,cz+dz);
     }
 
     // Line chamber walls/ceiling/floor with calcite (limestone banding)
     for(let dx=-rx-1;dx<=rx+1;dx++)for(let dy=-ry-1;dy<=ry+1;dy++)for(let dz=-rz-1;dz<=rz+1;dz++){
-      const wob=valueNoise3((cx+dx)/7,(cy+dy)/7,(cz+dz)/7,511)*0.50;
+      const wob=simplex3((cx+dx)/7,(cy+dy)/7,(cz+dz)/7,511)*0.50;
       const d=(dx*dx)/(rx*rx)+(dy*dy)/(ry*ry)+(dz*dz)/(rz*rz);
       const onWall=d>1-wob+0.28&&d<=1-wob+0.55;
       if(!onWall)continue;
@@ -1051,7 +1051,7 @@ function buildGeode(cx,cy,cz,r,rng){
   for(let dx=-outer;dx<=outer;dx++)for(let dy=-outer;dy<=outer;dy++)for(let dz=-outer;dz<=outer;dz++){
     const x=cx+dx,y=cy+dy,z=cz+dz;
     if(x<1||x>=WORLD_W-1||y<1||y>=WORLD_H-1||z<1||z>=WORLD_D-1)continue;
-    const wob=valueNoise3(x/6,y/6,z/6,241)*0.6;
+    const wob=simplex3(x/6,y/6,z/6,241)*0.6;
     const dist=Math.sqrt(dx*dx+dy*dy+dz*dz)+wob;
     if(dist>outer+0.5)continue;
     if(dist>mid+0.5){ if(getBlock(x,y,z)!==B.BEDROCK)world[blockIndex(x,y,z)]=B.SMOOTH_BASALT; }
@@ -1094,7 +1094,7 @@ if(y<=50&&hash3(cx,cy,cz,92)<0.028){world[blockIndex(x,y,z)]=B.IRON_ORE;continue
 if(y>=14&&hash3(cx,cy,cz,91)<0.04){world[blockIndex(x,y,z)]=B.COAL_ORE;continue;}
 if(hash3(cx,cy,cz,95)<0.022)world[blockIndex(x,y,z)]=B.GRAVEL;
 }
-if(h<=SEA_LEVEL+2&&valueNoise(x/9,z/9,57)>0.76){for(let y=Math.max(1,h-1);y<=h;y++)
+if(h<=SEA_LEVEL+2&&simplex2(x/9,z/9,57)>0.76){for(let y=Math.max(1,h-1);y<=h;y++)
 if(world[blockIndex(x,y,z)]===B.SAND||world[blockIndex(x,y,z)]===B.DIRT)
 world[blockIndex(x,y,z)]=B.GRAVEL;}}}
 // Volcanic extras: sulfur blocks & cooled lava rock near volcano craters.
@@ -1456,7 +1456,7 @@ function placeBamboo(){
     if(world[blockIndex(x,h,z)]!==B.GRASS)continue;   // only on grassy ground
     if(world[blockIndex(x,h+1,z)]!==B.AIR)continue;   // keep clear of trunks/leaves
     // Grove mask: smooth blobs across the jungle become dense bamboo thickets.
-    const grove=valueNoise(x/26,z/26,401);
+    const grove=simplex2(x/26,z/26,401);
     if(grove<0.58)continue;                            // outside a grove -> bare
     // Within a grove, fill most columns but leave organic gaps.
     const local=(grove-0.58)/0.42;                     // 0..1 toward grove centre
@@ -1656,7 +1656,7 @@ function placeSkyIslands(){
     for(let dx=-rx;dx<=rx;dx++)for(let dy=-ry;dy<=ry;dy++)for(let dz=-rz;dz<=rz;dz++){
       const wx=cx+dx,wy=cy+dy,wz=cz+dz;
       if(wx<1||wx>=WORLD_W-1||wy<2||wy>=WORLD_H-1||wz<1||wz>=WORLD_D-1)continue;
-      const wob=valueNoise3(wx/8,wy/8,wz/8,SEED+991)*0.55;
+      const wob=simplex3(wx/8,wy/8,wz/8,SEED+991)*0.55;
       const d=(dx*dx)/(rx*rx)+(dy*dy)/(ry*ry)+(dz*dz)/(rz*rz);
       if(d>1-wob+0.35)continue;
       if(world[blockIndex(wx,wy,wz)]!==B.AIR)continue;
