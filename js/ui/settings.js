@@ -50,7 +50,7 @@ const I18N = {
     renamePrompt:'New world name:', defaultWorldName:'My World',
     deleteConfirm:'Delete this world? This cannot be undone.',
     home:'Home', screenshotMode:'Screenshot mode (P)', exit:'Exit',
-    bedDayOnly:'🛏 You can only sleep at night', bedSlept:'🛏 Good morning! You slept through the night.',
+    bedDayOnly:'🛏 You can only sleep at night', bedSlept:'🛏 Good morning! You slept through the night.', bedSpawnSet:'🛏 Respawn point set',
   },
   ja: {
     langName:'日本語',
@@ -91,7 +91,7 @@ const I18N = {
     renamePrompt:'新しいワールド名：', defaultWorldName:'マイワールド',
     deleteConfirm:'このワールドを削除しますか？元に戻せません。',
     home:'ホーム', screenshotMode:'スクリーンショットモード (P)', exit:'終了',
-    bedDayOnly:'🛏 夜にしか眠れません', bedSlept:'🛏 おはよう！朝まで眠りました。',
+    bedDayOnly:'🛏 夜にしか眠れません', bedSlept:'🛏 おはよう！朝まで眠りました。', bedSpawnSet:'🛏 リスポーン地点を設定しました',
   },
 };
 const LANG_ORDER=['en','ja'];

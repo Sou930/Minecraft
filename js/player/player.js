@@ -260,7 +260,14 @@ if(typeof mobs!=='undefined'&&typeof openVillagerTradeUI==='function'){
   for(const mob of (typeof villagers!=='undefined'?[...villagers,...mobs]:mobs)){
     if(!mob||mob.dead||!mob.t||!mob.t.villager)continue;
     const dx=mob.pos.x-player.pos.x,dy=mob.pos.y-player.pos.y,dz=mob.pos.z-player.pos.z;
-    if(dx*dx+dy*dy+dz*dz<reach*reach){clearInterval(actionInterval);openVillagerTradeUI(mob.villagerProfession||'Farmer',mob);return;}
+    if(dx*dx+dy*dy+dz*dz<reach*reach){
+      // Feeding bread/apple to a villager triggers love mode (breeding) instead
+      // of opening the trade UI, Minecraft-style. Empty hand → trade UI.
+      if(slot&&typeof tryFeedVillager==='function'&&tryFeedVillager(mob,slot.id)){
+        clearInterval(actionInterval);consumeFromSlot(selectedSlot,1);return;
+      }
+      clearInterval(actionInterval);openVillagerTradeUI(mob.villagerProfession||'Farmer',mob);return;
+    }
   }
 }
 // Feeding raw meat to a wolf you're aiming at tames / heals it instead of
@@ -410,7 +417,20 @@ function damage(amount){if(player.dead||amount<=0)return;player.hp=Math.max(0,pl
 function die(){player.dead=true;document.getElementById('death-overlay').style.display='flex';setTimeout(()=>{respawn();document.getElementById('death-overlay').style.display='none';},1600);}
 // Set the respawn point to a placed bed (Minecraft-style). Spawns the player on
 // top of the bed block on death/respawn instead of the original world spawn.
-function setBedSpawn(x,y,z){if(typeof spawnPoint==='undefined'||!spawnPoint)return;spawnPoint.set(x+0.5,y+1,z+0.5);}
+// The new spawn point is persisted immediately so it survives a reload.
+function setBedSpawn(x,y,z){
+  if(typeof spawnPoint==='undefined'||!spawnPoint)return;
+  spawnPoint.set(x+0.5,y+1,z+0.5);
+  // Persist right away so the bed spawn survives reloads/crashes.
+  if(typeof savePlayerState==='function')savePlayerState();
+  // Minecraft-style "Respawn point set" feedback.
+  if(typeof showBedMessage==='function'){
+    showBedMessage(typeof t==='function'?t('bedSpawnSet'):'🛏 Respawn point set');
+  }else{
+    const el=document.getElementById('tool-break-msg');
+    if(el){el.textContent='🛏 Respawn point set';el.style.opacity='1';clearTimeout(el._t);el._t=setTimeout(()=>{el.style.opacity='0';},1800);}
+  }
+}
 function respawn(){if(typeof ridingBoat!=='undefined'&&ridingBoat){ridingBoat=null;if(typeof _showBoatHint==='function')_showBoatHint(false);}if(typeof ridingCart!=='undefined'&&ridingCart){ridingCart=null;if(typeof _showCartHint==='function')_showCartHint(false);}if(typeof cancelFishing==='function')cancelFishing();player.pos.copyFrom(spawnPoint);player.vel.set(0,0,0);player.hp=20;player.hunger=20;player.dead=false;player.fallStartY=null;player.pose=POSE.STAND;player.wantCrouch=false;applyPose();mining.active=false;resetMining();updateVitalsUI();updatePoseUI();}
 // Hold-to-crouch. wantCrouch tracks the player's intent; the actual pose
 // only returns to STAND when there is enough headroom to stand up.
