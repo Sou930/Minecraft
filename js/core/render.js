@@ -593,11 +593,18 @@ function savePlayerState(){
   // Don't persist a dead/invalid state; respawn() restores a sane pose first.
   if(player.dead)return;
   try{
-    WORLDS.setItem('player',JSON.stringify({
+    const data={
       x:player.pos.x, y:player.pos.y, z:player.pos.z,
       yaw:player.yaw, pitch:player.pitch,
       hp:player.hp, hunger:player.hunger,
-    }));
+    };
+    // Persist the bed spawn point so sleeping + reload keeps the respawn at
+    // the bed (Minecraft-style). Stored alongside the player position so a
+    // reset also clears it.
+    if(typeof spawnPoint!=='undefined'&&spawnPoint){
+      data.spawnX=spawnPoint.x;data.spawnY=spawnPoint.y;data.spawnZ=spawnPoint.z;
+    }
+    WORLDS.setItem('player',JSON.stringify(data));
   }catch(e){}
 }
 // Restore the saved position. Returns true if a valid saved state was applied,
@@ -614,6 +621,10 @@ function loadPlayerState(){
   if(typeof d.pitch==='number')player.pitch=Math.max(-1.55,Math.min(1.55,d.pitch));
   if(typeof d.hp==='number')player.hp=Math.max(1,Math.min(20,d.hp));
   if(typeof d.hunger==='number')player.hunger=Math.max(0,Math.min(20,d.hunger));
+  // Restore the saved bed spawn point (if any) so respawn goes to the bed.
+  if(typeof spawnPoint!=='undefined'&&spawnPoint&&typeof d.spawnX==='number'&&typeof d.spawnY==='number'&&typeof d.spawnZ==='number'){
+    spawnPoint.set(d.spawnX,d.spawnY,d.spawnZ);
+  }
   return true;
 }
 function playerAABB(pos){return{minX:pos.x-PLAYER.halfW,maxX:pos.x+PLAYER.halfW,minY:pos.y,maxY:pos.y+PLAYER.height,minZ:pos.z-PLAYER.halfW,maxZ:pos.z+PLAYER.halfW,};}

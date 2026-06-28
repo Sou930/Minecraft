@@ -54,6 +54,16 @@ const MOB_TYPES={
            pants:'#4a3520',     // dark robe bottom
            speed:1.2, hp:20, sightRange:12, drops:[], wanderRadius:14,
            professions:['Farmer','Librarian','Blacksmith','Butcher','Priest']},
+  // --- Iron Golem – village protector NPC ------------------------------------
+  // Spawns automatically when a village comes under threat (3+ panicking
+  // villagers). Wanders near its home village and attacks any hostile mob
+  // within sight. Does not attack the player unless provoked.
+  iron_golem:{name:'Iron Golem', emoji:'🤖', humanoid:true, hostile:false, golem:true,
+           skin:'#c8c8c8',       // iron body
+           shirt:'#a8a8a8',     // iron torso
+           pants:'#888888',     // iron legs
+           speed:1.0, hp:100, sightRange:18, drops:[{id:14,min:3,max:5}],
+           attackDamage:8, attackRange:2.2, attackCooldown:1.2, wanderRadius:20},
 };
 
 // Build a bipedal humanoid mesh (zombie / skeleton / villager style)
@@ -92,7 +102,43 @@ function buildHumanoidMesh(type){
     makePart(legL,'legL',[legW,legH,legD],[0,-legH/2,0],t.pants,parts);legs.push(legL);
     const legR=new BABYLON.TransformNode('legPivotR',scene);legR.parent=root;legR.position.set(legW/2+0.01,legH,0);
     makePart(legR,'legR',[legW,legH,legD],[0,-legH/2,0],t.pants,parts);legs.push(legR);
+    // Profession-specific hat is attached lazily in spawnMob() (we know the
+    // profession there but not here); a head "hatNode" is exposed so the
+    // profession hat can be parented later without rebuilding the mesh.
+    headGroup._villagerHead=true;
     return {root,legs,head:headGroup,bodyH:legH,parts,wings:[],arms:[armL,armR],humanoid:true};
+  }
+
+  // Iron Golem: tall iron-body humanoid with broad shoulders, stubby legs and
+  // long arms. Visually distinct from villagers (no robe, no nose) so players
+  // instantly recognise the village defender.
+  if(type==='iron_golem'){
+    const golemLegH=0.9,golemTorsoH=1.0,golemTorsoW=0.6,golemTorsoD=0.4,ghs=0.5;
+    const gTorso=makePart(root,'gtorso',[golemTorsoW,golemTorsoH,golemTorsoD],[0,golemLegH+golemTorsoH/2,0],'#a8a8a8',parts);
+    // Iron head — slightly bigger, with two dark eye slits and a "nose" bolt.
+    const gHead=new BABYLON.TransformNode('ghead',scene);gHead.parent=root;
+    gHead.position.set(0,golemLegH+golemTorsoH+ghs/2-0.02,0);
+    makePart(gHead,'gheadbox',[ghs,ghs,ghs],[0,0,0],'#c8c8c8',parts);
+    makePart(gHead,'geyeL',[ghs*0.2,ghs*0.16,0.04],[-ghs*0.22,ghs*0.08,ghs*0.5],'#1a1a1a',parts);
+    makePart(gHead,'geyeR',[ghs*0.2,ghs*0.16,0.04],[ ghs*0.22,ghs*0.08,ghs*0.5],'#1a1a1a',parts);
+    makePart(gHead,'gnose',[ghs*0.16,ghs*0.3,ghs*0.2],[0,-ghs*0.05,ghs*0.55],'#888888',parts);
+    // Crack lines on torso (weathered iron look)
+    makePart(root,'gcrack',[golemTorsoW*0.5,0.04,0.04],[-golemTorsoW*0.15,golemLegH+golemTorsoH*0.45,golemTorsoD*0.5],'#5a5a5a',parts);
+    // Broad iron shoulders
+    makePart(root,'gshoulder',[golemTorsoW+0.18,0.16,golemTorsoD+0.08],[0,golemLegH+golemTorsoH-0.06,0],'#909090',parts);
+    // Long arms hanging down
+    const gArmW=0.2,gArmH=0.85,gArmD=0.22;const gShoulderY=golemLegH+golemTorsoH-0.1;
+    const gArmL=new BABYLON.TransformNode('gArmLp',scene);gArmL.parent=root;gArmL.position.set(-(golemTorsoW/2+gArmW/2),gShoulderY,0);
+    makePart(gArmL,'garmL',[gArmW,gArmH,gArmD],[0,-gArmH/2,0],'#b0b0b0',parts);
+    const gArmR=new BABYLON.TransformNode('gArmRp',scene);gArmR.parent=root;gArmR.position.set((golemTorsoW/2+gArmW/2),gShoulderY,0);
+    makePart(gArmR,'garmR',[gArmW,gArmH,gArmD],[0,-gArmH/2,0],'#b0b0b0',parts);
+    // Stubby legs
+    const gLegW=0.26,gLegD=0.28;const gLegs=[];
+    const gLegL=new BABYLON.TransformNode('gLegPivotL',scene);gLegL.parent=root;gLegL.position.set(-gLegW/2-0.02,golemLegH,0);
+    makePart(gLegL,'glegL',[gLegW,golemLegH,gLegD],[0,-golemLegH/2,0],'#888888',parts);gLegs.push(gLegL);
+    const gLegR=new BABYLON.TransformNode('gLegPivotR',scene);gLegR.parent=root;gLegR.position.set(gLegW/2+0.02,golemLegH,0);
+    makePart(gLegR,'glegR',[gLegW,golemLegH,gLegD],[0,-golemLegH/2,0],'#888888',parts);gLegs.push(gLegR);
+    return {root,legs:gLegs,head:gHead,bodyH:golemLegH,parts,wings:[],arms:[gArmL,gArmR],humanoid:true};
   }
 
   // Glowing eyes: red for the ghoul, dark sockets for the skeleton archer.
@@ -300,8 +346,59 @@ function spawnVillagersAtVillages(placedVillages){
       mob.homeX=v.x; mob.homeZ=v.z;   // village centre as home
       mob.neverDespawn=true;
       mob.greetCooldown=0;
+      mob.tradeLevel=1;
+      mob.tradeCount=0;
+      mob.loveTimer=0;
+      if(typeof applyVillagerProfessionHat==='function')applyVillagerProfessionHat(mob,prof);
       villagers.push(mob);
     }
+  }
+}
+
+// ---- Villager Breeding ----------------------------------------------------
+// When fed (right-clicked with bread), a villager enters "love mode" for 20s.
+// Two nearby loving villagers spawn a baby villager (Minecraft-style). This
+// lets the player grow a village's population beyond the initial spawn.
+function tryFeedVillager(mob,foodId){
+  if(!mob||mob.dead||!mob.t||!mob.t.villager)return false;
+  // Only bread (and apples) trigger love mode, matching Minecraft's breeding
+  // food for villagers.
+  const isLoveFood=(foodId===ITEM_BREAD)||(typeof ITEM_APPLE!=='undefined'&&foodId===ITEM_APPLE);
+  if(!isLoveFood)return false;
+  mob.loveTimer=20.0;
+  if(typeof showFloatingText==='function')showFloatingText(mob.pos.x,mob.pos.y+2.2,mob.pos.z,'❤');
+  // Check for another loving villager nearby to produce a baby.
+  _tryVillagerBreed(mob);
+  return true;
+}
+function _tryVillagerBreed(mob){
+  if(!mob||mob.loveTimer<=0)return;
+  for(const other of villagers){
+    if(other===mob||other.dead||!other.loveTimer||other.loveTimer<=0)continue;
+    const dx=other.pos.x-mob.pos.x,dz=other.pos.z-mob.pos.z;
+    if(dx*dx+dz*dz>5*5)continue;
+    // Cap total villagers so breeding can't explode the entity count.
+    if(villagers.length>=40)break;
+    // Spawn a baby villager between the two parents.
+    const bx=Math.floor((mob.pos.x+other.pos.x)/2);
+    const bz=Math.floor((mob.pos.z+other.pos.z)/2);
+    const by=spawnHeightAt(bx,bz);
+    if(by===null)break;
+    const profs=MOB_TYPES.villager.professions;
+    const prof=profs[Math.floor(Math.random()*profs.length)];
+    const baby=spawnMob('villager',bx,by,bz);
+    baby.villagerProfession=prof;
+    baby.homeX=mob.homeX;baby.homeZ=mob.homeZ;
+    baby.neverDespawn=true;
+    baby.greetCooldown=0;
+    baby.tradeLevel=1;baby.tradeCount=0;baby.loveTimer=0;
+    baby.babyTimer=120;  // 2 minutes to grow up
+    if(typeof applyVillagerProfessionHat==='function')applyVillagerProfessionHat(baby,prof);
+    villagers.push(baby);
+    // Consume love mode on both parents.
+    mob.loveTimer=0;other.loveTimer=0;
+    if(typeof showFloatingText==='function')showFloatingText(bx,by+2.2,bz,'👶');
+    break;
   }
 }
 
@@ -309,6 +406,34 @@ function spawnVillagersAtVillages(placedVillages){
 function updateVillager(mob,dt){
   if(mob.dead)return;
   mob.greetCooldown=Math.max(0,mob.greetCooldown-dt);
+
+  // Love mode timer (breeding) and baby growth timer.
+  if(mob.loveTimer>0){
+    mob.loveTimer-=dt;
+    if(mob.loveTimer<0)mob.loveTimer=0;
+    // Heart particle every ~1s while in love mode.
+    mob._lovePtcTimer=(mob._lovePtcTimer||0)+dt;
+    if(mob._lovePtcTimer>=1.0){
+      mob._lovePtcTimer=0;
+      if(typeof spawnHeartParticles==='function')spawnHeartParticles(mob.pos);
+    }
+    // Try to breed whenever another loving villager is near.
+    _tryVillagerBreed(mob);
+  }
+  // Baby villager: smaller scale, grows up after babyTimer reaches 0.
+  if(mob.babyTimer>0){
+    mob.babyTimer-=dt;
+    if(mob.meshes&&mob.meshes.root){
+      // Baby is ~60% size; grow toward full size as the timer runs out.
+      const growF=Math.max(0,1-mob.babyTimer/120);
+      const sc=0.6+0.4*growF;
+      mob.meshes.root.scaling.set(sc,sc,sc);
+    }
+    if(mob.babyTimer<=0){
+      mob.babyTimer=0;
+      if(mob.meshes&&mob.meshes.root)mob.meshes.root.scaling.set(1,1,1);
+    }
+  }
 
   const dx=mob.pos.x-player.pos.x,dz=mob.pos.z-player.pos.z;
   const distSq=dx*dx+dz*dz;
@@ -321,12 +446,17 @@ function updateVillager(mob,dt){
     const hsq=hx*hx+hz*hz;
     if(hsq<6*6&&hsq<nearestHostileSq){nearestHostileSq=hsq;nearbyHostile=m;}
   }
+  // Iron golems also count as a threat villagers flee from? No — golems
+  // protect villagers, so villagers do NOT flee from them. Only hostiles.
   if(nearbyHostile){
     // Run away from the threat
     const fhx=mob.pos.x-nearbyHostile.pos.x,fhz=mob.pos.z-nearbyHostile.pos.z;
     mob.targetYaw=Math.atan2(fhx,fhz);
     mob.moving=true;mob.wanderTimer=1.0;
+    // Panic flag lets the golem-spawn system count panicking villagers.
+    mob.panicTimer=5.0;
   } else {
+    mob.panicTimer=Math.max(0,(mob.panicTimer||0)-dt);
     // Normal wandering within home radius
     const hdx=mob.pos.x-(mob.homeX||mob.pos.x),hdz=mob.pos.z-(mob.homeZ||mob.pos.z);
     const homeDist=Math.hypot(hdx,hdz);
@@ -345,6 +475,50 @@ function updateVillager(mob,dt){
     // Show greeting popup
     const prof=mob.villagerProfession||'Villager';
     if(typeof showVillagerGreeting==='function')showVillagerGreeting(prof,mob);
+  }
+}
+
+// ---- Villager Profession Hats ---------------------------------------------
+// Each profession gets a distinctive hat so players can recognise a villager's
+// trade table at a glance (Minecraft-style). Attached lazily to the head node
+// after spawn so we don't need a separate mesh builder per profession.
+const VILLAGER_PROFESSION_HATS={
+  Farmer:    {type:'straw',  color:'#d8c060', emoji:'🌾'},  // wide straw hat
+  Librarian: {type:'cap',    color:'#f0f0f0', emoji:'📚'},  // white scholar cap + book
+  Blacksmith:{type:'apron',  color:'#3a3a3a', emoji:'⚒'},  // blacksmith apron/baldric
+  Butcher:   {type:'cap',    color:'#c8c8c8', emoji:'🥩'},  // white butcher cap
+  Priest:    {type:'hood',   color:'#e8e8e8', emoji:'⭐'},  // white priest hood
+};
+function applyVillagerProfessionHat(mob,profession){
+  if(!mob||!mob.meshes||!mob.meshes.head)return;
+  const hat=VILLAGER_PROFESSION_HATS[profession];
+  if(!hat)return;
+  const head=mob.meshes.head;const hs=0.46;const parts=mob.meshes.parts;
+  // Remove any previous hat parts (re-applying a profession).
+  if(mob._hatParts){for(const p of mob._hatParts){if(p.dispose)p.dispose();}mob._hatParts=[];}
+  else mob._hatParts=[];
+  const add=(name,size,pos,hex)=>{
+    const p=makePart(head,name,size,pos,hex,mob._hatParts);if(parts)parts.push(p);return p;
+  };
+  if(hat.type==='straw'){
+    // Wide flat straw hat brim + low dome.
+    add('hatBrim',[hs*1.6,0.06,hs*1.6],[0,hs*0.45,0],hat.color);
+    add('hatDome',[hs*0.7,hs*0.28,hs*0.7],[0,hs*0.55,0],hat.color);
+  }else if(hat.type==='cap'){
+    // Rounded cap sitting on top of the head.
+    add('hatCap',[hs*0.95,hs*0.34,hs*0.95],[0,hs*0.5,0],hat.color);
+    add('hatBand',[hs*1.0,0.06,hs*1.0],[0,hs*0.38,0],'#888888');
+  }else if(hat.type==='apron'){
+    // Blacksmith: leather baldric over shoulder + soot mark on apron.
+    add('baldric',[hs*0.18,hs*0.9,0.05],[hs*0.5,hs*0.1,hs*0.5],hat.color);
+    add('baldric2',[hs*0.18,hs*0.9,0.05],[-hs*0.5,hs*0.1,hs*0.5],hat.color);
+    // soot smudge on the existing apron (a dark patch) — parented to head is
+    // wrong, so we skip the soot here (it would float with the head). The
+    // baldric already reads clearly as "blacksmith".
+  }else if(hat.type==='hood'){
+    // Priest: white hood draped over the head.
+    add('hoodTop',[hs*1.08,hs*0.5,hs*1.08],[0,hs*0.18,0],hat.color);
+    add('hoodBack',[hs*1.05,hs*0.7,0.1],[0,hs*0.0,-hs*0.55],hat.color);
   }
 }
 
@@ -382,6 +556,71 @@ const VILLAGER_TRADE_TABLES={
   ],
 };
 
+// ---- Villager Trade Level System ------------------------------------------
+// Each villager has a trade level (1-3). Higher levels unlock better trades.
+// A villager levels up after completing enough trades (tracked per-villager).
+// Level 2 unlocks at 4 trades, level 3 at 10 trades.
+const VILLAGER_LEVEL_THRESHOLDS=[0,4,10];
+const VILLAGER_MAX_LEVEL=3;
+// Extra trades unlocked at higher levels. Appended to the base table when the
+// villager's level allows it.
+const VILLAGER_BONUS_TRADES={
+  Farmer:[
+    // Level 2+
+    {cost:{id:ITEM_WHEAT,count:30},  reward:{id:B.HAY,count:2},       label:'30 Wheat → 2 Hay Bale', minLevel:2},
+    {cost:{id:B.MELON,count:4},      reward:{id:ITEM_SEEDS,count:16}, label:'4 Melons → 16 Seeds', minLevel:2},
+    // Level 3+
+    {cost:{id:B.GOLD_ORE,count:2},   reward:{id:B.PUMPKIN,count:6},   label:'2 Gold → 6 Pumpkins', minLevel:3},
+    {cost:{id:B.DIAMOND_ORE,count:1},reward:{id:B.CAKE?B.CAKE:B.HAY,count:1},label:'1 Diamond → Cake', minLevel:3},
+  ],
+  Librarian:[
+    {cost:{id:B.BOOKSHELF,count:2},  reward:{id:B.LANTERN,count:2},    label:'2 Bookshelves → 2 Lanterns', minLevel:2},
+    {cost:{id:B.LOG,count:16},       reward:{id:B.LANTERN,count:1},    label:'16 Logs → Lantern', minLevel:2},
+    {cost:{id:B.DIAMOND_ORE,count:1},reward:{id:B.BOOKSHELF,count:4}, label:'1 Diamond → 4 Bookshelves', minLevel:3},
+    {cost:{id:B.GOLD_ORE,count:3},   reward:{id:B.SIGN,count:12},     label:'3 Gold → 12 Signs', minLevel:3},
+  ],
+  Blacksmith:[
+    {cost:{id:B.IRON_ORE,count:8},   reward:{id:ITEM_SWORD_IRON,count:1},label:'8 Iron → Iron Sword', minLevel:2},
+    {cost:{id:B.IRON_ORE,count:6},   reward:{id:ITEM_PICK_IRON,count:2}, label:'6 Iron → 2 Iron Pickaxes', minLevel:2},
+    {cost:{id:B.DIAMOND_ORE,count:2},reward:{id:ITEM_PICK_DIAMOND,count:1},label:'2 Diamond → Diamond Pickaxe', minLevel:3},
+    {cost:{id:B.GOLD_ORE,count:4},   reward:{id:ITEM_SWORD_IRON,count:2}, label:'4 Gold → 2 Iron Swords', minLevel:3},
+  ],
+  Butcher:[
+    {cost:{id:ITEM_PORKCHOP,count:10},reward:{id:B.FURNACE,count:1},  label:'10 Porkchop → Furnace', minLevel:2},
+    {cost:{id:ITEM_BEEF,count:10},    reward:{id:B.LANTERN,count:2},  label:'10 Beef → 2 Lanterns', minLevel:2},
+    {cost:{id:B.DIAMOND_ORE,count:1}, reward:{id:ITEM_BEEF,count:16}, label:'1 Diamond → 16 Beef', minLevel:3},
+    {cost:{id:B.GOLD_ORE,count:3},    reward:{id:ITEM_PORKCHOP,count:12},label:'3 Gold → 12 Porkchop', minLevel:3},
+  ],
+  Priest:[
+    {cost:{id:B.GOLD_ORE,count:4},   reward:{id:B.AMETHYST_CLUSTER,count:3},label:'4 Gold → 3 Amethyst', minLevel:2},
+    {cost:{id:B.LANTERN,count:3},    reward:{id:B.GLOW_LICHEN,count:8},label:'3 Lanterns → 8 Glow Lichen', minLevel:2},
+    {cost:{id:B.DIAMOND_ORE,count:2},reward:{id:B.AMETHYST_BLOCK,count:2},label:'2 Diamond → 2 Amethyst Blocks', minLevel:3},
+    {cost:{id:B.GOLD_ORE,count:6},   reward:{id:B.DIAMOND_ORE,count:1},label:'6 Gold → 1 Diamond', minLevel:3},
+  ],
+};
+// Return this villager's effective trade list (base + unlocked bonus trades).
+function villagerTradesFor(profession,mob){
+  const base=VILLAGER_TRADE_TABLES[profession]||VILLAGER_TRADE_TABLES.Farmer;
+  const level=(mob&&mob.tradeLevel)||1;
+  const bonus=VILLAGER_BONUS_TRADES[profession]||[];
+  const unlocked=bonus.filter(t=>level>=t.minLevel);
+  return base.concat(unlocked);
+}
+// Record a completed trade and level up the villager if threshold reached.
+function villagerRecordTrade(mob){
+  if(!mob||mob.dead||!mob.t||!mob.t.villager)return;
+  mob.tradeCount=(mob.tradeCount||0)+1;
+  const cur=mob.tradeLevel||1;
+  if(cur<VILLAGER_MAX_LEVEL&&mob.tradeCount>=VILLAGER_LEVEL_THRESHOLDS[cur]){
+    mob.tradeLevel=cur+1;
+    if(typeof showFloatingText==='function'){
+      showFloatingText(mob.pos.x,mob.pos.y+2.2,mob.pos.z,'⭐ Trade Level '+mob.tradeLevel+'!');
+    }
+    // A fresh hat colour/badge could be applied here; for now a green sparkle
+    // tint is implied by the level shown in the trade UI.
+  }
+}
+
 // Show a Minecraft-style villager greeting / trade hint above the villager.
 let _villagerMsgTimeout=null;
 let _villagerTradeOverlay=null;
@@ -391,27 +630,36 @@ function showVillagerGreeting(profession,mob){
 
 function openVillagerTradeUI(profession,mob){
   if(_villagerTradeOverlay){_villagerTradeOverlay.remove();_villagerTradeOverlay=null;}
-  const trades=VILLAGER_TRADE_TABLES[profession]||VILLAGER_TRADE_TABLES.Farmer;
+  const trades=villagerTradesFor(profession,mob);
+  const level=(mob&&mob.tradeLevel)||1;
+  const tradeCount=(mob&&mob.tradeCount)||0;
   const ov=document.createElement('div');
   ov.id='villager-trade-overlay';
   ov.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:2000;display:flex;align-items:center;justify-content:center;';
   const panel=document.createElement('div');
-  panel.style.cssText='background:#3a2a1a;border:3px solid #8b7040;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:340px;font-family:monospace;';
+  panel.style.cssText='background:#3a2a1a;border:3px solid #8b7040;border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:340px;max-height:80vh;overflow-y:auto;font-family:monospace;';
 
   // Header
   const PROF_EMOJI={Farmer:'🌾',Librarian:'📚',Blacksmith:'⚒',Butcher:'🥩',Priest:'⭐'};
   const hdr=document.createElement('div');
   hdr.style.cssText='display:flex;justify-content:space-between;align-items:center;color:#f5dfa0;font-size:16px;font-weight:bold;';
-  hdr.innerHTML=`<span>${PROF_EMOJI[profession]||'👋'} ${profession} Trades</span>`;
+  // Trade level badge (stars)
+  const stars='⭐'.repeat(level);
+  hdr.innerHTML=`<span>${PROF_EMOJI[profession]||'👋'} ${profession} ${stars}</span>`;
   const cbtn=document.createElement('button');
   cbtn.textContent='✕';cbtn.style.cssText='background:#5a3a1a;color:#fff;border:none;border-radius:4px;cursor:pointer;padding:2px 8px;font-size:14px;';
   cbtn.onclick=()=>{ov.remove();_villagerTradeOverlay=null;if(!isMobile)try{document.getElementById('game-canvas').requestPointerLock();}catch(e){}};
   hdr.appendChild(cbtn);panel.appendChild(hdr);
 
-  // Subtitle
+  // Subtitle: trade level + progress to next level
   const sub=document.createElement('div');
   sub.style.cssText='color:#a09060;font-size:11px;text-align:center;';
-  sub.textContent='Click "Trade" to exchange items from your inventory';
+  if(level<VILLAGER_MAX_LEVEL){
+    const next=VILLAGER_LEVEL_THRESHOLDS[level];
+    sub.innerHTML=`Trade Level <strong style="color:#f5c060">${level}</strong> · ${tradeCount}/${next} trades to next level`;
+  }else{
+    sub.innerHTML=`Trade Level <strong style="color:#f5c060">MAX (${level})</strong> · ${tradeCount} trades completed`;
+  }
   panel.appendChild(sub);
 
   // Trade list
@@ -444,8 +692,9 @@ function openVillagerTradeUI(profession,mob){
   }
 
   for(const trade of trades){
+    const isBonus=!!trade.minLevel;
     const row=document.createElement('div');
-    row.style.cssText='display:flex;align-items:center;gap:8px;background:#2a1a0a;border:2px solid #6a4a20;border-radius:6px;padding:8px;';
+    row.style.cssText='display:flex;align-items:center;gap:8px;background:#2a1a0a;border:2px solid '+(isBonus?'#8a6a30':'#6a4a20')+';border-radius:6px;padding:8px;';
     // Cost
     const costDiv=document.createElement('div');
     costDiv.style.cssText='display:flex;align-items:center;gap:4px;min-width:110px;color:#e0c890;font-size:13px;';
@@ -459,7 +708,7 @@ function openVillagerTradeUI(profession,mob){
     // Reward
     const rwdDiv=document.createElement('div');
     rwdDiv.style.cssText='flex:1;display:flex;align-items:center;gap:4px;color:#e0c890;font-size:13px;';
-    rwdDiv.innerHTML=`<span style="font-size:18px">${getItemEmoji(trade.reward.id)}</span><span>${trade.reward.count}x ${getItemName(trade.reward.id)}</span>`;
+    rwdDiv.innerHTML=`<span style="font-size:18px">${getItemEmoji(trade.reward.id)}</span><span>${trade.reward.count}x ${getItemName(trade.reward.id)}</span>${isBonus?' <span style="color:#f5c060;font-size:10px">[Lv'+trade.minLevel+']</span>':''}`;
     row.appendChild(rwdDiv);
     // Trade button
     const btn=document.createElement('button');
@@ -472,7 +721,16 @@ function openVillagerTradeUI(profession,mob){
       consumeFromInventory(trade.cost.id,trade.cost.count);
       if(typeof addToInventory==='function')addToInventory(trade.reward.id,trade.reward.count);
       if(typeof renderHotbar==='function')renderHotbar();
+      // Record the trade and maybe level up the villager.
+      const beforeLevel=(mob&&mob.tradeLevel)||1;
+      if(typeof villagerRecordTrade==='function')villagerRecordTrade(mob);
+      const afterLevel=(mob&&mob.tradeLevel)||1;
       btn.style.background='#1a5a1a';btn.textContent='✓ Done!';
+      // If the villager levelled up, refresh the whole panel so new trades show.
+      if(afterLevel>beforeLevel){
+        setTimeout(()=>{ov.remove();_villagerTradeOverlay=null;openVillagerTradeUI(profession,mob);},700);
+        return;
+      }
       setTimeout(()=>{btn.style.background='#2a6a2a';btn.textContent='Trade';
         // Refresh cost color
         const newHave=countInInventory(trade.cost.id);
@@ -590,7 +848,140 @@ function updateMobs(dt){if(!worldReady||!started)return;
   for(const mob of villagers){
     if(!mob.dead){updateVillager(mob,dt);updateOneMob(mob,dt);}
   }
+  // Update iron golems (kept in their own list, like villagers, so they are
+  // never auto-despawned). Each golem defends its home village from hostiles.
+  _updateIronGolems(dt);
+  // Maybe spawn an iron golem when a village is under threat (3+ panicking
+  // villagers). Checked on the same cadence as mob spawning.
+  _maybeSpawnDefenderGolem();
   updateArrows(dt);
+}
+
+// ---- Iron Golem Management ------------------------------------------------
+const ironGolems=[];   // separate list (never despawned automatically)
+const MAX_GOLEMS_PER_VILLAGE=2;
+// Tally how many villagers are currently panicking near each village centre.
+function _villageThreatCount(){
+  // Group panicking villagers by their home village (rounded home coords).
+  const buckets={};
+  for(const v of villagers){
+    if(v.dead||!(v.panicTimer>0))continue;
+    const key=(v.homeX|0)+','+(v.homeZ|0);
+    buckets[key]=(buckets[key]||0)+1;
+  }
+  return buckets;
+}
+function _golemCountForVillage(homeX,homeZ){
+  const key=(homeX|0)+','+(homeZ|0);let n=0;
+  for(const g of ironGolems){if(!g.dead&&((g.homeX|0)+','+(g.homeZ|0))===key)n++;}
+  return n;
+}
+function _maybeSpawnDefenderGolem(){
+  if(ironGolems.length>=12)return;  // global cap
+  const threats=_villageThreatCount();
+  for(const key in threats){
+    if(threats[key]<3)continue;  // need 3+ panicking villagers
+    const[hx,hz]=key.split(',').map(Number);
+    if(_golemCountForVillage(hx,hz)>=MAX_GOLEMS_PER_VILLAGE)continue;
+    // Find a safe spot near the village centre to spawn the golem.
+    const ang=Math.random()*Math.PI*2;
+    const gx=Math.floor(hx+Math.cos(ang)*4);
+    const gz=Math.floor(hz+Math.sin(ang)*4);
+    if(gx<2||gx>=WORLD_W-2||gz<2||gz>=WORLD_D-2)continue;
+    const gy=spawnHeightAt(gx,gz);
+    if(gy===null)continue;
+    const golem=spawnMob('iron_golem',gx,gy,gz);
+    golem.homeX=hx;golem.homeZ=hz;
+    golem.neverDespawn=true;
+    golem.combatTarget=null;
+    ironGolems.push(golem);
+    if(typeof showFloatingText==='function')showFloatingText(gx,gy+2.5,gz,'🤖 Iron Golem appears!');
+  }
+}
+// Drive each golem: defend villagers by attacking nearby hostiles, otherwise
+// wander near its home village. Does not attack the player unless provoked.
+function _updateIronGolems(dt){
+  for(const g of ironGolems){
+    if(g.dead)continue;
+    _updateIronGolem(g,dt);
+    updateOneMob(g,dt);
+  }
+  // Remove dead/disposed golems from the list.
+  for(let i=ironGolems.length-1;i>=0;i--){
+    const g=ironGolems[i];
+    if(g.dead||!g.meshes||!g.meshes.root){
+      if(g.meshes&&g.meshes.root&&g.meshes.root.dispose)g.meshes.root.dispose();
+      ironGolems.splice(i,1);
+    }
+  }
+}
+function _updateIronGolem(golem,dt){
+  const t=golem.t;
+  if(golem.attackTimer>0)golem.attackTimer-=dt;
+  // Pick/refresh a combat target: nearest hostile within sight that is close
+  // to the golem OR to any villager (defending the village).
+  if(golem.combatTarget&&(golem.combatTarget.dead||mobs.indexOf(golem.combatTarget)<0)){
+    golem.combatTarget=null;
+  }
+  if(!golem.combatTarget){
+    let best=null,bestSq=(t.sightRange*t.sightRange);
+    // Consider hostiles near the golem.
+    for(const m of mobs){
+      if(m.dead||!m.hostile)continue;
+      const dx=m.pos.x-golem.pos.x,dz=m.pos.z-golem.pos.z;const sq=dx*dx+dz*dz;
+      if(sq<bestSq){bestSq=sq;best=m;}
+    }
+    // Also consider hostiles threatening any villager sharing this village.
+    if(!best){
+      const key=(golem.homeX|0)+','+(golem.homeZ|0);
+      for(const v of villagers){
+        if(v.dead||((v.homeX|0)+','+(v.homeZ|0))!==key)continue;
+        for(const m of mobs){
+          if(m.dead||!m.hostile)continue;
+          const dx=m.pos.x-v.pos.x,dz=m.pos.z-v.pos.z;
+          if(dx*dx+dz*dz<10*10){best=m;break;}
+        }
+        if(best)break;
+      }
+    }
+    golem.combatTarget=best;
+  }
+  golem._chasing=false;
+  if(golem.combatTarget){
+    const tgt=golem.combatTarget;
+    const dx=tgt.pos.x-golem.pos.x,dz=tgt.pos.z-golem.pos.z;
+    const distSq=dx*dx+dz*dz;
+    const range=t.attackRange||2.2;
+    golem.targetYaw=Math.atan2(dx,dz);
+    golem._chasing=true;
+    if(distSq<=range*range){
+      golem.moving=false;
+      // Attack swing.
+      if(golem.attackTimer<=0){
+        golem.attackTimer=t.attackCooldown||1.2;
+        if(typeof attackMob==='function'){
+          attackMob(tgt,t.attackDamage||8,golem);
+        }else{
+          // Fallback: directly hurt the target.
+          tgt.hp-=t.attackDamage||8;tgt.hurtFlash=0.3;tgt.invuln=0.35;
+          if(tgt.hp<=0&&typeof killMob==='function')killMob(tgt);
+        }
+        // Launch the target back a bit (golem knockback).
+        const kb=4;
+        const len=Math.hypot(dx,dz)||1;
+        tgt.vel.x+=(dx/len)*kb;tgt.vel.z+=(dz/len)*kb;tgt.vel.y=4;
+      }
+    }else{
+      golem.moving=true;
+    }
+  }else{
+    // No target: wander near home village.
+    const hdx=golem.pos.x-(golem.homeX||golem.pos.x),hdz=golem.pos.z-(golem.homeZ||golem.pos.z);
+    const homeDist=Math.hypot(hdx,hdz);
+    if(homeDist>t.wanderRadius){
+      golem.targetYaw=Math.atan2(-hdx,-hdz);golem.moving=true;golem.wanderTimer=1.0;
+    }
+  }
 }
 
 function despawnFarMobs(){for(let i=mobs.length-1;i>=0;i--){const m=mobs[i];if(m.wolf&&m.tamed)continue;/* pets never despawn */if(m.neverDespawn)continue;/* villagers never despawn */const dx=m.pos.x-player.pos.x,dz=m.pos.z-player.pos.z;if(dx*dx+dz*dz>70*70){m.meshes.root.dispose();m.meshes.legs.forEach(l=>l.dispose&&l.dispose());mobs.splice(i,1);}}}
@@ -624,6 +1015,10 @@ function updateOneMob(mob,dt){
     // Only flee from the player if a hostile is chasing the villager
     // (the actual flee direction is set by updateVillager before this runs).
     fleeing=mob._fleeing||false;
+  }else if(mob.t&&mob.t.golem){
+    // Iron golem AI is handled in _updateIronGolem(); updateOneMob just does
+    // physics + animation. The chasing flag is set by the golem driver.
+    chasing=mob._chasing||false;
   }else if(mob.hostile&&!player.dead){
     updateHostileMob(mob,dt,dx,dz,distSq);
     chasing=mob._chasing;
@@ -1125,8 +1520,10 @@ function killMob(mob){
     // Per-species kill flag (kill_pig / kill_sheep / kill_cow / kill_chicken).
     if(ACH.flag&&mob.type)ACH.flag('kill_'+mob.type);
   }
-  // Despawn.
+  // Remove from the correct tracking list (mobs / villagers / ironGolems).
   const idx=mobs.indexOf(mob);if(idx>=0)mobs.splice(idx,1);
+  const vidx=villagers.indexOf(mob);if(vidx>=0)villagers.splice(vidx,1);
+  const gidx=ironGolems.indexOf(mob);if(gidx>=0)ironGolems.splice(gidx,1);
   mob.meshes.root.dispose();mob.meshes.legs.forEach(l=>l.dispose&&l.dispose());
 }
 
