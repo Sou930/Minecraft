@@ -1755,20 +1755,75 @@ function placeGroundCover(){for(let x=3;x<WORLD_W-3;x++){for(let z=3;z<WORLD_D-3
 // so the browser stays responsive and we can show a progress bar instead of a
 // frozen "endless reload". onProgress(fraction0to1, label) is called between
 // steps; returns a Promise that resolves when generation is complete.
+//
+// ── Step-1 instrumentation (chunk-lazy-generation prep) ───────────────────
+// The terrain pass (generateClimateAndHeight + generateTerrainColumns) is the
+// single biggest startup cost: it fills the full WORLD_W×WORLD_D height/biome
+// maps and writes terrain blocks for every column. To establish a "before"
+// baseline for the eventual chunk-based refactor, we now:
+//   • time the climate+height pass and the terrain-columns pass with
+//     performance.now() (Date.now() fallback for headless/non-browser envs),
+//   • sum the byteLength of every world-related TypedArray and log it,
+//   • adaptively tune BAND (columns-per-frame) so each frame's terrain work
+//     stays within a ~16 ms budget instead of the old fixed BAND=16. This is
+//     purely a responsiveness tweak to the existing bulk generation — NOT
+//     infinite-world chunking (which is deferred to Step 2+).
 function generateWorldAsync(onProgress){
   const nextFrame=()=>new Promise(r=>requestAnimationFrame(()=>r()));
   const report=(f,label)=>{if(onProgress)onProgress(Math.max(0,Math.min(1,f)),label);};
+  // High-resolution timer; Date.now() fallback when performance.now is absent.
+  const nowMs=()=>(typeof performance!=='undefined'&&typeof performance.now==='function')?performance.now():Date.now();
+  // Log the combined memory footprint of the world-related flat TypedArrays.
+  // These are the exact arrays the eventual chunk refactor would replace/evict.
+  const logWorldMemory=(tag)=>{
+    let bytes=0;
+    if(typeof world!=='undefined'&&world)bytes+=world.byteLength;
+    if(typeof heightMap!=='undefined')bytes+=heightMap.byteLength;
+    if(typeof biomeMap!=='undefined')bytes+=biomeMap.byteLength;
+    if(typeof lavaLevelMap!=='undefined')bytes+=lavaLevelMap.byteLength;
+    if(typeof waterBedMap!=='undefined')bytes+=waterBedMap.byteLength;
+    console.log(`[gen-mem] ${tag}: ${bytes.toLocaleString()} bytes (~${(bytes/1048576).toFixed(1)} MB) across world+heightMap+biomeMap+lavaLevelMap+waterBedMap`);
+  };
   return (async()=>{
+    // ── Climate & height pass ────────────────────────────────────────────
     report(0.02,'Calculating climate & terrain...');
     await nextFrame();
+    const tClimate0=nowMs();
     generateClimateAndHeight();
-    // Terrain blocks, sliced into vertical bands so each frame stays short.
-    const BAND=16; // columns of x processed per frame
-    for(let x0=0;x0<WORLD_W;x0+=BAND){
-      generateTerrainColumns(x0,Math.min(WORLD_W,x0+BAND));
+    const tClimate1=nowMs();
+    console.log(`[gen-time] generateClimateAndHeight: ${(tClimate1-tClimate0).toFixed(1)} ms`);
+    logWorldMemory('after climate+height');
+    // ── Terrain columns pass (adaptive BAND) ─────────────────────────────
+    // Old code used a fixed BAND=16 columns per frame. On low-spec/mobile
+    // devices 16 columns × WORLD_D can overrun a 16 ms frame budget and make
+    // the loading bar stutter. We now measure each slice and tune BAND toward
+    // the target budget, clamped to [MIN_BAND, MAX_BAND] and smoothed
+    // (50% old / 50% ideal) so it doesn't oscillate. Note: BAND updates for
+    // the NEXT slice while x0 always advances by the width actually processed
+    // (w) — so no columns are ever skipped when BAND changes mid-loop.
+    const TARGET_MS=16;       // per-frame budget (one 60fps frame)
+    const MIN_BAND=2,MAX_BAND=128;
+    let band=16;              // start from the previous default
+    const tTerrain0=nowMs();
+    let sliceMin=Infinity,sliceMax=0,sliceSum=0,sliceCount=0;
+    for(let x0=0;x0<WORLD_W;){
+      const w=band;           // width of THIS slice (captured before resize)
+      const s0=nowMs();
+      generateTerrainColumns(x0,Math.min(WORLD_W,x0+w));
+      const sDt=nowMs()-s0;
+      sliceSum+=sDt;sliceCount++;if(sDt<sliceMin)sliceMin=sDt;if(sDt>sliceMax)sliceMax=sDt;
+      // Adaptive resize for the NEXT slice. Guard sDt>0 to avoid /0.
+      if(sDt>0){
+        const ideal=band*TARGET_MS/sDt;
+        band=Math.max(MIN_BAND,Math.min(MAX_BAND,Math.round(band*0.5+ideal*0.5)));
+      }
+      x0+=w;                  // advance by what we actually processed
       report(0.05+0.55*(x0/WORLD_W),'Generating terrain...');
       await nextFrame();
     }
+    const tTerrain1=nowMs();
+    console.log(`[gen-time] generateTerrainColumns: ${(tTerrain1-tTerrain0).toFixed(1)} ms total | ${sliceCount} slice(s) | per-slice min/avg/max = ${sliceMin.toFixed(1)}/${(sliceSum/sliceCount).toFixed(1)}/${sliceMax.toFixed(1)} ms | final BAND=${band}`);
+    logWorldMemory('after terrain columns');
     report(0.62,'Carving caves...');
     await nextFrame();
     carveCaves();
