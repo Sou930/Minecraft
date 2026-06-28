@@ -80,19 +80,46 @@ function computeBlockLight(bx0,by0,bz0,sx,sy,sz){
 // Biome-aware terrain height. A gentle rolling base is modulated per biome so
 // mountains tower, oceans sink below sea level, mesas form flat plateaus and
 // volcanoes build steep cones — all blended smoothly via the climate fields.
-// River network mask. A winding ridged-noise line snakes across the whole map;
-// where the mask is near its ridge we are "in" a river. Returns 0 (no river)
-// up to 1 (river centre line). Large wavelength keeps rivers long & meandering.
-// A gentle domain warp displaces the sampling point so the channels wiggle in a
-// more organic, less mathematically-straight way.
+// River network mask — a layered (trunk + tributary) water system. A winding
+// ridged-noise line snakes across the whole map as the broad trunk; a second,
+// higher-frequency ridged-noise layer adds thinner tributaries that only spawn
+// in the band just outside the trunk so they branch toward / merge into it.
+// Returns 0 (no river) up to 1 (river centre line). A very-low-frequency width
+// noise modulates how thick the trunk is along its length (upstream-narrow /
+// downstream-wide feel) and a gentle domain warp makes the channels meander
+// organically rather than in straight mathematical lines.
 function riverMaskAt(x,z){
   // domain warp: nudge the lookup with a second low-freq noise field
   const wx=x+(fbm2(x,z,151,2,1/120,0.5,2.0)-0.5)*40;
   const wz=z+(fbm2(x,z,157,2,1/120,0.5,2.0)-0.5)*40;
   const rn=fbm2(wx,wz,137,3,1/170,0.5,2.0);  // slow, large-scale winding field
   const ridge=1-Math.abs(rn*2-1);            // 0..1, peaks along winding lines
-  if(ridge<=0.82)return 0;
-  return (ridge-0.82)/0.18;                   // 0..1 inside the river corridor
+  // Fast path: clearly dry land → no river at all (skip width & tributary cost).
+  // mainThresh ranges ~0.78..0.86, so anything below 0.65 is always land.
+  if(ridge<0.65)return 0;
+  // WIDTH VARIATION: a very-low-frequency noise modulates how thick the trunk is
+  // along its length, approximating upstream-narrow / downstream-wide flow
+  // without a real drainage calculation. ws ~0.7 (narrow) .. 1.3 (wide).
+  const ws=0.7+fbm2(x,z,181,2,1/400,0.5,2.0)*0.6;
+  const mainThresh=0.82-(ws-1.0)*0.08;       // ~0.78 (wide) .. 0.86 (narrow)
+  // MAIN STREAM (trunk): the broad river along the ridge centre line. A modest
+  // width-modulated threshold (centred near the old fixed 0.82) keeps the trunk
+  // a thin, continuous line while letting wide sections spread a little.
+  if(ridge>mainThresh){
+    return Math.min(1,(ridge-mainThresh)/0.14); // 0..1 inside the trunk corridor
+  }
+  // TRIBUTARIES: only evaluate in the tight band just outside the trunk (ridge
+  // in 0.65..mainThresh) so smaller channels branch toward / merge into the
+  // trunk instead of appearing out in open land. A higher-frequency ridged
+  // noise (wavelength ~1/2.4 of the trunk) gives thinner, tortuous channels;
+  // a high threshold keeps them as fine lines rather than flooding the band.
+  const twx=x+(fbm2(x,z,191,2,1/55,0.5,2.0)-0.5)*18;
+  const twz=z+(fbm2(x,z,193,2,1/55,0.5,2.0)-0.5)*18;
+  const tn=fbm2(twx,twz,139,2,1/70,0.5,2.0);  // higher-freq winding field
+  const tribRidge=1-Math.abs(tn*2-1);          // 0..1, peaks along tributary lines
+  const tribThresh=0.84;
+  if(tribRidge<=tribThresh)return 0;
+  return Math.min(1,(tribRidge-tribThresh)/0.16); // 0..1 inside a tributary
 }
 // Lake mask. Big, smoothly-varying blobs of "low" noise become circular-ish
 // basins. Returns 0 (no lake) up to 1 (lake centre / deepest). Lakes only form
@@ -223,11 +250,17 @@ function heightAtRaw(x,z,c){
   if(e>=0.40&&e<=0.82&&h>SEA_LEVEL-3){
     const rm=riverMaskAt(x,z);
     if(rm>0){
-      const bedTarget=SEA_LEVEL-2;              // desired riverbed floor
+      // bedTarget dips slightly (≤2 blocks) under the trunk centre so the wide
+      // main stream reads deeper than the thin tributaries that feed into it.
+      const bedTarget=SEA_LEVEL-2-rm*rm*2;      // desired riverbed floor
       // ease toward the bed: full carve at the centre, tapering to the banks
       const t=smoothstep(Math.min(1,rm*1.15));
       h=h*(1-t)+bedTarget*t;
       if(h<bedTarget)h=bedTarget;
+      // Cache the water-body flag for carveCaves (re-using the value already
+      // evaluated here avoids re-running the layered riverMaskAt for every
+      // underground cell later). rm>0.3 ≈ clearly inside the riverbed.
+      if(rm>0.3)waterBedMap[colIndex(x,z)]=1;
     }
   }
   // LAKES: flood broad shallow basins. Instead of stamping a basin floor with a
@@ -241,6 +274,8 @@ function heightAtRaw(x,z,c){
       const bedTarget=SEA_LEVEL-2-lm*lm*5;       // deeper toward the centre
       const t=smoothstep(smoothstep(Math.min(1,lm*0.95)));
       h=h*(1-t)+bedTarget*t;
+      // Cache the water-body flag for carveCaves (see RIVERS note above).
+      if(lm>0.3)waterBedMap[colIndex(x,z)]=1;
     }
   }
   return h;
@@ -269,6 +304,10 @@ const heightMap=new Int16Array(WORLD_W*WORLD_D);const biomeMap=new Uint8Array(WO
 // pass (while the climate object is already hot) so generateTerrainColumns can
 // read it from the map instead of recomputing climateAt for every volcano column.
 const lavaLevelMap=new Int16Array(WORLD_W*WORLD_D);
+// Water-body flag per column (1 = river/lake bed, 0 = dry land). Cached during
+// the climate pass so carveCaves can avoid re-evaluating the (now heavier,
+// layered) riverMaskAt/lakeMaskAt for every one of the ~5.8M underground cells.
+const waterBedMap=new Uint8Array(WORLD_W*WORLD_D);
 function colIndex(x,z){return z*WORLD_W+x;}
 // Synchronous full generation (kept for reference / fallback).
 function generateWorld(){generateClimateAndHeight();generateTerrainColumns(0,WORLD_W);generateFloatingIsles();carveCaves();carveLargeCaves();carveCaveFeatures();carveRavines();placeCaveBiomes();placeAmethystGeodes();placeOresAndGravel();placeVegetation();fillUnderwaterAir();if(typeof placeStructures==='function')placeStructures();}
@@ -583,10 +622,28 @@ if(biome!==BIOME.FLOATING_ISLES){for(let y=h+1;y<=SEA_LEVEL;y++)world[blockIndex
 if(biome===BIOME.SNOWY&&h<SEA_LEVEL)world[blockIndex(x,SEA_LEVEL,z)]=B.ICE;
 // VOLCANO crater lava lake: flood the summit bowl up to the rim with lava.
 if(biome===BIOME.VOLCANO){const lv=lavaLevelMap[colIndex(x,z)];if(lv>h){for(let y=h+1;y<=lv&&y<WORLD_H;y++)world[blockIndex(x,y,z)]=B.LAVA;}}}}}
-function carveCaves(){for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];const yMax=Math.min(h-4,WORLD_H-1);for(let y=2;y<=yMax;y++){const n1=simplex3(x/11,y/7,z/11,71);if(n1<=0.54)continue;if(n1>0.70){world[blockIndex(x,y,z)]=B.AIR;continue;}
-const n2=simplex3(x/23,y/13,z/23,73);if(n1>0.565&&n2>0.575)world[blockIndex(x,y,z)]=B.AIR;
-// secondary spaghetti cave layer for denser interconnected tunnels
-else{const n3=simplex3(x/17,y/9,z/17,77),n4=simplex3(x/31,y/15,z/31,79);if(n3>0.66&&n4>0.64)world[blockIndex(x,y,z)]=B.AIR;}}}}}
+function carveCaves(){for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];
+// 4-C: rivers/lakes keep a deeper safety margin so caves don't breach the
+// riverbed and let surface water drain into the underground. Non-water columns
+// keep the original 4-block crust. waterBedMap is cached during the climate
+// pass so we don't re-evaluate the layered riverMaskAt per cell here.
+const safetyMargin=(waterBedMap[colIndex(x,z)]===1)?10:4;
+const yMax=Math.min(h-safetyMargin,WORLD_H-1);
+for(let y=2;y<=yMax;y++){
+// 4-B: caves thin out near the surface. depthBelowSurface shrinks toward the
+// bed; surfaceMask ramps 0→1 across the 4..12 block band so shallow crust
+// (esp. on thin lowland) rarely caves in, while 12+ blocks deep stays normal.
+const depthBelowSurface=h-y;
+const surfaceMask=depthBelowSurface<4?0:depthBelowSurface>=12?1:(depthBelowSurface-4)/8;
+const thresholdBoost=(1-surfaceMask)*0.25;      // up to +0.25 near the surface
+const n1=simplex3(x/11,y/7,z/11,71);if(n1<=0.54+thresholdBoost)continue;
+if(n1>0.70+thresholdBoost*0.5){world[blockIndex(x,y,z)]=B.AIR;continue;}
+const n2=simplex3(x/23,y/13,z/23,73);if(n1>0.565+thresholdBoost&&n2>0.575+thresholdBoost*0.5)world[blockIndex(x,y,z)]=B.AIR;
+// secondary spaghetti cave layer for denser interconnected tunnels — same
+// surface-linked suppression (slightly stronger so the thin noodles don't
+// riddle the shallow crust even where the primary layer is suppressed).
+else{const n3=simplex3(x/17,y/9,z/17,77),n4=simplex3(x/31,y/15,z/31,79);
+if(n3>0.66+thresholdBoost&&n4>0.64+thresholdBoost*0.5)world[blockIndex(x,y,z)]=B.AIR;}}}}}
 // Hollow out a block only if it is part of the solid underground (never the
 // surface skin or bedrock). Below y<=4 we leave a lava floor for atmosphere.
 function caveDig(x,y,z){if(x<1||x>=WORLD_W-1||z<1||z>=WORLD_D-1||y<=1||y>=WORLD_H)return;const h=heightMap[colIndex(x,z)];if(y>h-3)return;const cur=world[blockIndex(x,y,z)];if(cur===B.AIR||cur===B.WATER||cur===B.LAVA||cur===B.BEDROCK)return;world[blockIndex(x,y,z)]=(y<=4)?B.LAVA:B.AIR;}
