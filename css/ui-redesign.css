@@ -1,0 +1,383 @@
+/* =====================================================================
+   BLOCK WORLD — UI / Design Refresh
+   Loaded AFTER styles.css. Refines visuals (colour, depth, type, motion,
+   mobile ergonomics) without altering the layout maths that the JS relies on.
+   ===================================================================== */
+
+:root{
+  /* Brand palette */
+  --bw-green:#5dbb47;
+  --bw-green-d:#3c8a2e;
+  --bw-green-dd:#2c6b22;
+  --bw-blue:#3a8ee6;
+  --bw-blue-d:#1f63c0;
+  --bw-orange:#f59331;
+  --bw-orange-d:#d2660a;
+  --bw-gold:#ffce54;
+  --bw-red:#e2483a;
+
+  /* Surfaces (glass / panels) */
+  --bw-glass:rgba(14,18,26,.55);
+  --bw-glass-strong:rgba(12,16,24,.78);
+  --bw-stroke:rgba(255,255,255,.14);
+  --bw-stroke-strong:rgba(255,255,255,.26);
+
+  /* Shadows */
+  --bw-shadow-sm:0 2px 8px rgba(0,0,0,.35);
+  --bw-shadow-md:0 8px 26px rgba(0,0,0,.45);
+  --bw-shadow-lg:0 18px 54px rgba(0,0,0,.55);
+
+  /* Radii */
+  --bw-r-sm:8px;
+  --bw-r-md:12px;
+  --bw-r-lg:18px;
+
+  /* Easing */
+  --bw-ease:cubic-bezier(.22,.61,.36,1);
+}
+
+/* Crisper, more modern system font stack */
+body{
+  font-family:'Inter','Segoe UI','Hiragino Sans','Noto Sans JP',system-ui,-apple-system,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+
+/* Nicer scrollbars across panels */
+#world-list,#recipe-list,#ach-list,#settings-panel,#inventory-panel,
+.p2p-players-list,#p2p-chat-log,#armor-panel{
+  scrollbar-width:thin;
+  scrollbar-color:rgba(255,255,255,.28) transparent;
+}
+#world-list::-webkit-scrollbar,#recipe-list::-webkit-scrollbar,
+#ach-list::-webkit-scrollbar,#settings-panel::-webkit-scrollbar,
+#inventory-panel::-webkit-scrollbar,.p2p-players-list::-webkit-scrollbar,
+#p2p-chat-log::-webkit-scrollbar{width:8px;height:8px}
+#world-list::-webkit-scrollbar-thumb,#recipe-list::-webkit-scrollbar-thumb,
+#ach-list::-webkit-scrollbar-thumb,#settings-panel::-webkit-scrollbar-thumb,
+#inventory-panel::-webkit-scrollbar-thumb,.p2p-players-list::-webkit-scrollbar-thumb,
+#p2p-chat-log::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22);border-radius:8px}
+#world-list::-webkit-scrollbar-thumb:hover,#recipe-list::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.4)}
+
+/* Respect users who prefer less motion */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+
+/* =====================================================================
+   HOME / MAIN MENU
+   ===================================================================== */
+
+/* Richer animated backdrop with subtle vignette + drifting glow */
+#home-bg{
+  background-color:#0d1b2a;
+  background-image:
+    radial-gradient(120% 90% at 50% -10%, rgba(93,187,71,.18), transparent 55%),
+    repeating-linear-gradient(0deg,transparent,transparent 17px,rgba(0,0,0,.10) 17px,rgba(0,0,0,.10) 18px),
+    repeating-linear-gradient(90deg,transparent,transparent 17px,rgba(0,0,0,.10) 17px,rgba(0,0,0,.10) 18px),
+    linear-gradient(165deg,#0a1626 0%,#102a43 50%,#143a2a 100%);
+}
+#home-bg::before{
+  content:"";position:absolute;inset:-20%;
+  background:radial-gradient(closest-side, rgba(58,142,230,.16), transparent 70%);
+  filter:blur(20px);
+  animation:bw-drift 18s ease-in-out infinite alternate;
+  z-index:-1;
+}
+#home-bg::after{background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.55))}
+@keyframes bw-drift{0%{transform:translate(-6%,-4%) scale(1)}100%{transform:translate(8%,6%) scale(1.15)}}
+
+#home-content{gap:14px;animation:bw-rise .5s var(--bw-ease) both}
+@keyframes bw-rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+/* Title — cleaner, layered emboss with gradient fill */
+#home-title{
+  letter-spacing:5px;
+  background:linear-gradient(180deg,#ffffff 0%,#d7f5cf 60%,#a9e39b 100%);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:transparent;
+  text-shadow:none;
+  filter:drop-shadow(3px 3px 0 rgba(46,125,50,.9)) drop-shadow(6px 6px 0 rgba(0,0,0,.45));
+}
+#home-subtitle{opacity:.7;letter-spacing:2px;text-transform:uppercase;font-size:11.5px;font-weight:600}
+
+/* Menu buttons — flatter, modern depth, smoother feedback */
+.mc-btn{
+  border-radius:var(--bw-r-md);
+  padding:14px 22px;
+  font-size:16px;letter-spacing:.3px;
+  text-shadow:0 1px 2px rgba(0,0,0,.45);
+  background:linear-gradient(180deg,#5a6470 0%,#414b58 100%);
+  border:1px solid rgba(255,255,255,.10);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 4px 0 rgba(0,0,0,.45),var(--bw-shadow-md);
+  transition:transform .12s var(--bw-ease),filter .15s,box-shadow .12s;
+}
+.mc-btn:hover{filter:brightness(1.12);transform:translateY(-1px)}
+.mc-btn:active{transform:translateY(3px);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 1px 0 rgba(0,0,0,.5)}
+.mc-btn.mc-btn-green{background:linear-gradient(180deg,var(--bw-green) 0%,var(--bw-green-d) 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 4px 0 var(--bw-green-dd),var(--bw-shadow-md)}
+.mc-btn.mc-btn-blue{background:linear-gradient(180deg,var(--bw-blue) 0%,var(--bw-blue-d) 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 4px 0 #0d3f86,var(--bw-shadow-md)}
+.mc-btn.mc-btn-orange{background:linear-gradient(180deg,var(--bw-orange) 0%,var(--bw-orange-d) 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 4px 0 #8f3d05,var(--bw-shadow-md)}
+.mc-btn-icon{font-size:19px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.4))}
+
+/* World list panel — glassier */
+#home-worlds-wrap,#p2p-panel{
+  background:var(--bw-glass-strong);
+  border:1px solid var(--bw-stroke);
+  border-radius:var(--bw-r-lg);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  box-shadow:var(--bw-shadow-lg);
+  padding:16px;
+}
+#home-worlds-title{font-weight:800;letter-spacing:.3px}
+.home-primary{
+  background:linear-gradient(180deg,var(--bw-green),var(--bw-green-d));
+  border-radius:var(--bw-r-sm);box-shadow:0 3px 0 var(--bw-green-dd);
+  transition:transform .1s var(--bw-ease),filter .12s;
+}
+.home-primary:hover{filter:brightness(1.1)}
+.home-secondary{border-radius:var(--bw-r-sm);background:rgba(255,255,255,.08);border:1px solid var(--bw-stroke-strong);transition:background .12s}
+.home-secondary:hover{background:rgba(255,255,255,.16)}
+
+/* World cards — clearer hover, rounded, lift */
+.world-card{
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:var(--bw-r-md);
+  padding:11px 13px;
+  transition:background .15s,border-color .15s,transform .12s var(--bw-ease);
+}
+.world-card:hover,.world-card:focus-visible{
+  background:rgba(93,187,71,.12);
+  border-color:rgba(93,187,71,.55);
+  transform:translateX(3px);
+}
+.world-thumb{border-radius:var(--bw-r-sm);box-shadow:inset 0 0 0 2px rgba(0,0,0,.3),0 3px 6px rgba(0,0,0,.45)}
+.world-actions button{border-radius:var(--bw-r-sm);border:1px solid var(--bw-stroke);background:rgba(0,0,0,.35);transition:background .12s,transform .1s}
+.world-actions button:active{transform:scale(.9)}
+
+/* World creation dialog — modern card */
+#world-dialog-panel{
+  background:linear-gradient(165deg,#1b2433,#141a26);
+  border:1px solid var(--bw-stroke-strong);
+  border-radius:var(--bw-r-lg);
+  box-shadow:var(--bw-shadow-lg);
+  padding:22px;
+  animation:bw-pop .2s var(--bw-ease);
+}
+@keyframes bw-pop{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:none}}
+#world-dialog-panel input{border-radius:var(--bw-r-sm);border:1px solid var(--bw-stroke-strong);background:rgba(0,0,0,.4);transition:border-color .15s,box-shadow .15s}
+#world-dialog-panel input:focus{border-color:var(--bw-green);box-shadow:0 0 0 3px rgba(93,187,71,.25)}
+
+/* Back button */
+#home-back-btn{border-radius:var(--bw-r-sm);background:rgba(255,255,255,.08);border:1px solid var(--bw-stroke-strong);transition:background .12s,transform .1s}
+#home-back-btn:hover{background:rgba(255,255,255,.16)}
+#home-back-btn:active{transform:translateX(-2px)}
+
+/* =====================================================================
+   MULTIPLAYER (P2P) PANEL
+   ===================================================================== */
+.p2p-tab{border-radius:var(--bw-r-sm);background:rgba(255,255,255,.05);border:1px solid var(--bw-stroke);transition:background .12s,color .12s,border-color .12s}
+.p2p-tab.active{background:rgba(58,142,230,.22);border-color:rgba(58,142,230,.6);color:#9fd0ff}
+.p2p-code-box{border-radius:var(--bw-r-sm);background:rgba(0,0,0,.45);border:1px solid var(--bw-stroke-strong)}
+.p2p-input{border-radius:var(--bw-r-sm);border:1px solid var(--bw-stroke-strong);transition:border-color .15s,box-shadow .15s}
+.p2p-input:focus{border-color:var(--bw-blue);box-shadow:0 0 0 3px rgba(58,142,230,.22)}
+.p2p-status{border-radius:var(--bw-r-sm)}
+#p2p-chat-send{border-radius:var(--bw-r-sm);background:linear-gradient(180deg,var(--bw-blue),var(--bw-blue-d));transition:filter .12s}
+#p2p-chat-send:hover{filter:brightness(1.1)}
+
+/* =====================================================================
+   IN-GAME HUD
+   ===================================================================== */
+
+/* Status overlay & HUD chips — unified glass look */
+#status-overlay{
+  background:var(--bw-glass);
+  border:1px solid var(--bw-stroke);
+  border-radius:var(--bw-r-md);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  box-shadow:var(--bw-shadow-sm);
+  letter-spacing:.2px;
+}
+
+/* Top-right control buttons — consistent pill style */
+#btn-achievements,#btn-settings,#btn-sound{
+  background:var(--bw-glass);
+  border:1px solid var(--bw-stroke-strong);
+  border-radius:var(--bw-r-md);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  box-shadow:var(--bw-shadow-sm);
+  transition:background .12s,transform .1s,border-color .12s;
+}
+#btn-achievements:hover,#btn-settings:hover,#btn-sound:hover{background:rgba(255,255,255,.16)}
+#btn-achievements:active,#btn-settings:active,#btn-sound:active{transform:scale(.93)}
+#btn-achievements{border-color:rgba(255,206,84,.55);color:var(--bw-gold)}
+
+/* Hotbar — softer frame, smoother selection */
+#hotbar{
+  background:var(--bw-glass);
+  border:1px solid var(--bw-stroke);
+  border-radius:14px;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  box-shadow:var(--bw-shadow-md);
+  padding:6px;
+}
+.hotbar-slot{
+  border:2px solid rgba(255,255,255,.22);
+  background:rgba(0,0,0,.30);
+  border-radius:9px;
+  transition:transform .1s var(--bw-ease),border-color .12s,background .12s;
+}
+.hotbar-slot.selected{
+  border-color:#fff;
+  background:rgba(255,255,255,.20);
+  transform:translateY(-3px) scale(1.04);
+}
+.hotbar-slot.selected{animation:hb-pulse 1.8s ease-in-out infinite}
+@keyframes hb-pulse{0%,100%{box-shadow:0 0 8px rgba(255,255,255,.45)}50%{box-shadow:0 0 16px rgba(255,255,255,.85)}}
+
+/* Inventory open button */
+#btn-inventory{
+  background:var(--bw-glass);
+  border:1px solid var(--bw-stroke-strong);
+  border-radius:var(--bw-r-md);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  box-shadow:var(--bw-shadow-sm);
+  transition:background .12s,transform .1s;
+}
+#btn-inventory:hover{background:rgba(255,255,255,.18)}
+#btn-inventory:active{transform:scale(.92)}
+
+/* Crosshair — slightly softer + gentle dot */
+#crosshair::before,#crosshair::after{background:rgba(255,255,255,.92);box-shadow:0 0 2px rgba(0,0,0,.6)}
+
+/* Start overlay — modern */
+#start-overlay{background:radial-gradient(120% 90% at 50% 0%,rgba(20,58,42,.7),rgba(8,16,28,.9))}
+#start-overlay .start-btn{
+  background:linear-gradient(180deg,var(--bw-green),var(--bw-green-d));
+  border-radius:var(--bw-r-md);
+  box-shadow:0 4px 0 var(--bw-green-dd),var(--bw-shadow-md);
+  transition:transform .1s var(--bw-ease),filter .12s;
+}
+#start-overlay .start-btn:hover{filter:brightness(1.1)}
+
+/* =====================================================================
+   MOBILE CONTROLS
+   ===================================================================== */
+
+/* Joystick — clearer ring + responsive knob */
+body.is-mobile #joystick-base{
+  background:radial-gradient(circle at 50% 40%,rgba(255,255,255,.14),rgba(255,255,255,.05));
+  border:2.5px solid rgba(255,255,255,.42);
+  box-shadow:0 4px 16px rgba(0,0,0,.4),inset 0 0 24px rgba(0,0,0,.25);
+}
+body.is-mobile #joystick-knob{
+  background:radial-gradient(circle at 40% 35%,rgba(255,255,255,.85),rgba(210,220,230,.55));
+  border:1px solid rgba(255,255,255,.5);
+  box-shadow:0 3px 10px rgba(0,0,0,.45);
+}
+
+/* Touch action buttons — glassier, clearer affordance, bigger tap feedback */
+body.is-mobile .touch-btn{
+  background:radial-gradient(circle at 50% 35%,rgba(40,46,58,.62),rgba(16,20,28,.58));
+  border:2.5px solid rgba(255,255,255,.55);
+  box-shadow:0 4px 14px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.18);
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  transition:transform .08s var(--bw-ease),background .1s;
+}
+body.is-mobile .touch-btn:active{transform:scale(.88);background:rgba(255,255,255,.30)}
+body.is-mobile #btn-break{border-color:rgba(255,176,112,.85)}
+body.is-mobile #btn-place{border-color:rgba(140,206,255,.85)}
+body.is-mobile #btn-jump{border-color:rgba(180,255,170,.7)}
+
+/* Mobile inventory toggle */
+body.is-mobile #btn-inventory{
+  background:var(--bw-glass);
+  border:2px solid rgba(255,255,255,.45);
+  box-shadow:var(--bw-shadow-sm);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+}
+
+/* Note: --vv-bottom / --vv-top are managed dynamically by main.js via
+   visualViewport (incl. iOS safe-area), so we don't override them here. */
+
+/* Slightly tighten top-right HUD on small phones to avoid crowding */
+@media (max-width:430px){
+  body.is-mobile #status-overlay{font-size:10.5px;padding:5px 8px;line-height:1.5}
+  body.is-mobile #top-right-buttons button{box-shadow:var(--bw-shadow-sm)}
+}
+
+/* Landscape phones: keep panels scrollable & compact */
+@media (max-height:430px) and (orientation:landscape){
+  #home-content{gap:8px}
+  #home-title{font-size:clamp(22px,5vh,34px)}
+  #home-subtitle{display:none}
+  .mc-btn{padding:9px 18px;font-size:14px}
+}
+
+/* =====================================================================
+   PANELS: INVENTORY / CRAFTING / SETTINGS / ACHIEVEMENTS
+   ===================================================================== */
+
+/* Inventory overlay backdrop — soft blur */
+#inventory-overlay,#settings-overlay,#ach-overlay{
+  background:rgba(6,10,16,.6);
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+}
+
+/* Inventory & settings panels — warm modern frame instead of harsh bevels */
+#inventory-panel,#settings-panel,#recipe-panel{
+  background:linear-gradient(165deg,#3a3a40,#26262b);
+  border:1px solid var(--bw-stroke-strong);
+  border-radius:var(--bw-r-lg);
+  box-shadow:var(--bw-shadow-lg);
+  color:#e8e8ec;
+}
+#inventory-header h2,#settings-header h2,#recipe-panel-header h3{color:#fff;letter-spacing:.3px}
+#inv-hint,#recipe-panel-hint,.set-hint{color:rgba(255,255,255,.55)}
+#settings-header{border-bottom-color:rgba(255,255,255,.12)}
+#inv-hotbar{border-top-color:rgba(255,255,255,.12)}
+
+/* Inventory slots — flatter, clearer hover/selected */
+.inv-slot{
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:7px;
+  transition:background .1s,box-shadow .1s,transform .08s;
+}
+.inv-slot:hover{background:rgba(255,255,255,.14)}
+.craft-arrow{color:rgba(255,255,255,.6)}
+#craft-result{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px}
+
+/* Close buttons — consistent red pill */
+#btn-inv-close,#btn-settings-close,#btn-ach-close,#btn-recipe-close{
+  background:var(--bw-red);border-radius:var(--bw-r-sm);transition:filter .12s,transform .1s;
+}
+#btn-inv-close:hover,#btn-settings-close:hover,#btn-ach-close:hover,#btn-recipe-close:hover{filter:brightness(1.12)}
+#btn-inv-close:active,#btn-settings-close:active,#btn-ach-close:active,#btn-recipe-close:active{transform:scale(.9)}
+
+/* Recipe button + tabs */
+#btn-recipes{border-radius:var(--bw-r-sm)}
+.recipe-tab{border-radius:var(--bw-r-sm);transition:background .12s}
+.recipe-entry{border-radius:var(--bw-r-sm)}
+
+/* Settings: chips & toggles modernised */
+.set-label{color:#eee}
+.set-chip,.set-toggle{
+  background:rgba(255,255,255,.08);color:#eee;
+  border:1px solid var(--bw-stroke-strong);border-radius:var(--bw-r-sm);
+  transition:background .12s,transform .08s;
+}
+.set-chip:hover{background:rgba(255,255,255,.16)}
+.set-chip.active,.set-toggle.on{
+  background:linear-gradient(180deg,var(--bw-green),var(--bw-green-d));
+  color:#fff;border-color:var(--bw-green-dd);
+}
+.set-row{border-radius:var(--bw-r-sm)}
+
+/* Achievements panel — keep gold theme but modern radii */
+#ach-panel{border-radius:var(--bw-r-lg);box-shadow:var(--bw-shadow-lg)}
+.ach-entry{border-radius:var(--bw-r-md)}
+.ach-entry-icon{border-radius:var(--bw-r-md)}
+
+/* Sign editor — already inline-styled; round corners a touch more */
+#sign-editor-panel{border-radius:var(--bw-r-md)!important}
