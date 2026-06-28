@@ -145,9 +145,22 @@ function heightAtRaw(x,z,c){
       const crater=Math.max(0,(up-0.68))/0.32;
       h-=crater*crater*48;
     }else{
+      // MOUNTAIN TERRACES: snap the uplifted height into discrete elevation
+      // bands so the upper slopes read as blocky, eroded ledges & ridges
+      // (Minecraft-style "ゴツゴツ" ridgelines) rather than a smooth cone.
+      // The blend weight ramps with `up` (uplift strength 0..1): foothills and
+      // the lower slopes keep their smooth rolling shape, and only the mid-to-
+      // upper mountain develops visible bands. We never snap fully — blending
+      // the raw height with the quantised value avoids an unnatural staircase
+      // while still producing clear ~3-4 block ledges at the band boundaries.
+      const terraceStep = 7;                                  // band width (blocks)
+      const terraced = Math.round(h/terraceStep)*terraceStep;
+      const terraceStrength = Math.max(0,(up-0.35)/0.65);    // 0..1, mid-slope up
+      const w = terraceStrength*0.55;                         // cap ~55% snap
+      h = h*(1-w) + terraced*w;
       // MOUNTAIN CANYONS: a ridged-noise "river" channel carves deep, steep
-      // valleys through the high terrain. Where the channel mask is near its
-      // ridge line we subtract a large amount of height, producing gorges.
+      // valleys through the high terrain. Applied AFTER terracing so the
+      // gorges cut down through the banded ledges (both effects visible).
       const cn=fbm2(x,z,131,4,1/100,0.5,2.0);
       const canyon=1-Math.abs(cn*2-1);      // 0..1, peaks along winding lines
       if(canyon>0.76){
