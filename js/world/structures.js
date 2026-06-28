@@ -39,6 +39,28 @@ function isVillageBiome(b){return b===BIOME.PLAINS||b===BIOME.FOREST||b===BIOME.
 // ---------------------------------------------------------------------------
 const villageWindmills=[];
 
+// ---------------------------------------------------------------------------
+//  GLOBAL STRUCTURE PLACEMENT REGISTRY
+//  Tracks every placed structure (any type) with its centre and the radius it
+//  occupies, so new structures can avoid overlapping earlier ones regardless of
+//  type. The pre-existing builders each only check minimum distance against
+//  their OWN kind (e.g. villages vs. villages); this cross-type registry fills
+//  that gap so a desert pyramid doesn't land on top of a village, a mineshaft
+//  corridor doesn't cross through a stronghold, etc.
+//  Cleared at the start of placeStructures().
+// ---------------------------------------------------------------------------
+const placedStructures=[]; // {x, z, radius, type}
+function registerStructure(x,z,radius,type){
+  placedStructures.push({x,z,radius,type});
+}
+function overlapsExisting(x,z,radius){
+  for(const s of placedStructures){
+    const minDist=radius+s.radius;
+    if(Math.abs(s.x-x)<minDist&&Math.abs(s.z-z)<minDist)return true;
+  }
+  return false;
+}
+
 // ===========================================================================
 //  VILLAGES
 // ===========================================================================
@@ -56,13 +78,38 @@ function placeVillages(){
     attempts++;
     const cx=24+Math.floor(rng()*(WORLD_W-48));
     const cz=24+Math.floor(rng()*(WORLD_D-48));
-    // keep villages apart
+    // keep villages apart (use the largest radius so a town never crowds
+    // another village's edge)
     let tooClose=false;
     for(const p of placed){if(Math.abs(p.x-cx)<60&&Math.abs(p.z-cz)<60){tooClose=true;break;}}
     if(tooClose)continue;
-    if(tryBuildVillage(cx,cz,rng))placed.push({x:cx,z:cz});
+    // Roll the village size class BEFORE building, so the flatness test and
+    // the cross-type overlap margin can use this class's own radius. Two
+    // villages in the same playthrough can now come out as a small hamlet,
+    // a standard village or a larger town — meaningfully different footprints
+    // rather than always the fixed R=30 layout.
+    const sizeRoll=rng();
+    const sizeClass=sizeRoll<0.35?'hamlet':(sizeRoll<0.75?'village':'town');
+    const sizeRadius=sizeClassRadius(sizeClass);
+    // Cross-type overlap check: don't build a village on top of an
+    // already-placed stronghold/mineshaft/etc. Use the size-class radius
+    // plus a small margin.
+    if(overlapsExisting(cx,cz,sizeRadius+6))continue;
+    if(tryBuildVillage(cx,cz,rng,sizeClass)){
+      placed.push({x:cx,z:cz});
+      registerStructure(cx,cz,sizeRadius+6,'village:'+sizeClass);
+    }
   }
   return placed;
+}
+
+// Radius each village size class occupies. Used for the flatness test, the
+// cross-type overlap margin and the registry entry so hamlets (small) need
+// less flat land than towns (large).
+function sizeClassRadius(sizeClass){
+  if(sizeClass==='hamlet')return 18;
+  if(sizeClass==='town')  return 40;
+  return 30;                       // 'village' (the original default)
 }
 
 // Flatness test: sample the height map over the footprint and require the
@@ -88,8 +135,11 @@ function siteIsFlat(cx,cz,radius){
   return (hi-lo)<=12;
 }
 
-function tryBuildVillage(cx,cz,rng){
-  const R=30;     // larger footprint so the expanded village fits comfortably
+function tryBuildVillage(cx,cz,rng,sizeClass){
+  // Default to the medium 'village' class if a caller forgot to pass one, so
+  // the function stays backward-compatible with any direct callers.
+  if(!sizeClass)sizeClass='village';
+  const R=sizeClassRadius(sizeClass);
   if(!siteIsFlat(cx,cz,R))return false;
   const ground=heightMap[colIndex(cx,cz)];      // common ground level
   const biome=biomeMap[colIndex(cx,cz)];
@@ -113,21 +163,19 @@ function tryBuildVillage(cx,cz,rng){
   layVillageRoads(cx,cz,ground,R,desert);
   // 3) central well at the crossroads.
   buildWell(cx,cz,ground,desert);
-  // 4) buildings laid out in two concentric rings around the well, all facing
-  //    inward toward the plaza. The expanded village has ~20 structures plus
-  //    multiple farm fields and a market, making it feel like a real town.
-  const houseSpots=[
-    // inner ring
-    [-10,-10],[10,-10],[-10,10],[10,10],
-    [0,-13],[0,13],[-13,0],[13,0],
-    // outer ring
-    [-22,-10],[22,-10],[-22,10],[22,10],
-    [-10,-22],[10,-22],[-10,22],[10,22],
-    [-22,-22],[22,-22],[-22,22],[22,22],
-    [0,-24],[0,24],[-24,0],[24,0],
-  ];
+  // 4) buildings laid out in concentric rings around the well, all facing
+  //    inward toward the plaza. The set of ring positions, the farm target
+  //    and whether a market / windmill are guaranteed all depend on the size
+  //    class, so a hamlet, a village and a town now have visibly different
+  //    layouts and building counts instead of one shared skeleton.
+  const houseSpots=villageHouseSpots(sizeClass);
+  // Per-class amenity policy.
+  const FARM_TARGET =(sizeClass==='hamlet')?1:(sizeClass==='town'?4:3);
+  const MARKET_OK   =sizeClass!=='hamlet';   // hamlets have no market
+  const WINDMILL_OK =sizeClass!=='hamlet';   // hamlets get no guaranteed windmill
+  const MARKET_RING =sizeClass==='town'?12:4;// towns may place the market further out
+  const FARM_RING   =sizeClass==='hamlet'?4:8;
   let farms=0,builtMarket=false,builtWindmill=false;
-  const FARM_TARGET=3;          // multiple crop fields per village
   // Remember the last farm we placed so the windmill can be raised right beside
   // a crop field — a classic "風車のある農場" (farm with a windmill) scene.
   let lastFarm=null;
@@ -135,18 +183,26 @@ function tryBuildVillage(cx,cz,rng){
     const hx=cx+houseSpots[i][0],hz=cz+houseSpots[i][1];
     if(hx<R+2||hx>=WORLD_W-R-2||hz<R+2||hz>=WORLD_D-R-2)continue;
     const r=rng();
-    // Farms prefer the roomier outer ring (i>=8).
-    if(farms<FARM_TARGET&&i>=8&&r<0.45){buildFarm(hx,hz,ground,desert);lastFarm=[hx,hz];farms++;continue;}
-    if(!builtMarket&&i>=4&&r<0.3){buildMarket(hx,hz,ground,desert);builtMarket=true;continue;}
+    // Farms prefer the roomier outer ring(s).
+    if(farms<FARM_TARGET&&i>=FARM_RING&&r<0.45){buildFarm(hx,hz,ground,desert);lastFarm=[hx,hz];farms++;continue;}
+    if(MARKET_OK&&!builtMarket&&i>=MARKET_RING&&r<0.3){buildMarket(hx,hz,ground,desert);builtMarket=true;continue;}
     buildHouse(hx,hz,ground,rng,desert,snowy,cx,cz);
     // a lamp post beside most houses
     if(rng()<0.7)buildLampPost(hx+(houseSpots[i][0]<0?3:-3),hz+2,ground);
   }
   // Guarantee at least one farm even if the random rolls skipped them.
-  if(farms===0){buildFarm(cx-22,cz+10,ground,desert);lastFarm=[cx-22,cz+10];farms++;}
-  // Every village gets one windmill mill-house, raised on the village fringe
-  // next to a farm field so its turning sails overlook the crops.
-  if(!builtWindmill&&lastFarm){
+  if(farms===0){
+    const fx=cx-(sizeClass==='hamlet'?14:22),fz=cz+10;
+    if(fx>=R+2&&fx<WORLD_W-R-2){buildFarm(fx,fz,ground,desert);lastFarm=[fx,fz];farms++;}
+  }
+  // Towns always get a market even if the loop rolls skipped it.
+  if(sizeClass==='town'&&!builtMarket){
+    const mx=cx+12,mz=cz-12;
+    if(mx>=R+2&&mx<WORLD_W-R-2){buildMarket(mx,mz,ground,desert);builtMarket=true;}
+  }
+  // Every village (except hamlets) gets one windmill mill-house, raised on the
+  // village fringe next to a farm field so its turning sails overlook the crops.
+  if(WINDMILL_OK&&!builtWindmill&&lastFarm){
     // Offset the windmill a few blocks outward from the farm centre toward the
     // village edge so its tall tower & sails have clear sky around them.
     const ox=lastFarm[0]+(lastFarm[0]>=cx?7:-7);
@@ -162,6 +218,42 @@ function tryBuildVillage(cx,cz,rng){
     buildLampPost(cx+2,cz+d,ground);buildLampPost(cx-2,cz-d,ground);
   }
   return true;
+}
+
+// Building ring positions per village size class. Each class has a distinct
+// layout skeleton:
+//   hamlet  — a tight cluster of 8 close-together spots (6–8 buildings).
+//   village — the original 20-position two-ring layout (inner + outer).
+//   town    — the village layout plus an additional outer ring of 12 slots so
+//             a town has the most buildings and the widest footprint.
+function villageHouseSpots(sizeClass){
+  if(sizeClass==='hamlet'){
+    // 8 close-together spots forming a single tight ring around the well.
+    return [
+      [-8,-8],[8,-8],[-8,8],[8,8],
+      [0,-11],[0,11],[-11,0],[11,0],
+    ];
+  }
+  // The shared medium/large base: inner ring (8) + outer ring (12).
+  const base=[
+    // inner ring
+    [-10,-10],[10,-10],[-10,10],[10,10],
+    [0,-13],[0,13],[-13,0],[13,0],
+    // outer ring
+    [-22,-10],[22,-10],[-22,10],[22,10],
+    [-10,-22],[10,-22],[-10,22],[10,22],
+    [-22,-22],[22,-22],[-22,22],[22,22],
+    [0,-24],[0,24],[-24,0],[24,0],
+  ];
+  if(sizeClass==='town'){
+    // Additional outer ring of 12 slots, further out, for a larger town.
+    return base.concat([
+      [-33,-16],[33,-16],[-33,16],[33,16],
+      [-16,-33],[16,-33],[-16,33],[16,33],
+      [-33,-33],[33,-33],[-33,33],[33,33],
+    ]);
+  }
+  return base;                     // 'village'
 }
 
 // Packed-dirt (PATH) roads: a plus-shaped main street + an outer ring.
@@ -230,7 +322,16 @@ function buildWell(cx,cz,gy,desert){
 //   - Door facing village centre
 //   - Interior: chest, bed, crafting table, furnace, torches
 function buildHouse(hx,hz,gy,rng,desert,snowy,villageX,villageZ){
-  const houseType=Math.floor(rng()*3); // 0=small,1=medium,2=large
+  // 5 distinct layouts: 0=small,1=medium,2=large (single-room), 3=two-story,
+  // 4=L-shaped. All rolls come from the village's deterministic rng so a given
+  // world seed reproduces an identical village layout.
+  const houseType=Math.floor(rng()*5);
+  const furnishVariant=Math.floor(rng()*3);      // 0-2: shifts bed/chest corners + extras
+  const roofStyle=rng()<0.30?'leanto':'pitched'; // ~30% lean-to, ~70% pitched
+  if(houseType===3){buildTwoStoryHouse(hx,hz,gy,rng,desert,snowy,villageX,villageZ,furnishVariant,roofStyle);return;}
+  if(houseType===4){buildLHouse(hx,hz,gy,rng,desert,snowy,villageX,villageZ,furnishVariant,roofStyle);return;}
+  // 0/1/2: existing single-room code path (structure unchanged); the roof
+  // style and furnishing layout are now driven by the rolled variants.
   const w=(houseType===2?8:(houseType===1?7:6));
   const d=(houseType===2?8:(houseType===1?6:5));
   const wallH=4; // Minecraft houses are 4 walls tall
@@ -302,21 +403,290 @@ function buildHouse(hx,hz,gy,rng,desert,snowy,villageX,villageZ){
   // Small stone step/stair in front of door
   sBlock(doorX+frontDX,gy,doorZ+frontDZ,B.COBBLE);
 
-  // === ROOF ===
-  buildRoofMinecraft(x0,z0,x1,z1,gy+wallH+1,desert,snowy);
+  // === ROOF === (style rolled per house: pitched is the common case, the
+  // single-slope lean-to is a minority variant for visual variety)
+  if(roofStyle==='leanto')buildLeanToRoof(x0,z0,x1,z1,gy+wallH+1,desert,snowy);
+  else buildRoofMinecraft(x0,z0,x1,z1,gy+wallH+1,desert,snowy);
 
-  // === INTERIOR FURNISHINGS ===
-  // Chest in corner
-  sBlock(x0+1,gy+1,z0+1,B.CHEST);
-  // Torches on walls
-  sBlock(x1-1,gy+wallH,z0+1,B.TORCH);
-  sBlock(x0+1,gy+wallH,z1-1,B.TORCH);
-  // Bed in back corner (wool block = bed)
-  sBlock(x1-1,gy+1,z1-1,B.WOOL_RED);sBlock(x1-2,gy+1,z1-1,B.WOOL_WHITE);
-  // Crafting table
-  sBlock(x0+1,gy+1,z1-1,B.CRAFTING);
-  // Flower pot hint on windowsill (use dandelion)
+  // === INTERIOR FURNISHINGS === (layout rolled per house so neighbours don't
+  // look like exact mirrors: chest/bed/crafting corners shift, a bookshelf or
+  // an extra torch may appear)
+  placeHouseFurnishings(x0,z0,x1,z1,gy,wallH,furnishVariant,midX,desert);
+}
+
+// ---------------------------------------------------------------------------
+//  HOUSE VARIETY HELPERS (two-story, L-shaped, lean-to roof, furnishing layout)
+//  These reuse the existing wall/window/door/roof building blocks rather than
+//  reimplementing them, so the new shapes stay visually consistent with the
+//  single-room houses. All randomness is drawn from the village's own rng so a
+//  given world seed reproduces an identical layout.
+// ---------------------------------------------------------------------------
+
+// Per-house furnishing layout: variant 0 keeps the original corner placement,
+// variants 1–2 shift which corner the bed & chest go in and may add a
+// bookshelf (B.BOOKSHELF) or a second torch for variety.
+function placeHouseFurnishings(x0,z0,x1,z1,gy,wallH,variant,midX,desert){
+  const floorMat=desert?B.SANDSTONE:B.PLANKS;
+  if(variant===0){
+    // original layout (chest front-left, bed back-right, crafting front-right)
+    sBlock(x0+1,gy+1,z0+1,B.CHEST);
+    sBlock(x1-1,gy+wallH,z0+1,B.TORCH);
+    sBlock(x0+1,gy+wallH,z1-1,B.TORCH);
+    sBlock(x1-1,gy+1,z1-1,B.WOOL_RED);sBlock(x1-2,gy+1,z1-1,B.WOOL_WHITE);
+    sBlock(x0+1,gy+1,z1-1,B.CRAFTING);
+  }else if(variant===1){
+    // mirrored layout: chest back-left, bed front-right, crafting back-right,
+    // plus a bookshelf against a wall for a lived-in study feel.
+    sBlock(x0+1,gy+1,z1-1,B.CHEST);
+    sBlock(x1-1,gy+wallH,z0+1,B.TORCH);
+    sBlock(x0+1,gy+wallH,z0+1,B.TORCH);
+    sBlock(x1-1,gy+1,z0+1,B.WOOL_RED);sBlock(x1-2,gy+1,z0+1,B.WOOL_WHITE);
+    sBlock(x0+1,gy+1,z0+1,B.CRAFTING);
+    sBlock(x1-1,gy+1,z1-1,B.BOOKSHELF);
+  }else{
+    // variant 2: chest front-right, bed back-left, crafting front-left, an
+    // extra wall torch + a bookshelf.
+    sBlock(x1-1,gy+1,z0+1,B.CHEST);
+    sBlock(x1-1,gy+wallH,z1-1,B.TORCH);
+    sBlock(x0+1,gy+wallH,z0+1,B.TORCH);
+    sBlock(x0+1,gy+wallH,z1-1,B.TORCH);
+    sBlock(x0+1,gy+1,z1-1,B.WOOL_RED);sBlock(x0+2,gy+1,z1-1,B.WOOL_WHITE);
+    sBlock(x1-1,gy+1,z1-1,B.CRAFTING);
+    sBlock(x0+1,gy+1,z0+1,B.BOOKSHELF);
+  }
+  // Flower pot hint on windowsill (use dandelion) — kept on all variants.
   sBlockSoft(midX,gy+3,z0-1,B.FLOWER_DANDELION);
+}
+
+// A flatter single-slope "lean-to" roof: a minority variant (~30%) that slopes
+// in just one direction instead of pitching from a central ridge. Reuses the
+// stair-block approach from buildRoofMinecraft so it renders consistently.
+function buildLeanToRoof(x0,z0,x1,z1,baseY,desert,snowy){
+  const capMat=desert?B.SANDSTONE:(snowy?B.SNOW_BLOCK:B.PLANKS);
+  const ridgeMat=B.LOG;
+  // slope runs along Z from the high back (z0-1) down to the low front (z1+1).
+  const span=(z1-z0)+3;
+  for(let layer=0;layer<span;layer++){
+    const y=baseY+layer;
+    const zLine=z0-1+layer;             // a single sloping line, not a pair
+    for(let x=x0-1;x<=x1+1;x++){
+      if(desert||snowy) sBlock(x,y,zLine,capMat);
+      else              sBlock(x,y,zLine,B.STAIRS_S);
+    }
+  }
+  // a low ridge log along the high edge to cap the slope
+  for(let x=x0-1;x<=x1+1;x++)sBlock(x,baseY,z0-1,ridgeMat);
+  if(snowy){for(let x=x0-1;x<=x1+1;x++)sBlock(x,baseY+1,z0-1,B.SNOW);}
+}
+
+// Two-story house (layout type 3): same footprint as "medium" (7×6), but with a
+// second floor stacked above the first. A plank floor slab separates the
+// storeys; a STAIRS block against an interior wall gives vertical access (the
+// palette has no LADDER block, so stairs stand in for it). The upper floor gets
+// its own window row and is capped with the rolled roof style.
+function buildTwoStoryHouse(hx,hz,gy,rng,desert,snowy,villageX,villageZ,furnishVariant,roofStyle){
+  const w=7,d=6;                       // medium footprint
+  const wallH=4;                       // each floor is 4 walls tall
+  const x0=hx-((w-1)>>1),z0=hz-((d-1)>>1);
+  const x1=x0+w-1,z1=z0+d-1;
+  const wallMat=desert?B.SANDSTONE:(snowy?B.SNOW_BLOCK:B.PLANKS);
+  const cornerMat=desert?B.SANDSTONE:B.LOG;
+  const foundMat=desert?B.SANDSTONE:B.COBBLE;
+  const midX=Math.floor((x0+x1)/2);
+
+  // clear a taller column (two floors + roof + chimney)
+  fillBox(x0-1,gy+1,z0-1,x1+1,gy+wallH*2+6,z1+1,B.AIR);
+
+  // === FOUNDATION + ground floor ===
+  for(let x=x0;x<=x1;x++){sBlock(x,gy,z0,foundMat);sBlock(x,gy,z1,foundMat);}
+  for(let z=z0;z<=z1;z++){sBlock(x0,gy,z,foundMat);sBlock(x1,gy,z,foundMat);}
+  fillBox(x0+1,gy,z0+1,x1-1,gy,z1-1,desert?B.SANDSTONE:B.PLANKS);
+
+  // ground-floor walls + corner posts + mid band (mirrors single-room builder)
+  for(let y=gy+1;y<=gy+wallH;y++){
+    for(let x=x0;x<=x1;x++){sBlock(x,y,z0,wallMat);sBlock(x,y,z1,wallMat);}
+    for(let z=z0;z<=z1;z++){sBlock(x0,y,z,wallMat);sBlock(x1,y,z,wallMat);}
+  }
+  for(let y=gy+1;y<=gy+wallH;y++){
+    sBlock(x0,y,z0,cornerMat);sBlock(x1,y,z0,cornerMat);
+    sBlock(x0,y,z1,cornerMat);sBlock(x1,y,z1,cornerMat);
+  }
+  const midY1=gy+2;
+  for(let x=x0;x<=x1;x++){sBlock(x,midY1,z0,cornerMat);sBlock(x,midY1,z1,cornerMat);}
+  for(let z=z0;z<=z1;z++){sBlock(x0,midY1,z,cornerMat);sBlock(x1,midY1,z,cornerMat);}
+  // ground-floor windows
+  const wy1=gy+3;
+  sBlock(midX-1,wy1,z0,B.GLASS);sBlock(midX+1,wy1,z0,B.GLASS);
+  sBlock(midX-1,wy1,z1,B.GLASS);sBlock(midX+1,wy1,z1,B.GLASS);
+
+  // === INTERMEDIATE PLANK FLOOR SLAB (separates storeys) ===
+  fillBox(x0+1,gy+wallH+1,z0+1,x1-1,gy+wallH+1,z1-1,desert?B.SANDSTONE:B.PLANKS);
+
+  // === SECOND FLOOR walls + corners + mid band ===
+  const f2y0=gy+wallH+2, f2y1=gy+wallH*2+1;
+  for(let y=f2y0;y<=f2y1;y++){
+    for(let x=x0;x<=x1;x++){sBlock(x,y,z0,wallMat);sBlock(x,y,z1,wallMat);}
+    for(let z=z0;z<=z1;z++){sBlock(x0,y,z,wallMat);sBlock(x1,y,z,wallMat);}
+  }
+  for(let y=f2y0;y<=f2y1;y++){
+    sBlock(x0,y,z0,cornerMat);sBlock(x1,y,z0,cornerMat);
+    sBlock(x0,y,z1,cornerMat);sBlock(x1,y,z1,cornerMat);
+  }
+  const midY2=f2y0+1;
+  for(let x=x0;x<=x1;x++){sBlock(x,midY2,z0,cornerMat);sBlock(x,midY2,z1,cornerMat);}
+  for(let z=z0;z<=z1;z++){sBlock(x0,midY2,z,cornerMat);sBlock(x1,midY2,z,cornerMat);}
+  // upper-floor window row (an extra window row, as required)
+  const wy2=f2y0+1;
+  sBlock(midX-1,wy2,z0,B.GLASS);sBlock(midX+1,wy2,z0,B.GLASS);
+  sBlock(midX-1,wy2,z1,B.GLASS);sBlock(midX+1,wy2,z1,B.GLASS);
+
+  // === CHIMNEY ===
+  if(!desert){
+    const chX=x1-1,chZ=z0+1;
+    for(let y=f2y1+1;y<=f2y1+4;y++)sBlock(chX,y,chZ,B.COBBLE);
+    sBlock(chX,gy+1,chZ,B.FURNACE);
+  }
+
+  // === DOOR facing the village centre (ground floor only) ===
+  let doorX,doorZ,doorBottom,doorTop,frontDX=0,frontDZ=0;
+  const toCx=(villageX!==undefined)?villageX-hx:0;
+  const toCz=(villageZ!==undefined)?villageZ-hz:1;
+  if(Math.abs(toCz)>=Math.abs(toCx)){
+    doorX=hx;
+    if(toCz>=0){doorZ=z1;doorBottom=B.DOOR_BOTTOM_S_CLOSED;doorTop=B.DOOR_TOP_S_CLOSED;frontDZ=1;}
+    else       {doorZ=z0;doorBottom=B.DOOR_BOTTOM_N_CLOSED;doorTop=B.DOOR_TOP_N_CLOSED;frontDZ=-1;}
+  }else{
+    doorZ=hz;
+    if(toCx>=0){doorX=x1;doorBottom=B.DOOR_BOTTOM_E_CLOSED;doorTop=B.DOOR_TOP_E_CLOSED;frontDX=1;}
+    else       {doorX=x0;doorBottom=B.DOOR_BOTTOM_W_CLOSED;doorTop=B.DOOR_TOP_W_CLOSED;frontDX=-1;}
+  }
+  sBlock(doorX,gy+1,doorZ,doorBottom);
+  sBlock(doorX,gy+2,doorZ,doorTop);
+  sBlock(doorX+frontDX,gy+1,doorZ+frontDZ,B.AIR);
+  sBlock(doorX+frontDX,gy+2,doorZ+frontDZ,B.AIR);
+  sBlock(doorX+frontDX,gy,doorZ+frontDZ,B.COBBLE);
+
+  // === STAIRS BLOCK for vertical access between floors ===
+  // Place an interior stair against the back wall so the player can climb to
+  // the second floor. STAIRS_N faces "up toward north" — sit it so its low end
+  // is on the ground floor and it climbs toward the floor slab.
+  sBlock(x0+1,gy+wallH,z1-1,B.STAIRS_N);
+  // punch a hole in the floor slab above the stair so the player can step up
+  sBlock(x0+1,gy+wallH+1,z1-1,B.AIR);
+
+  // === ROOF on the upper floor ===
+  if(roofStyle==='leanto')buildLeanToRoof(x0,z0,x1,z1,f2y1+1,desert,snowy);
+  else buildRoofMinecraft(x0,z0,x1,z1,f2y1+1,desert,snowy);
+
+  // === FURNISHINGS === ground floor uses the rolled variant layout; the
+  // upper floor gets a bed + an extra chest so the two-storey house reads as a
+  // home with an upstairs bedroom.
+  placeHouseFurnishings(x0,z0,x1,z1,gy,wallH,furnishVariant,midX,desert);
+  // upstairs bedroom: bed in a back corner + a chest
+  sBlock(x1-1,f2y0,z1-1,B.WOOL_RED);sBlock(x1-2,f2y0,z1-1,B.WOOL_WHITE);
+  sBlock(x0+1,f2y0,z0+1,B.CHEST);
+  sBlock(x1-1,f2y1,z0+1,B.TORCH);
+}
+
+// L-shaped house (layout type 4): two overlapping rectangular wings of
+// different sizes sharing one corner — a 6×5 main wing and a 4×4 side wing.
+// Each wing is walled/roofed with the existing helpers, then a doorway is cut
+// between them so the interior is continuous.
+function buildLHouse(hx,hz,gy,rng,desert,snowy,villageX,villageZ,furnishVariant,roofStyle){
+  const wallH=4;
+  const wallMat=desert?B.SANDSTONE:(snowy?B.SNOW_BLOCK:B.PLANKS);
+  const cornerMat=desert?B.SANDSTONE:B.LOG;
+  const foundMat=desert?B.SANDSTONE:B.COBBLE;
+  // Main wing: 6×5, centred on (hx,hz).
+  const mw=6,md=5;
+  const mx0=hx-((mw-1)>>1),mz0=hz-((md-1)>>1);
+  const mx1=mx0+mw-1,mz1=mz0+md-1;
+  // Side wing: 4×4, sharing the main wing's south-east corner and extending
+  // outward in +x/+z so the two boxes form an L.
+  const sw=4,sd=4;
+  const sx0=mx1-1,sz0=mz1-1;             // shared corner
+  const sx1=sx0+sw-1,sz1=sz0+sd-1;
+
+  // clear the combined footprint
+  fillBox(Math.min(mx0,sx0)-1,gy+1,Math.min(mz0,sz0)-1,
+          Math.max(mx1,sx1)+1,gy+wallH+5,Math.max(mz1,sz1)+1,B.AIR);
+
+  // Helper: lay a rectangular wing's foundation, walls, corner posts, mid band,
+  // windows and roof. Reuses the same block choices as the single-room builder.
+  const buildWing=(x0,z0,x1,z1,doRoof)=>{
+    // foundation ring + plank floor
+    for(let x=x0;x<=x1;x++){sBlock(x,gy,z0,foundMat);sBlock(x,gy,z1,foundMat);}
+    for(let z=z0;z<=z1;z++){sBlock(x0,gy,z,foundMat);sBlock(x1,gy,z,foundMat);}
+    fillBox(x0+1,gy,z0+1,x1-1,gy,z1-1,desert?B.SANDSTONE:B.PLANKS);
+    // walls
+    for(let y=gy+1;y<=gy+wallH;y++){
+      for(let x=x0;x<=x1;x++){sBlock(x,y,z0,wallMat);sBlock(x,y,z1,wallMat);}
+      for(let z=z0;z<=z1;z++){sBlock(x0,y,z,wallMat);sBlock(x1,y,z,wallMat);}
+    }
+    // corner posts
+    for(let y=gy+1;y<=gy+wallH;y++){
+      sBlock(x0,y,z0,cornerMat);sBlock(x1,y,z0,cornerMat);
+      sBlock(x0,y,z1,cornerMat);sBlock(x1,y,z1,cornerMat);
+    }
+    // mid band
+    const midY=gy+2;
+    for(let x=x0;x<=x1;x++){sBlock(x,midY,z0,cornerMat);sBlock(x,midY,z1,cornerMat);}
+    for(let z=z0;z<=z1;z++){sBlock(x0,midY,z,cornerMat);sBlock(x1,midY,z,cornerMat);}
+    // windows (skip very small walls)
+    const wy=gy+3;
+    const midX=Math.floor((x0+x1)/2),midZ=Math.floor((z0+z1)/2);
+    if(x1-x0>=4){sBlock(midX-1,wy,z0,B.GLASS);sBlock(midX+1,wy,z0,B.GLASS);}
+    if(x1-x0>=4){sBlock(midX-1,wy,z1,B.GLASS);sBlock(midX+1,wy,z1,B.GLASS);}
+    if(z1-z0>=4){sBlock(x0,wy,midZ,B.GLASS);sBlock(x1,wy,midZ,B.GLASS);}
+    if(doRoof){
+      if(roofStyle==='leanto')buildLeanToRoof(x0,z0,x1,z1,gy+wallH+1,desert,snowy);
+      else buildRoofMinecraft(x0,z0,x1,z1,gy+wallH+1,desert,snowy);
+    }
+  };
+
+  // Build the main wing with its roof, then the side wing with its own roof.
+  buildWing(mx0,mz0,mx1,mz1,true);
+  buildWing(sx0,sz0,sx1,sz1,true);
+
+  // === CUT A DOORWAY BETWEEN THE TWO WINGS === so the L's interior is one
+  // continuous space. The shared corner is around (mx1,mz1); open a 2-tall gap
+  // in the wall that divides them.
+  sBlock(mx1,gy+1,mz1,B.AIR);
+  sBlock(mx1,gy+2,mz1,B.AIR);
+
+  // === DOOR facing the village centre (on the main wing) ===
+  let doorX,doorZ,doorBottom,doorTop,frontDX=0,frontDZ=0;
+  const toCx=(villageX!==undefined)?villageX-hx:0;
+  const toCz=(villageZ!==undefined)?villageZ-hz:1;
+  if(Math.abs(toCz)>=Math.abs(toCx)){
+    doorX=hx;
+    if(toCz>=0){doorZ=mz1;doorBottom=B.DOOR_BOTTOM_S_CLOSED;doorTop=B.DOOR_TOP_S_CLOSED;frontDZ=1;}
+    else       {doorZ=mz0;doorBottom=B.DOOR_BOTTOM_N_CLOSED;doorTop=B.DOOR_TOP_N_CLOSED;frontDZ=-1;}
+  }else{
+    doorZ=hz;
+    if(toCx>=0){doorX=mx1;doorBottom=B.DOOR_BOTTOM_E_CLOSED;doorTop=B.DOOR_TOP_E_CLOSED;frontDX=1;}
+    else       {doorX=mx0;doorBottom=B.DOOR_BOTTOM_W_CLOSED;doorTop=B.DOOR_TOP_W_CLOSED;frontDX=-1;}
+  }
+  sBlock(doorX,gy+1,doorZ,doorBottom);
+  sBlock(doorX,gy+2,doorZ,doorTop);
+  sBlock(doorX+frontDX,gy+1,doorZ+frontDZ,B.AIR);
+  sBlock(doorX+frontDX,gy+2,doorZ+frontDZ,B.AIR);
+  sBlock(doorX+frontDX,gy,doorZ+frontDZ,B.COBBLE);
+
+  // === CHIMNEY on the main wing ===
+  if(!desert){
+    const chX=mx1-1,chZ=mz0+1;
+    for(let y=gy+wallH+1;y<=gy+wallH+4;y++)sBlock(chX,y,chZ,B.COBBLE);
+    sBlock(chX,gy+1,chZ,B.FURNACE);
+  }
+
+  // === FURNISHINGS in the main wing; the side wing gets a chest + bed so the
+  // L reads as a main living area plus a bedroom wing.
+  const midX=Math.floor((mx0+mx1)/2);
+  placeHouseFurnishings(mx0,mz0,mx1,mz1,gy,wallH,furnishVariant,midX,desert);
+  sBlock(sx0+1,gy+1,sz1-1,B.CHEST);
+  sBlock(sx1-1,gy+1,sz0+1,B.WOOL_RED);sBlock(sx1-2,gy+1,sz0+1,B.WOOL_WHITE);
+  sBlock(sx1-1,gy+wallH,sz0+1,B.TORCH);
 }
 
 // Minecraft-style pitched roof using stair blocks for proper angled eaves.
@@ -593,9 +963,13 @@ function placeMineshafts(){
     let tooClose=false;
     for(const p of placed){if(Math.abs(p.x-cx)<70&&Math.abs(p.z-cz)<70){tooClose=true;break;}}
     if(tooClose)continue;
+    // Cross-type overlap check: skip the candidate if it lands on top of an
+    // already-placed structure (e.g. the stronghold, registered first).
+    if(overlapsExisting(cx,cz,70))continue;
     const cy=12+Math.floor(rng()*24);          // shallow-to-mid start depth
     buildMineshaftComplex(cx,cy,cz,rng);
     placed.push({x:cx,z:cz});
+    registerStructure(cx,cz,70,'mineshaft');
   }
 }
 
@@ -981,6 +1355,11 @@ function placeStronghold(){
   const cz=Math.floor(WORLD_D*0.3+rng()*WORLD_D*0.4);
   const cy=8+Math.floor(rng()*10);
   buildStronghold(cx,cy,cz,rng);
+  // Register the stronghold centre so mineshafts (placed next) avoid routing
+  // their corridors straight through it. It's deep underground so it won't
+  // visually clash with surface structures, but the registry keeps mineshaft
+  // tunnels from carving through the fortress rooms.
+  registerStructure(cx,cz,30,'stronghold');
 }
 
 function buildStronghold(cx,cy,cz,rng){
@@ -1080,12 +1459,14 @@ function placeDesertPyramids(){
     let tooClose=false;
     for(const p of placed){if(Math.abs(p.x-cx)<80&&Math.abs(p.z-cz)<80){tooClose=true;break;}}
     if(tooClose)continue;
+    if(overlapsExisting(cx,cz,14))continue;          // pyramid half-width W=10 + margin
     const biome=biomeMap[colIndex(cx,cz)];
     if(biome!==BIOME.DESERT&&biome!==BIOME.MESA)continue;
     const h=heightMap[colIndex(cx,cz)];
     if(h<=SEA_LEVEL)continue;
     buildDesertPyramid(cx,h,cz);
     placed.push({x:cx,z:cz});
+    registerStructure(cx,cz,14,'desertPyramid');
   }
 }
 
@@ -1177,12 +1558,14 @@ function placeJungleTemples(){
     let tooClose=false;
     for(const p of placed){if(Math.abs(p.x-cx)<90&&Math.abs(p.z-cz)<90){tooClose=true;break;}}
     if(tooClose)continue;
+    if(overlapsExisting(cx,cz,10))continue;          // temple half-width W=6 + margin
     const biome=biomeMap[colIndex(cx,cz)];
     if(biome!==BIOME.JUNGLE)continue;
     const h=heightMap[colIndex(cx,cz)];
     if(h<=SEA_LEVEL)continue;
     buildJungleTemple(cx,h,cz,rng);
     placed.push({x:cx,z:cz});
+    registerStructure(cx,cz,10,'jungleTemple');
   }
 }
 
@@ -1267,6 +1650,7 @@ function placeRuinedPortals(){
     let tooClose=false;
     for(const p of placed){if(Math.abs(p.x-cx)<60&&Math.abs(p.z-cz)<60){tooClose=true;break;}}
     if(tooClose)continue;
+    if(overlapsExisting(cx,cz,8))continue;           // portal frame ~4 wide + rubble margin
     const biome=biomeMap[colIndex(cx,cz)];
     if(biome===BIOME.OCEAN)continue;
     const h=heightMap[colIndex(cx,cz)];
@@ -1274,6 +1658,7 @@ function placeRuinedPortals(){
     const buried=rng()<0.3; // 30% chance: half-buried underground portal
     buildRuinedPortal(cx,h,cz,rng,buried);
     placed.push({x:cx,z:cz});
+    registerStructure(cx,cz,8,'ruinedPortal');
   }
 }
 
@@ -1341,12 +1726,14 @@ function placeIgloos(){
     let tooClose=false;
     for(const p of placed){if(Math.abs(p.x-cx)<70&&Math.abs(p.z-cz)<70){tooClose=true;break;}}
     if(tooClose)continue;
+    if(overlapsExisting(cx,cz,8))continue;           // igloo R=4 dome + basement margin
     const biome=biomeMap[colIndex(cx,cz)];
     if(biome!==BIOME.SNOWY)continue;
     const h=heightMap[colIndex(cx,cz)];
     if(h<=SEA_LEVEL)continue;
     buildIgloo(cx,h,cz);
     placed.push({x:cx,z:cz});
+    registerStructure(cx,cz,8,'igloo');
   }
 }
 
@@ -1420,11 +1807,13 @@ function placeWitchHuts(){
     let tooClose=false;
     for(const p of placed){if(Math.abs(p.x-cx)<80&&Math.abs(p.z-cz)<80){tooClose=true;break;}}
     if(tooClose)continue;
+    if(overlapsExisting(cx,cz,10))continue;          // hut W=3/D=3 + stilts margin
     const biome=biomeMap[colIndex(cx,cz)];
     if(biome!==BIOME.SWAMP&&biome!==BIOME.MANGROVE)continue;
     const h=heightMap[colIndex(cx,cz)];
     buildWitchHut(cx,h,cz);
     placed.push({x:cx,z:cz});
+    registerStructure(cx,cz,10,'witchHut');
   }
 }
 
@@ -1475,8 +1864,215 @@ function buildWitchHut(cx,gy,cz){
   sBlock(cx,gy2+1,cz,B.AMETHYST_CLUSTER);
 }
 
+// ===========================================================================
+//  OCEAN MONUMENT (海底神殿)
+//  A flooded prismarine-style box monument rising from the deep ocean floor.
+//  No dedicated prismarine block exists in the palette, so we substitute with
+//  a mix of the closest bluish/stone blocks: SMOOTH_BASALT (cool grey-blue),
+//  STONE_BRICK, MOSSY_BRICK and a little AMETHYST_BLOCK / SANDSTONE for trim.
+//  The interior is hollowed to air (a couple of small rooms) while the
+//  surroundings stay flooded with water.
+// ===========================================================================
+function placeOceanMonuments(){
+  const rng=mulberry32((SEED^0x8a5c3e91)>>>0);
+  const count=Math.max(1,Math.floor((WORLD_W*WORLD_D)/250000));
+  const placed=[];
+  let attempts=0;
+  while(placed.length<count&&attempts<count*20){
+    attempts++;
+    const cx=30+Math.floor(rng()*(WORLD_W-60));
+    const cz=30+Math.floor(rng()*(WORLD_D-60));
+    // Same-type spacing (wide, since these are big landmarks).
+    let tooClose=false;
+    for(const p of placed){if(Math.abs(p.x-cx)<90&&Math.abs(p.z-cz)<90){tooClose=true;break;}}
+    if(tooClose)continue;
+    // Cross-type overlap check.
+    if(overlapsExisting(cx,cz,14))continue;
+    // Placement condition: the centre must be OCEAN and a ~20-block radius
+    // around it must be almost entirely OCEAN too (deep open water, not shore).
+    const surf=biomeMap[colIndex(cx,cz)];
+    if(surf!==BIOME.OCEAN&&surf!==BIOME.CORAL_TIDELANDS)continue;
+    const h0=heightMap[colIndex(cx,cz)];
+    if(h0>SEA_LEVEL-6)continue;            // needs to be genuinely underwater
+    // surround check
+    let oceanCells=0,totalCells=0;
+    for(let dx=-20;dx<=20;dx+=4){
+      for(let dz=-20;dz<=20;dz+=4){
+        const x=cx+dx,z=cz+dz;
+        if(x<2||x>=WORLD_W-2||z<2||z>=WORLD_D-2)continue;
+        totalCells++;
+        const b=biomeMap[colIndex(x,z)];
+        if(b===BIOME.OCEAN||b===BIOME.CORAL_TIDELANDS)oceanCells++;
+      }
+    }
+    if(totalCells===0||oceanCells<totalCells*0.85)continue;
+    buildOceanMonument(cx,h0,cz,rng);
+    placed.push({x:cx,z:cz});
+    registerStructure(cx,cz,14,'oceanMonument');
+  }
+}
+
+function buildOceanMonument(cx,floorH,cz,rng){
+  // Floor height = seafloor height at the centre (below sea level).
+  const HW=7;          // half-width → ~15 wide
+  const height=6+(rng()<0.5?1:0); // 6–7 tall
+  const H=height;
+  const topY=floorH+height;        // monument roof sits below the waves
+  // Pick a palette per-monument (deterministic via rng) for a little variety.
+  const baseMat =B.SMOOTH_BASALT;
+  const trimMat =rng()<0.5?B.STONE_BRICK:B.SANDSTONE;
+  const darkMat  =B.MOSSY_BRICK;
+  const accentMat=B.AMETHYST_BLOCK;
+  // 1) clear the water column above the footprint down to the roof, so the
+  //    monument reads as a solid structure standing on the seabed.
+  for(let dx=-HW-1;dx<=HW+1;dx++)for(let dz=-HW-1;dz<=HW+1;dz++){
+    for(let y=floorH+1;y<=topY;y++)sBlock(cx+dx,y,cz+dz,B.AIR);
+  }
+  // 2) Build the solid box shell (walls + roof + floor), then hollow the
+  //    interior. Corner pillars use the trim block for a classic monument
+  //    "frame" look.
+  for(let dx=-HW;dx<=HW;dx++)for(let dz=-HW;dz<=HW;dz++){
+    const edge=(Math.abs(dx)===HW||Math.abs(dz)===HW);
+    // solid floor slab on the seafloor
+    sBlock(cx+dx,floorH,cz+dz,baseMat);
+    // solid roof slab
+    sBlock(cx+dx,topY,cz+dz,baseMat);
+    if(edge){
+      // walls
+      for(let y=floorH+1;y<=topY-1;y++){
+        // weathered variety on the shell for a submerged, aged look
+        const r=hash3(cx+dx,y,cz+dz,712);
+        let id=baseMat;
+        if(r<0.12)id=darkMat; else if(r<0.18)id=trimMat;
+        sBlock(cx+dx,y,cz+dz,id);
+      }
+    }
+  }
+  // 3) corner pillars in trim block, full height
+  for(const [dx,dz] of [[-HW,-HW],[HW,-HW],[-HW,HW],[HW,HW]]){
+    for(let y=floorH+1;y<=topY-1;y++)sBlock(cx+dx,y,cz+dz,trimMat);
+  }
+  // 4) hollow the interior to air (one big chamber)
+  for(let dx=-HW+1;dx<=HW-1;dx++)for(let dz=-HW+1;dz<=HW-1;dz++){
+    for(let y=floorH+1;y<=topY-1;y++)sBlock(cx+dx,y,cz+dz,B.AIR);
+  }
+  // 5) carve 1–2 small interior rooms with their own walls, splitting the
+  //    big chamber into a couple of compartments (central + side).
+  const rooms=1+(rng()<0.6?1:0);
+  for(let r=0;r<rooms;r++){
+    const rx=cx+Math.floor((rng()-0.5)*(HW-2));
+    const rz=cz+Math.floor((rng()-0.5)*(HW-2));
+    const rw=2+Math.floor(rng()*2), rh=2+Math.floor(rng()*2);
+    const ry0=floorH+1, ry1=topY-1;
+    // room walls
+    for(let dx=-rw;dx<=rw;dx++)for(let dz=-rh;dz<=rh;dz++){
+      const onWall=(Math.abs(dx)===rw||Math.abs(dz)===rh);
+      if(onWall)for(let y=ry0;y<=ry1;y++)sBlockSoft(rx+dx,y,rz+dz,trimMat);
+    }
+    // hollow the room
+    for(let dx=-rw+1;dx<=rw-1;dx++)for(let dz=-rh+1;dz<=rh-1;dz++)
+      for(let y=ry0;y<=ry1;y++)sBlock(rx+dx,y,rz+dz,B.AIR);
+    // a chest in each room
+    sBlock(rx,ry0,rz,B.CHEST);
+    // a glow accent (sea-lantern proxy) on the room ceiling
+    sBlock(rx,ry1,rz,accentMat);
+  }
+  // 6) a couple of accent pillars on the roof for that monument silhouette
+  for(const [dx,dz] of [[-HW,-HW],[HW,HW],[-HW,HW],[HW,-HW]]){
+    for(let y=topY+1;y<=topY+2;y++)sBlock(cx+dx,y,cz+dz,trimMat);
+  }
+  // 7) central treasure chest on the floor of the main chamber
+  sBlock(cx,floorH+1,cz,B.CHEST);
+  // a gold block hint beside it (loot marker)
+  sBlock(cx+1,floorH+1,cz,B.GOLD_ORE);
+  // 8) surround with water again above the roof (re-flood the cleared column)
+  for(let dx=-HW-1;dx<=HW+1;dx++)for(let dz=-HW-1;dz<=HW+1;dz++){
+    for(let y=topY+1;y<=SEA_LEVEL+1;y++)sBlock(cx+dx,y,cz+dz,B.WATER);
+  }
+}
+
+// ===========================================================================
+//  RUINED TOWER (廃塔)
+//  A small, crumbling stone-brick landmark (6–10 blocks tall) standing
+//  sparsely on land biomes. Mixes STONE_BRICK / MOSSY_BRICK / CRACKED_BRICK
+//  for a decayed look, randomly omits blocks (keepChance pattern, same trick
+//  as buildRuinedPortal) so the tower reads as broken/collapsed, and hides a
+//  loot chest inside or at its base.
+// ===========================================================================
+function placeRuinedTowers(){
+  const rng=mulberry32((SEED^0x4b7e2a55)>>>0);
+  const count=Math.max(3,Math.floor((WORLD_W*WORLD_D)/130000));
+  const placed=[];
+  let attempts=0;
+  while(placed.length<count&&attempts<count*20){
+    attempts++;
+    const cx=20+Math.floor(rng()*(WORLD_W-40));
+    const cz=20+Math.floor(rng()*(WORLD_D-40));
+    let tooClose=false;
+    for(const p of placed){if(Math.abs(p.x-cx)<40&&Math.abs(p.z-cz)<40){tooClose=true;break;}}
+    if(tooClose)continue;
+    if(overlapsExisting(cx,cz,7))continue;        // tower footprint ~5 + margin
+    const biome=biomeMap[colIndex(cx,cz)];
+    // Land biomes only — exclude ocean/water and the non-land special biomes.
+    if(biome===BIOME.OCEAN||biome===BIOME.SWAMP||biome===BIOME.MANGROVE||
+       biome===BIOME.CORAL_TIDELANDS||biome===BIOME.VOLCANO)continue;
+    const h=heightMap[colIndex(cx,cz)];
+    if(h<=SEA_LEVEL)continue;
+    buildRuinedTower(cx,h,cz,rng);
+    placed.push({x:cx,z:cz});
+    registerStructure(cx,cz,7,'ruinedTower');
+  }
+}
+
+function buildRuinedTower(cx,gy,cz,rng){
+  const HW=2;                              // ~5×5 footprint
+  const height=6+Math.floor(rng()*5);      // 6–10 blocks tall
+  const keepChance=0.7+rng()*0.18;         // 70–88% of blocks survive
+  // Clear vegetation above the footprint.
+  for(let dx=-HW-1;dx<=HW+1;dx++)for(let dz=-HW-1;dz<=HW+1;dz++)
+    for(let y=gy+1;y<=gy+height+2;y++)sBlock(cx+dx,y,cz+dz,B.AIR);
+  // Build the hollow tower shell, randomly omitting blocks for the ruined look.
+  for(let y=gy+1;y<=gy+height;y++){
+    for(let dx=-HW;dx<=HW;dx++)for(let dz=-HW;dz<=HW;dz++){
+      const edge=(Math.abs(dx)===HW||Math.abs(dz)===HW);
+      if(!edge)continue;                   // hollow interior
+      // randomly skip a block (collapse/decay)
+      if(rng()>keepChance)continue;
+      // pick a weathered brick variant for a decayed texture mix
+      const r=rng();
+      let id=B.STONE_BRICK;
+      if(r<0.30)id=B.CRACKED_BRICK; else if(r<0.55)id=B.MOSSY_BRICK;
+      sBlock(cx+dx,y,cz+dz,id);
+    }
+  }
+  // A partial stone-brick floor at the base (some tiles missing)
+  for(let dx=-HW;dx<=HW;dx++)for(let dz=-HW;dz<=HW;dz++){
+    if(rng()<keepChance)sBlock(cx+dx,gy,cz+dz,B.STONE_BRICK);
+  }
+  // Doorway opening on the south face (ground level) — always clear it so the
+  // player can actually enter.
+  sBlock(cx,gy+1,cz+HW,B.AIR);
+  sBlock(cx,gy+2,cz+HW,B.AIR);
+  // Loot chest inside, at the base, against the back wall.
+  sBlock(cx,gy+1,cz-HW,B.CHEST);
+  // A torch inside for a bit of light.
+  sBlockSoft(cx,gy+height-1,cz-HW+1,B.TORCH);
+  // Scatter a few fallen rubble blocks around the base for atmosphere.
+  for(let i=0;i<6;i++){
+    const rx=cx-HW-1+Math.floor(rng()*((HW+1)*2+2));
+    const rz=cz-HW-1+Math.floor(rng()*((HW+1)*2+2));
+    const r=rng();
+    let id=B.STONE_BRICK;
+    if(r<0.4)id=B.CRACKED_BRICK; else if(r<0.7)id=B.MOSSY_BRICK;
+    sBlockSoft(rx,gy+1,rz,id);
+  }
+}
+
 // ---- top-level driver ------------------------------------------------------
 function placeStructures(){
+  // Reset the cross-type placement registry at the start of every generation
+  // pass so structures from a previous world don't block placement of new ones.
+  placedStructures.length=0;
   placeStronghold();
   placeMineshafts();
   placeVillages();
@@ -1485,4 +2081,6 @@ function placeStructures(){
   placeRuinedPortals();
   placeIgloos();
   placeWitchHuts();
+  placeOceanMonuments();
+  placeRuinedTowers();
 }
