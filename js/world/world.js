@@ -738,7 +738,7 @@ if(biome!==BIOME.FLOATING_ISLES){for(let y=h+1;y<=SEA_LEVEL;y++)world[blockIndex
 if(biome===BIOME.SNOWY&&h<SEA_LEVEL)world[blockIndex(x,SEA_LEVEL,z)]=B.ICE;
 // VOLCANO crater lava lake: flood the summit bowl up to the rim with lava.
 if(biome===BIOME.VOLCANO){const lv=lavaLevelMap[colIndex(x,z)];if(lv>h){for(let y=h+1;y<=lv&&y<WORLD_H;y++)world[blockIndex(x,y,z)]=B.LAVA;}}}}}
-function carveCaves(){for(let x=0;x<WORLD_W;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];
+function carveCavesRange(x0,x1){for(let x=x0;x<x1;x++){for(let z=0;z<WORLD_D;z++){const h=heightMap[colIndex(x,z)];
 // 4-C: rivers/lakes keep a deeper safety margin so caves don't breach the
 // riverbed and let surface water drain into the underground. Non-water columns
 // keep the original 4-block crust. waterBedMap is cached during the climate
@@ -760,6 +760,21 @@ const n2=simplex3(x/23,y/13,z/23,73);if(n1>0.565+thresholdBoost&&n2>0.575+thresh
 // riddle the shallow crust even where the primary layer is suppressed).
 else{const n3=simplex3(x/17,y/9,z/17,77),n4=simplex3(x/31,y/15,z/31,79);
 if(n3>0.66+thresholdBoost&&n4>0.64+thresholdBoost*0.5)world[blockIndex(x,y,z)]=B.AIR;}}}}}
+function carveCaves(){carveCavesRange(0,WORLD_W);} 
+async function carveCavesAsync(report,start,end){
+  const s=Number.isFinite(start)?start:0;
+  const e=Number.isFinite(end)?end:1;
+  const BAND=8;
+  for(let x0=0;x0<WORLD_W;x0+=BAND){
+    const x1=Math.min(WORLD_W,x0+BAND);
+    carveCavesRange(x0,x1);
+    if(report){
+      const frac=x1/WORLD_W;
+      report(s+(e-s)*frac,'Carving caves...');
+    }
+    await nextFramePromise();
+  }
+}
 // Hollow out a block only if it is part of the solid underground (never the
 // surface skin or bedrock). Below y<=4 we leave a lava floor for atmosphere.
 function caveDig(x,y,z){if(x<1||x>=WORLD_W-1||z<1||z>=WORLD_D-1||y<=1||y>=WORLD_H)return;const h=heightMap[colIndex(x,z)];if(y>h-3)return;const cur=world[blockIndex(x,y,z)];if(cur===B.AIR||cur===B.WATER||cur===B.LAVA||cur===B.BEDROCK)return;world[blockIndex(x,y,z)]=(y<=4)?B.LAVA:B.AIR;}
@@ -811,6 +826,69 @@ function carveLargeCaves(){
         if(dx*dx+dz*dz<=r*r)caveDig(cx+ox+dx,y,cz+oz+dz);
     }
   }
+}
+async function carveLargeCavesAsync(report,start,end){
+  const s=Number.isFinite(start)?start:0;
+  const e=Number.isFinite(end)?end:1;
+  const rng=mulberry32((SEED^0x9e3779b9)>>>0);
+  const cavernCount=Math.floor((WORLD_W*WORLD_D)/45000)+14;
+  const tunnelCount=Math.floor((WORLD_W*WORLD_D)/32000)+18;
+  const shaftCount=Math.floor((WORLD_W*WORLD_D)/65000)+10;
+  const total=cavernCount+tunnelCount+shaftCount;
+  let done=0;
+  const yieldEvery=2;
+  const label='Generating large caves...';
+  const yieldStep=async()=>{
+    if(report&&total>0)report(s+(e-s)*(done/total),label);
+    await nextFramePromise();
+  };
+  for(let i=0;i<cavernCount;i++){
+    const cx=2+Math.floor(rng()*(WORLD_W-4));
+    const cz=2+Math.floor(rng()*(WORLD_D-4));
+    const cy=6+Math.floor(rng()*34);
+    const rx=10+Math.floor(rng()*12),ry=6+Math.floor(rng()*7),rz=10+Math.floor(rng()*12);
+    for(let dx=-rx;dx<=rx;dx++)for(let dy=-ry;dy<=ry;dy++)for(let dz=-rz;dz<=rz;dz++){
+      const wob=simplex3((cx+dx)/9,(cy+dy)/9,(cz+dz)/9,201)*0.45;
+      const d=(dx*dx)/(rx*rx)+(dy*dy)/(ry*ry)+(dz*dz)/(rz*rz);
+      if(d<=1-wob+0.28)caveDig(cx+dx,cy+dy,cz+dz);
+    }
+    done++;
+    if(done%yieldEvery===0)await yieldStep();
+  }
+  for(let i=0;i<tunnelCount;i++){
+    let x=2+rng()*(WORLD_W-4),z=2+rng()*(WORLD_D-4),y=8+rng()*46;
+    let yaw=rng()*Math.PI*2,pitch=(rng()-0.5)*0.45;
+    const steps=160+Math.floor(rng()*240);
+    for(let s2=0;s2<steps;s2++){
+      yaw+=(rng()-0.5)*0.55;pitch+=(rng()-0.5)*0.28;pitch=Math.max(-0.75,Math.min(0.75,pitch));
+      x+=Math.cos(yaw)*Math.cos(pitch)*1.5;z+=Math.sin(yaw)*Math.cos(pitch)*1.5;y+=Math.sin(pitch)*1.1;
+      if(x<2||x>=WORLD_W-2||z<2||z>=WORLD_D-2||y<3||y>WORLD_H-6)break;
+      const r=2+Math.floor(rng()*3);const ix=Math.round(x),iy=Math.round(y),iz=Math.round(z);
+      for(let dx=-r;dx<=r;dx++)for(let dy=-r;dy<=r;dy++)for(let dz=-r;dz<=r;dz++)
+        if(dx*dx+dy*dy+dz*dz<=r*r+1)caveDig(ix+dx,iy+dy,iz+dz);
+    }
+    done++;
+    if(done%yieldEvery===0)await yieldStep();
+  }
+  for(let i=0;i<shaftCount;i++){
+    const cx=3+Math.floor(rng()*(WORLD_W-6));
+    const cz=3+Math.floor(rng()*(WORLD_D-6));
+    const top=heightMap[colIndex(cx,cz)]-4;const bottom=3+Math.floor(rng()*8);
+    if(top<=bottom+8){
+      done++;
+      if(done%yieldEvery===0)await yieldStep();
+      continue;
+    }
+    const r=2+Math.floor(rng()*3);
+    for(let y=bottom;y<=top;y++){
+      const ox=Math.round(Math.sin(y*0.3)*1.5),oz=Math.round(Math.cos(y*0.27)*1.5);
+      for(let dx=-r;dx<=r;dx++)for(let dz=-r;dz<=r;dz++)
+        if(dx*dx+dz*dz<=r*r)caveDig(cx+ox+dx,y,cz+oz+dz);
+    }
+    done++;
+    if(done%yieldEvery===0)await yieldStep();
+  }
+  if(report)report(e,label);
 }
 // ===========================================================================
 // RAVINES — giant surface-to-deep gashes that slice through the terrain,
@@ -882,6 +960,57 @@ function carveRavines(){
       }
     }
   }
+}
+async function carveRavinesAsync(report,start,end){
+  const s=Number.isFinite(start)?start:0;
+  const e=Number.isFinite(end)?end:1;
+  const rng=mulberry32((SEED^0x19a4c387)>>>0);
+  const area=WORLD_W*WORLD_D;
+  const count=Math.floor(area/160000)+14;
+  const label='Carving ravines...';
+  for(let i=0;i<count;i++){
+    const sx=8+Math.floor(rng()*(WORLD_W-16));
+    const sz=8+Math.floor(rng()*(WORLD_D-16));
+    const surfY=heightMap[colIndex(sx,sz)];
+    const topY=surfY-4-Math.floor(rng()*8);
+    const botY=3+Math.floor(rng()*6);
+    if(topY-botY<18){
+      if(report)report(s+(e-s)*((i+1)/count),label);
+      await nextFramePromise();
+      continue;
+    }
+    const maxW=4+Math.floor(rng()*5);
+    let yaw=rng()*Math.PI*2;
+    const segLen=2+Math.floor(rng()*2);
+    const steps=60+Math.floor(rng()*80);
+    let cx=sx,cz=sz;
+    for(let s2=0;s2<steps;s2++){
+      yaw+=(rng()-0.5)*0.18;
+      cx+=Math.cos(yaw)*segLen;
+      cz+=Math.sin(yaw)*segLen;
+      const ix=Math.round(cx),iz=Math.round(cz);
+      if(ix<4||ix>=WORLD_W-4||iz<4||iz>=WORLD_D-4)break;
+      const nTop=Math.round(simplex3(cx/22,0,cz/22,317)*8-4);
+      const nBot=Math.round(simplex3(cx/18,1,cz/18,319)*6-3);
+      const segTop=Math.min(surfY-3,topY+nTop);
+      const segBot=Math.max(2,botY+nBot);
+      const wNoise=simplex3(cx/16,2,cz/16,321)*0.6+0.4;
+      for(let y=segBot;y<=segTop;y++){
+        const frac=(y-segBot)/(segTop-segBot);
+        const profile=Math.sin(frac*Math.PI);
+        const w=Math.max(1,Math.round(maxW*profile*wNoise));
+        for(let dx=-w;dx<=w;dx++)for(let dz=-w;dz<=w;dz++){
+          const wob=simplex3((ix+dx)/8,(y)/12,(iz+dz)/8,323)*0.35;
+          const dd=(dx*dx+dz*dz)/(w*w);
+          if(dd>1+wob-0.1)continue;
+          caveDig(ix+dx,y,iz+dz);
+        }
+      }
+    }
+    if(report)report(s+(e-s)*((i+1)/count),label);
+    await nextFramePromise();
+  }
+  if(report)report(e,label);
 }
 
 // ===========================================================================
@@ -1755,6 +1884,12 @@ function placeGroundCover(){for(let x=3;x<WORLD_W-3;x++){for(let z=3;z<WORLD_D-3
   }
   world[blockIndex(x,h+1,z)]=plant;
 }}}
+function nextFramePromise(){
+  return new Promise(resolve=>{
+    if(typeof requestAnimationFrame==='function')requestAnimationFrame(()=>resolve());
+    else setTimeout(resolve,0);
+  });
+}
 // Asynchronous world generation: runs the heavy phases across several frames
 // so the browser stays responsive and we can show a progress bar instead of a
 // frozen "endless reload". onProgress(fraction0to1, label) is called between
@@ -1773,7 +1908,7 @@ function placeGroundCover(){for(let x=3;x<WORLD_W-3;x++){for(let z=3;z<WORLD_D-3
 //     purely a responsiveness tweak to the existing bulk generation — NOT
 //     infinite-world chunking (which is deferred to Step 2+).
 function generateWorldAsync(onProgress){
-  const nextFrame=()=>new Promise(r=>requestAnimationFrame(()=>r()));
+  const nextFrame=nextFramePromise;
   const report=(f,label)=>{if(onProgress)onProgress(Math.max(0,Math.min(1,f)),label);};
   // High-resolution timer; Date.now() fallback when performance.now is absent.
   const nowMs=()=>(typeof performance!=='undefined'&&typeof performance.now==='function')?performance.now():Date.now();
@@ -1829,33 +1964,30 @@ function generateWorldAsync(onProgress){
     console.log(`[gen-time] generateTerrainColumns: ${(tTerrain1-tTerrain0).toFixed(1)} ms total | ${sliceCount} slice(s) | per-slice min/avg/max = ${sliceMin.toFixed(1)}/${(sliceSum/sliceCount).toFixed(1)}/${sliceMax.toFixed(1)} ms | final BAND=${band}`);
     logWorldMemory('after terrain columns');
     report(0.62,'Carving caves...');
-    await nextFrame();
-    carveCaves();
-    report(0.74,'Generating large caves...');
-    await nextFrame();
-    carveLargeCaves();
+    await carveCavesAsync(report,0.62,0.72);
+    report(0.72,'Generating large caves...');
+    await carveLargeCavesAsync(report,0.72,0.78);
     report(0.78,'Generating caverns & lava lakes...');
     await nextFrame();
     carveCaveFeatures();
     report(0.80,'Carving ravines...');
-    await nextFrame();
-    carveRavines();
-    report(0.82,'Generating lush & dripstone caves...');
+    await carveRavinesAsync(report,0.80,0.84);
+    report(0.84,'Generating lush & dripstone caves...');
     await nextFrame();
     placeCaveBiomes();
-    report(0.84,'Generating amethyst geodes...');
+    report(0.86,'Generating amethyst geodes...');
     await nextFrame();
     placeAmethystGeodes();
-    report(0.86,'Placing ores...');
+    report(0.88,'Placing ores...');
     await nextFrame();
     placeOresAndGravel();
-    report(0.89,'Placing vegetation...');
+    report(0.90,'Placing vegetation...');
     await nextFrame();
     placeVegetation();
-    report(0.91,'Filling underwater gaps...');
+    report(0.92,'Filling underwater gaps...');
     await nextFrame();
     fillUnderwaterAir();
-    report(0.93,'Building villages...');
+    report(0.94,'Building villages...');
     await nextFrame();
     let _placedVillages=[];
     if(typeof placeVillages==='function')_placedVillages=placeVillages()||[];
@@ -1865,7 +1997,7 @@ function generateWorldAsync(onProgress){
     report(0.97,'Building strongholds...');
     await nextFrame();
     if(typeof placeStronghold==='function')placeStronghold();
-    report(0.97,'Generating floating isles...');
+    report(0.98,'Generating floating isles...');
     await nextFrame();
     generateFloatingIsles();
     report(0.99,'Placing sky islands...');
