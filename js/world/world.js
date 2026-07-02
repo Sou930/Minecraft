@@ -1683,16 +1683,20 @@ if(r<0.05){
 // AIR (e.g. the tops of cross-shaped coral/seaweed that didn't previously
 // have water placed there). This pass ensures every such gap is water.
 function fillUnderwaterAir(){
+  const stride=WORLD_W*WORLD_D;
   for(let x=0;x<WORLD_W;x++){
     for(let z=0;z<WORLD_D;z++){
-      const h=heightMap[colIndex(x,z)];
+      const i=colIndex(x,z);
+      const h=heightMap[i];
       // Only scan columns whose surface is below (or at) sea level
       if(h>=SEA_LEVEL)continue;
       // Skip floating isles — void below islands should stay AIR (void)
-      if(biomeMap[colIndex(x,z)]===BIOME.FLOATING_ISLES)continue;
-      for(let y=1;y<SEA_LEVEL;y++){
-        if(getBlock(x,y,z)===B.AIR){
-          world[blockIndex(x,y,z)]=B.WATER;
+      if(biomeMap[i]===BIOME.FLOATING_ISLES)continue;
+      const base=z*WORLD_W+x;
+      let idx=base+stride; // y=1
+      for(let y=1;y<SEA_LEVEL;y++,idx+=stride){
+        if(world[idx]===B.AIR){
+          world[idx]=B.WATER;
         }
       }
     }
@@ -1940,9 +1944,21 @@ function placeSkyIslands(){
   }
 }
 
-let worldEdits={};function loadEdits(){try{worldEdits=JSON.parse(WORLDS.getItem('edits')||"{}");}catch(e){worldEdits={};}
-for(const key in worldEdits){const[x,y,z]=key.split(',').map(Number);if(x>=0&&x<WORLD_W&&y>=0&&y<WORLD_H&&z>=0&&z<WORLD_D)
-world[blockIndex(x,y,z)]=worldEdits[key];}}
+let worldEdits={};function loadEdits(){
+  try{worldEdits=JSON.parse(WORLDS.getItem('edits')||"{}");}catch(e){worldEdits={};}
+  for(const key in worldEdits){
+    const first=key.indexOf(',');
+    if(first===-1)continue;
+    const second=key.indexOf(',',first+1);
+    if(second===-1)continue;
+    const x=parseInt(key.slice(0,first),10);
+    const y=parseInt(key.slice(first+1,second),10);
+    const z=parseInt(key.slice(second+1),10);
+    if(!Number.isFinite(x)||!Number.isFinite(y)||!Number.isFinite(z))continue;
+    if(x<0||x>=WORLD_W||y<0||y>=WORLD_H||z<0||z>=WORLD_D)continue;
+    world[blockIndex(x,y,z)]=worldEdits[key];
+  }
+}
 let saveTimer=null;function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>{try{WORLDS.setItem('edits',JSON.stringify(worldEdits));}catch(e){}},800);}
 // Copper oxidation: every ~5 in-game minutes (300 real seconds) a random
 // exposed copper block advances one oxidation stage. Checks a small sample
